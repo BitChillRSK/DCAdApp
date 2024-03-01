@@ -52,6 +52,7 @@ contract RbtcDca is Ownable {
     event rBtcWithdrawn(address indexed user, uint256 rbtcAmount);
     event PurchaseAmountSet(address indexed user, uint256 purchaseAmount);
     event PurchasePeriodSet(address indexed user, uint256 purchasePeriod);
+    event NewDepositDCA(address indexed user, uint256 amount, uint256 purchaseAmount, uint256 purchasePeriod);
 
     //////////////////////
     // Errors ////////////
@@ -80,6 +81,24 @@ contract RbtcDca is Ownable {
         _;
     }
 
+    modifier amountValidation(uint256 depositAmount) {
+        if (depositAmount <= 0) revert RbtcDca__DepositAmountMustBeGreaterThanZero();
+        _;
+    }
+
+    modifier purchaseAmountValidation() {
+        if (purchaseAmount <= 0) revert RbtcDca__PurchaseAmountMustBeGreaterThanZero();
+        if (purchaseAmount > s_dcaDetails[msg.sender].docBalance / 2) {
+            revert RbtcDca__PurchaseAmountMustBeLowerThanHalfOfBalance();
+        }
+        _;
+    }
+
+    modifier purchasePeriodValidation() {
+        if (purchasePeriod <= 0) revert RbtcDca__PurchasePeriodMustBeGreaterThanZero();
+        _;
+    }
+
     //////////////////////
     // Functions /////////
     //////////////////////
@@ -95,12 +114,23 @@ contract RbtcDca is Ownable {
         i_mocProxyContract = MocProxyContract(mocProxyAddress);
     }
 
+    function newDcaPosition(uint256 depositAmount, uint256 purchaseAmount, uint256 purchasePeriod) amountValidation purchaseAmountValidation purchasePeriodValidation external {
+        _depositDOC(depositAmount);
+        _setPurchaseAmount(msg.sender, purchaseAmount);
+        _setPurchasePeriod(msg.sender, purchasePeriod);
+        emit NewDepositDCA(msg.sender, depositAmount, purchaseAmount, purchasePeriod);
+    }
+
     /**
      * @notice deposit the full DOC amount for DCA on the contract
      * @param depositAmount: the amount of DOC to deposit
      */
-    function depositDOC(uint256 depositAmount) external {
-        if (depositAmount <= 0) revert RbtcDca__DepositAmountMustBeGreaterThanZero();
+    function depositDOC(uint256 depositAmount) amounGreatherThanZero external {
+        _depositDOC(depositAmount);
+        emit DocDeposited(msg.sender, depositAmount);
+    }
+
+    function _depositDOC(uint256 depositAmount) private {
 
         uint256 prevDocBalance = s_dcaDetails[msg.sender].docBalance;
         // Update user's DOC balance in the mapping
@@ -120,8 +150,6 @@ contract RbtcDca is Ownable {
          * Dynamic arrays have 2^256 positions, so repeated addresses are not an issue.
          */
         if (prevDocBalance == 0) s_users.push(msg.sender);
-
-        emit DocDeposited(msg.sender, depositAmount);
     }
 
     /**
@@ -146,11 +174,12 @@ contract RbtcDca is Ownable {
      * @param purchaseAmount: the amount of DOC to swap periodically for rBTC
      * @notice the amount cannot be greater than or equal to half of the deposited amount
      */
-    function setPurchaseAmount(uint256 purchaseAmount) external {
-        if (purchaseAmount <= 0) revert RbtcDca__PurchaseAmountMustBeGreaterThanZero();
-        if (purchaseAmount > s_dcaDetails[msg.sender].docBalance / 2) {
-            revert RbtcDca__PurchaseAmountMustBeLowerThanHalfOfBalance();
-        } //At least two DCA purchases
+    function setPurchaseAmount(uint256 purchaseAmount) purchaseAmountValidation, external {
+        _setPurchaseAmount(purchaseAmount);
+        emit PurchaseAmountSet(msg.sender, purchaseAmount);
+    }
+
+    function _setPurchaseAmount(uint256 purchaseAmount) private {
         s_dcaDetails[msg.sender].docPurchaseAmount = purchaseAmount;
         emit PurchaseAmountSet(msg.sender, purchaseAmount);
     }
@@ -159,10 +188,13 @@ contract RbtcDca is Ownable {
      * @param purchasePeriod: the time (in seconds) between rBTC purchases for each user
      * @notice the period
      */
-    function setPurchasePeriod(uint256 purchasePeriod) external {
-        if (purchasePeriod <= 0) revert RbtcDca__PurchasePeriodMustBeGreaterThanZero();
-        s_dcaDetails[msg.sender].purchasePeriod = purchasePeriod;
+    function setPurchasePeriod(uint256 purchasePeriod) purchasePeriodValidation external {
+        _setPurchasePeriod(purchasePeriod);
         emit PurchasePeriodSet(msg.sender, purchasePeriod);
+    }
+
+    function _setPurchasePeriod(uint256 purchasePeriod) private {
+        s_dcaDetails[msg.sender].purchasePeriod = purchasePeriod;
     }
 
     /**
@@ -217,6 +249,16 @@ contract RbtcDca is Ownable {
     //////////////////////
     // Getter functions //
     //////////////////////
+    
+    /**
+     * @notice Retrieves DcaDetails for a specific user address. Only callable by the contract owner.
+     * @param userAddress The address of the user whose DCA details are being queried.
+     * @return The DcaDetails struct containing the user's DCA information.
+     */
+    function getDcaDetailsByOwner(address userAddress) external view onlyOwner returns (DcaDetails memory) {
+        return s_dcaDetails[userAddress];
+    }
+    
     function getDocBalance() external view returns (uint256) {
         return s_dcaDetails[msg.sender].docBalance;
     }
@@ -237,7 +279,7 @@ contract RbtcDca is Ownable {
         return s_dcaDetails[msg.sender];
     }
 
-    function getUsers() external view returns (address[] memory) {
+    function getUsers() external view onlyOwner returns (address[] memory) {
         return s_users;
     }
 

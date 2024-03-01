@@ -12,3 +12,8 @@ docs/
 
 # Dotenv file
 .env
+
+# Ignore local environment variables
+.env.local
+
+foundry-secrets.toml

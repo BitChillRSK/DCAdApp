@@ -14,12 +14,15 @@ contract DeployRbtcDca is Script {
         HelperConfig helperConfig = new HelperConfig(); // This comes with our mocks!
         (address docToken, address mocProxy) = helperConfig.activeNetworkConfig();
 
+        //address walletC = vm.envAddress("WALLET_C");
+        //address walletP = vm.envAddress("WALLET_P");
+
         vm.startBroadcast();
         // After startBroadcast -> "real" tx
         RbtcDca rbtcDca = new RbtcDca(docToken, mocProxy);
         rbtcDca.transferOwnership(OWNER); // Only for tests!!!
-        // rbtcDca.transferOwnership(0x8191c3a9DF486A09d8087E99A1b2b6885Cc17214); // Carlos
-        // rbtcDca.transferOwnership(0x03B1E454F902771A7071335f44042A3233836BB3); // Pau
+        // rbtcDca.transferOwnership(walletC); // Carlos
+        // rbtcDca.transferOwnership(walletP); // Pau
         vm.stopBroadcast();
         return (rbtcDca, helperConfig);
     }
