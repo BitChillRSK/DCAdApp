@@ -19,7 +19,7 @@ export const useFetchVottunTestnet = () => {
 				setTestNet(infoChains);
 			} catch (err) {
 				setError(err);
-				console.log('error to get chains in vottun', err);
+				console.error('error to get chains in vottun', err);
 			} finally {
 				setIsLoading(false);
 			}

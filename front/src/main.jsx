@@ -1,4 +1,3 @@
-import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
@@ -12,12 +11,12 @@ import { Container } from '@mui/material';
 import { Web3Provider } from './context/Web3Context.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-	<React.StrictMode>
+	<>
 		<CssBaseline />
 		<Container>
 			<Web3Provider>
 				<App />
 			</Web3Provider>
 		</Container>
-	</React.StrictMode>
+	</>
 );

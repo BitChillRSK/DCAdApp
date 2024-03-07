@@ -18,6 +18,13 @@ VITE_API_NODE_ENDPOINT=URL_NODE_LOCAL
 VITE_API_BACKEND_ENDPOINT=ULR_BACKEND
 
 VITE_CLIENT_ID=ID_WEB3_AUTH
+
+VITE_EXPLORER_URL= url of the explorer
+VITE_GET_BLOCK_PROVIDER= url of the provider to get the event, for example getblock.io
+
+VITE_DCA_ADDRESS= address of the DCA smart contract
+
+VITE_WALLET_APPROVE = address of the approve smart contract
 ```
 
 ```bash

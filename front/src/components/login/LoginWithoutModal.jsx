@@ -16,6 +16,8 @@ import {
 } from '@mui/material';
 
 const clientId = import.meta.env.VITE_CLIENT_ID;
+const explorerUrl = import.meta.env.VITE_EXPLORER_URL;
+const rpcTarget = import.meta.env.VITE_RPC_TARGET;
 function LoginWithoutModal() {
 	const navigateTo = useNavigate();
 	const { setProvider, web3auth, setWeb3auth } = useContext(Web3Context);
@@ -25,12 +27,12 @@ function LoginWithoutModal() {
 			try {
 				const chainConfig = {
 					chainId: '0x1F',
-					rpcTarget: 'https://public-node.testnet.rsk.co',
+					rpcTarget,
 					chainNamespace: CHAIN_NAMESPACES.EIP155,
 					displayName: 'RSK Testnet',
 					ticker: 'tRBTC',
 					tickerName: 'RSK Testnet',
-					blockExplorer: 'https://explorer.testnet.rsk.co',
+					blockExplorer: explorerUrl,
 				};
 				const web3auth = new Web3AuthNoModal({
 					clientId,

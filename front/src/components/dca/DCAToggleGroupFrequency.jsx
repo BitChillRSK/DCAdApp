@@ -7,7 +7,6 @@ export default function DCAToggleGroupFrequency() {
 	const [value, setValue] = useState('');
 
 	const handleAlignment = event => {
-		console.log('event', event.target.value);
 		setValue(event.target.value);
 	};
 	return (

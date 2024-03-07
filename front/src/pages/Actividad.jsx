@@ -1,7 +1,37 @@
 import { Card, Stack, Typography } from '@mui/material';
 import TableActividad from '../components/actividad/TableActividad';
+import useEventsActividad from '../hooks/actividad/useEventsActividad';
+import { useEffect, useContext } from 'react';
+import { Web3Context } from '../context/Web3Context';
+import { ethers } from 'ethers';
+import { ABI_DCA } from '../components/dca/ABI_APPROVE';
+
+const DCA_ADDRESS = import.meta.env.VITE_DCA_ADDRESS;
 
 export default function Actividad() {
+	const { rows, isLoading, comprado, gastado } = useEventsActividad();
+
+	const { provider } = useContext(Web3Context);
+
+	useEffect(() => {
+		const getDcaDetails = async () => {
+			const provider3 = new ethers.providers.Web3Provider(provider);
+			const dcaContract = new ethers.Contract(DCA_ADDRESS, ABI_DCA, provider3);
+			const details = await dcaContract.getMyDcaDetails();
+			console.log('details', details);
+			console.log('docBalance', ethers.utils.formatEther(details[0]));
+			console.log('docPurchaseAmount', ethers.utils.formatEther(details[1]));
+			console.log(
+				'lastPurchaseTimestamp',
+				ethers.utils.formatEther(details[2])
+			);
+			console.log('purchasePeriod', ethers.utils.formatEther(details[3]));
+			console.log('rbtcBalance', ethers.utils.formatEther(details[4]));
+		};
+
+		getDcaDetails();
+	}, []);
+
 	return (
 		<div
 			style={{
@@ -28,12 +58,10 @@ export default function Actividad() {
 						</Typography>
 					</div>
 					<div>
-						<Typography variant='h6'>
-							Comprado: 0.050 rBTC (2100 USD)
-						</Typography>
-						<Typography variant='h6'>Gastado: 2000 USD</Typography>
+						<Typography variant='h6'>Comprado: {comprado} rBTC</Typography>
+						<Typography variant='h6'>Gastado: {gastado} USD</Typography>
 					</div>
-					<TableActividad />
+					<TableActividad rows={rows} isLoading={isLoading} />
 				</Stack>
 			</Card>
 		</div>

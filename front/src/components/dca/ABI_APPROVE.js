@@ -450,72 +450,445 @@ export const ABI_APPROVE = [
 
 export const ABI_DCA = [
 	{
-		inputs: [],
+		inputs: [
+			{
+				internalType: 'address',
+				name: 'docTokenAddress',
+				type: 'address',
+			},
+			{
+				internalType: 'address',
+				name: 'mocProxyAddress',
+				type: 'address',
+			},
+		],
 		stateMutability: 'nonpayable',
 		type: 'constructor',
 	},
 	{
-		inputs: [],
-		name: 'admin',
-		outputs: [
+		inputs: [
 			{
 				internalType: 'address',
-				name: '',
+				name: 'owner',
 				type: 'address',
+			},
+		],
+		name: 'OwnableInvalidOwner',
+		type: 'error',
+	},
+	{
+		inputs: [
+			{
+				internalType: 'address',
+				name: 'account',
+				type: 'address',
+			},
+		],
+		name: 'OwnableUnauthorizedAccount',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__CannotBuyIfPurchasePeriodHasNotElapsed',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__CannotWithdrawRbtcBeforeBuying',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__DepositAmountMustBeGreaterThanZero',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__DocDepositFailed',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__DocWithdrawalAmountExceedsBalance',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__DocWithdrawalAmountMustBeGreaterThanZero',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__DocWithdrawalFailed',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__NotEnoughDocAllowanceForDcaContract',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__OnlyMocProxyContractCanSendRbtcToDcaContract',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__PurchaseAmountMustBeGreaterThanZero',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__PurchaseAmountMustBeLowerThanHalfOfBalance',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__PurchasePeriodMustBeGreaterThanZero',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__RedeemDocRequestFailed',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__RedeemFreeDocFailed',
+		type: 'error',
+	},
+	{
+		inputs: [],
+		name: 'RbtcDca__rBtcWithdrawalFailed',
+		type: 'error',
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'user',
+				type: 'address',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'amount',
+				type: 'uint256',
+			},
+		],
+		name: 'DocDeposited',
+		type: 'event',
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'user',
+				type: 'address',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'amount',
+				type: 'uint256',
+			},
+		],
+		name: 'DocWithdrawn',
+		type: 'event',
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'previousOwner',
+				type: 'address',
+			},
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'newOwner',
+				type: 'address',
+			},
+		],
+		name: 'OwnershipTransferred',
+		type: 'event',
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'user',
+				type: 'address',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'purchaseAmount',
+				type: 'uint256',
+			},
+		],
+		name: 'PurchaseAmountSet',
+		type: 'event',
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'user',
+				type: 'address',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'purchasePeriod',
+				type: 'uint256',
+			},
+		],
+		name: 'PurchasePeriodSet',
+		type: 'event',
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'user',
+				type: 'address',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'docAmount',
+				type: 'uint256',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'rbtcAmount',
+				type: 'uint256',
+			},
+		],
+		name: 'RbtcBought',
+		type: 'event',
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'user',
+				type: 'address',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'depositAmount',
+				type: 'uint256',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'purchaseAmount',
+				type: 'uint256',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'purchasePeriod',
+				type: 'uint256',
+			},
+		],
+		name: 'newDcaScheduleCreated',
+		type: 'event',
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: 'address',
+				name: 'user',
+				type: 'address',
+			},
+			{
+				indexed: false,
+				internalType: 'uint256',
+				name: 'rbtcAmount',
+				type: 'uint256',
+			},
+		],
+		name: 'rBtcWithdrawn',
+		type: 'event',
+	},
+	{
+		inputs: [
+			{
+				internalType: 'address',
+				name: 'buyer',
+				type: 'address',
+			},
+		],
+		name: 'buyRbtc',
+		outputs: [],
+		stateMutability: 'nonpayable',
+		type: 'function',
+	},
+	{
+		inputs: [
+			{
+				internalType: 'uint256',
+				name: 'depositAmount',
+				type: 'uint256',
+			},
+			{
+				internalType: 'uint256',
+				name: 'purchaseAmount',
+				type: 'uint256',
+			},
+			{
+				internalType: 'uint256',
+				name: 'purchasePeriod',
+				type: 'uint256',
+			},
+		],
+		name: 'createDcaSchedule',
+		outputs: [],
+		stateMutability: 'nonpayable',
+		type: 'function',
+	},
+	{
+		inputs: [
+			{
+				internalType: 'uint256',
+				name: 'depositAmount',
+				type: 'uint256',
+			},
+		],
+		name: 'depositDOC',
+		outputs: [],
+		stateMutability: 'nonpayable',
+		type: 'function',
+	},
+	{
+		inputs: [],
+		name: 'getDocBalance',
+		outputs: [
+			{
+				internalType: 'uint256',
+				name: '',
+				type: 'uint256',
 			},
 		],
 		stateMutability: 'view',
 		type: 'function',
 	},
 	{
-		inputs: [
+		inputs: [],
+		name: 'getMyDcaDetails',
+		outputs: [
 			{
-				internalType: 'address',
-				name: '_tokenA',
-				type: 'address',
-			},
-			{
-				internalType: 'uint256',
-				name: '_totalDeposit',
-				type: 'uint256',
-			},
-			{
-				internalType: 'uint256',
-				name: '_swapAmount',
-				type: 'uint256',
-			},
-			{
-				internalType: 'uint256',
-				name: '_interval',
-				type: 'uint256',
-			},
-		],
-		name: 'createPosition',
-		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function',
-	},
-	{
-		inputs: [
-			{
-				internalType: 'address',
-				name: '_user',
-				type: 'address',
-			},
-			{
-				internalType: 'address',
-				name: '_poolAddress',
-				type: 'address',
+				components: [
+					{
+						internalType: 'uint256',
+						name: 'docBalance',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'docPurchaseAmount',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'purchasePeriod',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'lastPurchaseTimestamp',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'rbtcBalance',
+						type: 'uint256',
+					},
+				],
+				internalType: 'struct RbtcDca.DcaDetails',
+				name: '',
+				type: 'tuple',
 			},
 		],
-		name: 'executeSwap',
-		outputs: [],
-		stateMutability: 'nonpayable',
+		stateMutability: 'view',
 		type: 'function',
 	},
 	{
 		inputs: [],
-		name: 'getAllUsersWithPositions',
+		name: 'getPurchaseAmount',
+		outputs: [
+			{
+				internalType: 'uint256',
+				name: '',
+				type: 'uint256',
+			},
+		],
+		stateMutability: 'view',
+		type: 'function',
+	},
+	{
+		inputs: [],
+		name: 'getPurchasePeriod',
+		outputs: [
+			{
+				internalType: 'uint256',
+				name: '',
+				type: 'uint256',
+			},
+		],
+		stateMutability: 'view',
+		type: 'function',
+	},
+	{
+		inputs: [],
+		name: 'getRbtcBalance',
+		outputs: [
+			{
+				internalType: 'uint256',
+				name: '',
+				type: 'uint256',
+			},
+		],
+		stateMutability: 'view',
+		type: 'function',
+	},
+	{
+		inputs: [],
+		name: 'getTotalNumberOfDeposits',
+		outputs: [
+			{
+				internalType: 'uint256',
+				name: '',
+				type: 'uint256',
+			},
+		],
+		stateMutability: 'view',
+		type: 'function',
+	},
+	{
+		inputs: [],
+		name: 'getUsers',
 		outputs: [
 			{
 				internalType: 'address[]',
@@ -527,62 +900,59 @@ export const ABI_DCA = [
 		type: 'function',
 	},
 	{
-		inputs: [
-			{
-				internalType: 'uint256',
-				name: '_newSwapAmount',
-				type: 'uint256',
-			},
-			{
-				internalType: 'uint256',
-				name: '_newInterval',
-				type: 'uint256',
-			},
-		],
-		name: 'modifyPosition',
-		outputs: [],
-		stateMutability: 'nonpayable',
-		type: 'function',
-	},
-	{
-		inputs: [
+		inputs: [],
+		name: 'owner',
+		outputs: [
 			{
 				internalType: 'address',
 				name: '',
 				type: 'address',
 			},
 		],
-		name: 'positions',
-		outputs: [
+		stateMutability: 'view',
+		type: 'function',
+	},
+	{
+		inputs: [
 			{
-				internalType: 'contract IERC20',
-				name: 'tokenA',
+				internalType: 'address',
+				name: 'user',
 				type: 'address',
 			},
+		],
+		name: 'ownerGetUsersDcaDetails',
+		outputs: [
 			{
-				internalType: 'uint256',
-				name: 'amountA',
-				type: 'uint256',
-			},
-			{
-				internalType: 'uint256',
-				name: 'swapAmount',
-				type: 'uint256',
-			},
-			{
-				internalType: 'uint256',
-				name: 'amountB',
-				type: 'uint256',
-			},
-			{
-				internalType: 'uint256',
-				name: 'interval',
-				type: 'uint256',
-			},
-			{
-				internalType: 'uint256',
-				name: 'nextSwapTime',
-				type: 'uint256',
+				components: [
+					{
+						internalType: 'uint256',
+						name: 'docBalance',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'docPurchaseAmount',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'purchasePeriod',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'lastPurchaseTimestamp',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'rbtcBalance',
+						type: 'uint256',
+					},
+				],
+				internalType: 'struct RbtcDca.DcaDetails',
+				name: '',
+				type: 'tuple',
 			},
 		],
 		stateMutability: 'view',
@@ -590,7 +960,7 @@ export const ABI_DCA = [
 	},
 	{
 		inputs: [],
-		name: 'terminatePosition',
+		name: 'renounceOwnership',
 		outputs: [],
 		stateMutability: 'nonpayable',
 		type: 'function',
@@ -599,30 +969,57 @@ export const ABI_DCA = [
 		inputs: [
 			{
 				internalType: 'uint256',
-				name: '',
+				name: 'purchaseAmount',
 				type: 'uint256',
 			},
 		],
-		name: 'usersWithPositions',
-		outputs: [
-			{
-				internalType: 'address',
-				name: '',
-				type: 'address',
-			},
-		],
-		stateMutability: 'view',
+		name: 'setPurchaseAmount',
+		outputs: [],
+		stateMutability: 'nonpayable',
 		type: 'function',
 	},
 	{
 		inputs: [
 			{
 				internalType: 'uint256',
-				name: '_amount',
+				name: 'purchasePeriod',
 				type: 'uint256',
 			},
 		],
-		name: 'withdrawNative',
+		name: 'setPurchasePeriod',
+		outputs: [],
+		stateMutability: 'nonpayable',
+		type: 'function',
+	},
+	{
+		inputs: [
+			{
+				internalType: 'address',
+				name: 'newOwner',
+				type: 'address',
+			},
+		],
+		name: 'transferOwnership',
+		outputs: [],
+		stateMutability: 'nonpayable',
+		type: 'function',
+	},
+	{
+		inputs: [],
+		name: 'withdrawAccumulatedRbtc',
+		outputs: [],
+		stateMutability: 'nonpayable',
+		type: 'function',
+	},
+	{
+		inputs: [
+			{
+				internalType: 'uint256',
+				name: 'withdrawalAmount',
+				type: 'uint256',
+			},
+		],
+		name: 'withdrawDOC',
 		outputs: [],
 		stateMutability: 'nonpayable',
 		type: 'function',

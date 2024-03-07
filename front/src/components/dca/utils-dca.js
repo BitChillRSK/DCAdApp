@@ -42,3 +42,9 @@ export const listaDuracion = [
 		label: '5 Años',
 	},
 ];
+
+const segundosMes = 2592000;
+
+export const frecuenciaASegundos = frequencia => {
+	return segundosMes / frequencia;
+};

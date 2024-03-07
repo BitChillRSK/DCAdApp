@@ -41,7 +41,6 @@ export default function useGetBalance(account) {
 						.call()
 						.then(balance => {
 							const balanceEther = web3.utils.fromWei(balance, 'ether');
-							console.log(balanceEther);
 							setBalance(balanceEther);
 						})
 						.catch(console.error);

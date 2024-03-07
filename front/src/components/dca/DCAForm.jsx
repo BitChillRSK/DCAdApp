@@ -11,18 +11,23 @@ import {
 } from '@mui/material';
 import DCAToggleGroup from './DCAToggleGroup';
 import { useContext, useState } from 'react';
-import Web3 from 'web3';
 import { Web3Context } from '../../context/Web3Context';
-import useGetAccount from './../../hooks/web3/useGetAccount';
 import { ABI_APPROVE, ABI_DCA } from './ABI_APPROVE';
 import { ethers } from 'ethers';
 
-import { listaCantidad, listaDuracion, listaFrequencia } from './utils-dca';
-import { Link } from 'react-router-dom';
-const DCA_ADDRESS = '0xa62e8b6c4cdfae3d9c580a7d53e079f37daccff9';
-const WALLET_APPROVE = '0xcb46c0ddc60d18efeb0e586c17af6ea36452dae0';
+import {
+	listaCantidad,
+	listaDuracion,
+	listaFrequencia,
+	frecuenciaASegundos,
+} from './utils-dca';
+import ExplorerLink from '../explorer/ExplorerLink';
+
+const DCA_ADDRESS = import.meta.env.VITE_DCA_ADDRESS;
+
+const WALLET_APPROVE = import.meta.env.VITE_WALLET_APPROVE;
+
 const DCAFrom = () => {
-	const { account } = useGetAccount();
 	const [cantidad, setCantidad] = useState(0);
 	const [frequencia, setFrequencia] = useState(0);
 	const [duracion, setDuracion] = useState(0);
@@ -39,9 +44,7 @@ const DCAFrom = () => {
 		/**
 		 * use ethers to sign...
 		 */
-		// await window.ethereum.request({ method: 'eth_requestAccounts' });
 		const provider3 = new ethers.providers.Web3Provider(provider);
-		// debugger;
 		const signer = provider3.getSigner();
 
 		// Direcciones del contrato del token y del contrato al que se le dará la aprobación
@@ -53,51 +56,24 @@ const DCAFrom = () => {
 		const dcaContract = new ethers.Contract(DCA_ADDRESS, ABI_DCA, signer);
 		const cantidadTotal = cantidad * frequencia * duracion;
 
-		const amount = ethers.utils.parseUnits(cantidadTotal.toString(), 18); // Asegúrate de usar la cantidad correcta de decimales
 		try {
-			// Llamar a la función approve del contrato
-			const tx = await tokenContract.approve(DCA_ADDRESS, amount);
-			const approveTx = await tx.wait();
-
-			console.log(
-				`Approved ${ethers.utils.formatUnits(
-					amount,
-					18
-				)} tokens for the spender contract`
-			);
-			const txCreatePosition = await dcaContract.createPosition(
-				WALLET_APPROVE,
-				amount,
-				cantidad,
-				frequencia
-			);
-			await txCreatePosition.wait();
-			console.log(txCreatePosition);
-			setTxPosition(txCreatePosition);
-
 			/**
-			 * Con web3 no funcionaba la lectur
+			 * 0 Llamar a la función approve del contrato
 			 */
-			// paso 1 - APPROVE
+			const amount = ethers.utils.parseUnits(cantidadTotal.toString(), 18); // Asegúrate de usar la cantidad correcta de decimales
+			const tx = await tokenContract.approve(DCA_ADDRESS, amount);
+			await tx.wait();
 
-			/* const web3 = new Web3(provider);
-			debugger;
-			const approve = new web3.eth.Contract(ABI_APPROVE, WALLET_APPROVE);
-			const cantidadTotal = cantidad * frequencia * duracion;
-			const amount = web3.utils.toWei(cantidadTotal, 'ether');
-			/*const tx = await approve.methods.approve(DCA_ADDRESS, amount).send({
-				from: account,
-				gas: '65164',
-				gasPrice: '65164',
-			}); */
-			/* const gasPrice = await approve.methods
-				.approve(DCA_ADDRESS, amount)
-				.estimateGas();
-			const tx = await approve.methods.approve(DCA_ADDRESS, amount).send({
-				from: account,
-				gasPrice,
-			});
-			console.log(tx); */
+			const purchaseAmount = ethers.utils.parseUnits(cantidad.toString(), 18);
+			const segundosFrecuencia = frecuenciaASegundos(frequencia);
+
+			const dcaSchedule = await dcaContract.createDcaSchedule(
+				amount,
+				purchaseAmount,
+				segundosFrecuencia
+			);
+			await dcaSchedule.wait();
+			setTxPosition(dcaSchedule);
 		} catch (error) {
 			console.error('Error sending transaction:', error);
 		} finally {
@@ -167,13 +143,7 @@ const DCAFrom = () => {
 					</div>
 					<div>
 						{!isLoading && txPosition && (
-							<Link
-								to={`https://explorer.testnet.rsk.co/tx/${txPosition.hash}`}
-								target={'_blank'}
-								rel={'noopener noreferrer'}
-							>
-								Revisa la transacción
-							</Link>
+							<ExplorerLink hash={txPosition.hash} />
 						)}
 					</div>
 				</Stack>

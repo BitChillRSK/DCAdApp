@@ -18,7 +18,7 @@ export const useFetchDextoolsBlockchain = ({ sort, order, page, pageSize }) => {
 				const infoChains = await res.json();
 				setChains(infoChains);
 			} catch (err) {
-				console.log('error to get chains in dextools', err);
+				console.error('error to get chains in dextools', err);
 				setError(err);
 			} finally {
 				setIsLoading(false);

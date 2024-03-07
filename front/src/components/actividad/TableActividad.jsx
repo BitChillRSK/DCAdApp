@@ -7,35 +7,11 @@ import {
 	TableHead,
 	TableRow,
 } from '@mui/material';
+import TableSkeleton from './TableSkeleton';
+import PropTypes from 'prop-types';
+import TableNotBuy from './TableNotBuy';
 
-const rows = [
-	{
-		fecha: '01/10/2023',
-		rbtc: '0.012527',
-		estado: 'Comprado',
-	},
-	{
-		fecha: '01/11/2023',
-		rbtc: '0.012602',
-		estado: 'Comprado',
-	},
-	{
-		fecha: '01/12/2023',
-		rbtc: '0.012419',
-		estado: 'Comprado',
-	},
-	{
-		fecha: '01/01/2024',
-		rbtc: '0.012501',
-		estado: 'Comprado',
-	},
-	{
-		fecha: '01/02/2024',
-		rbtc: '0.012521',
-		estado: 'Pendiente',
-	},
-];
-export default function TableActividad() {
+export default function TableActividad({ isLoading, rows }) {
 	return (
 		<TableContainer component={Paper}>
 			<Table aria-label='simple table'>
@@ -47,20 +23,37 @@ export default function TableActividad() {
 					</TableRow>
 				</TableHead>
 				<TableBody>
-					{rows.map((row, index) => (
-						<TableRow
-							key={index}
-							sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-						>
-							<TableCell component='th' scope='row'>
-								{row.fecha}
-							</TableCell>
-							<TableCell>{row.rbtc}</TableCell>
-							<TableCell>{row.estado}</TableCell>
-						</TableRow>
-					))}
+					{!isLoading &&
+						rows.length > 0 &&
+						rows.map((row, index) => (
+							<TableRow
+								key={index}
+								sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+							>
+								<TableCell component='th' scope='row'>
+									{row.fecha}
+								</TableCell>
+								<TableCell>{row.rbtc}</TableCell>
+								<TableCell>{row.estado}</TableCell>
+							</TableRow>
+						))}
+					{isLoading && <TableSkeleton />}
+					{!isLoading && rows.length === 0 && <TableNotBuy />}
 				</TableBody>
 			</Table>
 		</TableContainer>
 	);
 }
+
+TableActividad.propTypes = {
+	isLoading: PropTypes.bool,
+	rows: PropTypes.arrayOf(
+		PropTypes.shape({
+			fecha: PropTypes.string.isRequired,
+			hash: PropTypes.string.isRequired,
+			rbtc: PropTypes.string.isRequired,
+			docAmount: PropTypes.string,
+			estado: PropTypes.string.isRequired,
+		})
+	),
+};

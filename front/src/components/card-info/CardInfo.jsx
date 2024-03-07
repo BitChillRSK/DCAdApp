@@ -44,5 +44,5 @@ export default CardInfo;
 CardInfo.propTypes = {
 	title: PropTypes.string,
 	description: PropTypes.string,
-	logo: PropTypes.element,
+	logo: PropTypes.string,
 };

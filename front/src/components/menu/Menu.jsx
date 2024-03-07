@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Logout from '../logout/Logout';
 import { Button, Typography } from '@mui/material';
+import Withdraw from '../withdraw/Withdraw';
 
 export default function Menu() {
 	return (
@@ -18,6 +19,7 @@ export default function Menu() {
 				<Typography sx={{ color: 'black' }}>Actividad</Typography>
 			</Button>
 			<Logout />
+			<Withdraw />
 		</aside>
 	);
 }
