@@ -10,14 +10,7 @@ import { OpenloginAdapter } from '@web3auth/openlogin-adapter';
 import { MetamaskAdapter } from '@web3auth/metamask-adapter';
 import { Web3Context } from '../../context/Web3Context';
 import { useNavigate } from 'react-router-dom';
-import {
-	Button,
-	Card,
-	CardActions,
-	Stack,
-	TextField,
-	Typography,
-} from '@mui/material';
+import { Button, Card, CardActions, Stack, Typography } from '@mui/material';
 
 const clientId = import.meta.env.VITE_CLIENT_ID;
 const explorerUrl = import.meta.env.VITE_EXPLORER_URL;
@@ -106,52 +99,6 @@ function LoginWithoutModal() {
 		setProvider(web3authProvider);
 	};
 
-	const loginWithSMS = async event => {
-		event.preventDefault();
-		if (!web3auth) {
-			console.error('web3auth not initialized yet');
-			return;
-		}
-		const form = new FormData(event.target);
-		const tlf = form.get('phone');
-		const web3authProvider = await web3auth.connectTo(
-			WALLET_ADAPTERS.OPENLOGIN,
-			{
-				loginProvider: 'sms_passwordless',
-				extraLoginOptions: {
-					login_hint: `+34-${tlf}`,
-				},
-			}
-		);
-		if (web3auth.connected) {
-			navigateTo('/home');
-		}
-		setProvider(web3authProvider);
-	};
-
-	const loginWithEmail = async event => {
-		event.preventDefault();
-		if (!web3auth) {
-			console.error('web3auth not initialized yet');
-			return;
-		}
-		const form = new FormData(event.target);
-		const email = form.get('email');
-		const web3authProvider = await web3auth.connectTo(
-			WALLET_ADAPTERS.OPENLOGIN,
-			{
-				loginProvider: 'email_passwordless',
-				extraLoginOptions: {
-					login_hint: email,
-				},
-			}
-		);
-		if (web3auth.connected) {
-			navigateTo('/home');
-		}
-		setProvider(web3authProvider);
-	};
-
 	const loginWallet = async () => {
 		const web3authProvider = await web3auth.connectTo(WALLET_ADAPTERS.METAMASK);
 		setProvider(web3authProvider);
@@ -200,51 +147,6 @@ function LoginWithoutModal() {
 						>
 							Conectar con Google
 						</Button>
-
-						<form onSubmit={loginWithSMS}>
-							<TextField
-								placeholder='+34-123456789'
-								type='text'
-								name='phone'
-								sx={{ marginTop: '5px', marginBottom: '5px' }}
-								fullWidth
-							/>
-							<Button
-								type='submit'
-								variant='contained'
-								fullWidth
-								sx={{
-									backgroundColor: '#F7F7F7',
-									color: 'black',
-									borderRadius: '50px',
-								}}
-							>
-								Conectar con Teléfono
-							</Button>
-						</form>
-
-						<form onSubmit={loginWithEmail}>
-							<TextField
-								placeholder='name@mail.com'
-								type='email'
-								name='email'
-								sx={{ marginTop: '5px', marginBottom: '5px' }}
-								fullWidth
-							/>
-							<Button
-								type='submit'
-								variant='contained'
-								fullWidth
-								sx={{
-									backgroundColor: '#F7F7F7',
-									color: 'black',
-									borderRadius: '50px',
-									':hover': '#FFB04B',
-								}}
-							>
-								Conectar con Email
-							</Button>
-						</form>
 					</Stack>
 				</CardActions>
 			</Card>
