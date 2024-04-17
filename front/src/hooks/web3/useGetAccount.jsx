@@ -14,6 +14,7 @@ export default function useGetAccount() {
 				// Get user's Ethereum public address
 				const address = await web3.eth.getAccounts();
 				const mainWallet = address[0];
+				console.log('main wallet', mainWallet);
 				setAccount(mainWallet);
 				const prefix = mainWallet.slice(0, 4);
 				const suffix = mainWallet.slice(-4);
