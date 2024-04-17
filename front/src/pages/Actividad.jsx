@@ -16,7 +16,8 @@ export default function Actividad() {
 	useEffect(() => {
 		const getDcaDetails = async () => {
 			const provider3 = new ethers.providers.Web3Provider(provider);
-			const dcaContract = new ethers.Contract(DCA_ADDRESS, ABI_DCA, provider3);
+			const signer = provider3.getSigner();
+			const dcaContract = new ethers.Contract(DCA_ADDRESS, ABI_DCA, signer);
 			const details = await dcaContract.getMyDcaDetails();
 			console.log('details', details);
 			console.log('docBalance', ethers.utils.formatEther(details[0]));
@@ -27,6 +28,12 @@ export default function Actividad() {
 			);
 			console.log('purchasePeriod', ethers.utils.formatEther(details[3]));
 			console.log('rbtcBalance', ethers.utils.formatEther(details[4]));
+			const docBalance = await dcaContract.getDocBalance();
+			console.log('getDocBalance', docBalance);
+			const purchaseAount = await dcaContract.getPurchaseAmount();
+			console.log('getPurchaseAmount', purchaseAount);
+			const purchasePeriod = await dcaContract.getPurchasePeriod();
+			console.log('getPurchasePeriod', purchasePeriod);
 		};
 
 		getDcaDetails();

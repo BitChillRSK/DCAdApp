@@ -1,7 +1,11 @@
 import { useContext, useEffect } from 'react';
 import { Web3AuthNoModal } from '@web3auth/no-modal';
 import { EthereumPrivateKeyProvider } from '@web3auth/ethereum-provider';
-import { CHAIN_NAMESPACES, WALLET_ADAPTERS } from '@web3auth/base';
+import {
+	CHAIN_NAMESPACES,
+	WALLET_ADAPTERS,
+	WEB3AUTH_NETWORK,
+} from '@web3auth/base';
 import { OpenloginAdapter } from '@web3auth/openlogin-adapter';
 import { MetamaskAdapter } from '@web3auth/metamask-adapter';
 import { Web3Context } from '../../context/Web3Context';
@@ -67,7 +71,7 @@ function LoginWithoutModal() {
 				 */
 				const metamaskAdapter = new MetamaskAdapter({
 					clientId,
-					web3AuthNetwork: 'sapphire_devnet',
+					web3AuthNetwork: WEB3AUTH_NETWORK.TESTNET,
 					chainConfig,
 				});
 				web3auth.configureAdapter(metamaskAdapter);

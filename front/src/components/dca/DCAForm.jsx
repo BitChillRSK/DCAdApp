@@ -41,31 +41,38 @@ const DCAFrom = () => {
 		setIsLoading(true);
 		setTxPosition(null);
 
-		/**
-		 * use ethers to sign...
-		 */
-		const provider3 = new ethers.providers.Web3Provider(provider);
-		const signer = provider3.getSigner();
-
-		// Direcciones del contrato del token y del contrato al que se le dará la aprobación
-		const tokenContract = new ethers.Contract(
-			WALLET_APPROVE,
-			ABI_APPROVE,
-			signer
-		);
-		const dcaContract = new ethers.Contract(DCA_ADDRESS, ABI_DCA, signer);
-		const cantidadTotal = cantidad * frequencia * duracion;
-
 		try {
+			/**
+			 * use ethers to sign...
+			 */
+			const provider3 = new ethers.providers.Web3Provider(provider);
+			const signer = await provider3.getSigner();
+
+			// Direcciones del contrato del token y del contrato al que se le dará la aprobación
+			const tokenContract = new ethers.Contract(
+				WALLET_APPROVE,
+				ABI_APPROVE,
+				signer
+			);
+			const dcaContract = new ethers.Contract(DCA_ADDRESS, ABI_DCA, signer);
+			const cantidadTotal = cantidad * frequencia * duracion;
 			/**
 			 * 0 Llamar a la función approve del contrato
 			 */
 			const amount = ethers.utils.parseUnits(cantidadTotal.toString(), 18); // Asegúrate de usar la cantidad correcta de decimales
+
 			const tx = await tokenContract.approve(DCA_ADDRESS, amount);
-			await tx.wait();
+
+			// Wait for the transaction to be mined
+			const receipt = await tx.wait();
+			console.log('receipt', receipt);
 
 			const purchaseAmount = ethers.utils.parseUnits(cantidad.toString(), 18);
 			const segundosFrecuencia = frecuenciaASegundos(frequencia);
+
+			console.log('amount', amount);
+			console.log('purchaseAmount', purchaseAmount);
+			console.log('segundosFrecuencia', segundosFrecuencia);
 
 			const dcaSchedule = await dcaContract.createDcaSchedule(
 				amount,
