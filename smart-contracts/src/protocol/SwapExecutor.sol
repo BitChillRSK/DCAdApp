@@ -1,31 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./TokenHandler.sol";
-import "./SwapStrategy.sol";
+import "./DcaManager.sol";
 
-contract SwapExecutor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
-    SwapStrategy public swapStrategy;
+contract SwapExecutor is Ownable {
     TokenHandler public tokenHandler;
+    DcaManager public dcaManager;
 
     event SwapExecuted(address indexed user, uint256 docAmount, uint256 rbtcAmount);
 
-    function initialize(address _swapStrategy, address _tokenHandler) public initializer {
-        __Ownable_init();
-        swapStrategy = SwapStrategy(_swapStrategy);
-        tokenHandler = TokenHandler(_tokenHandler);
+    constructor(address payable _tokenHandlerAddress, address _dcaManagerAddress) Ownable(msg.sender) {
+        tokenHandler = TokenHandler(_tokenHandlerAddress);
+        dcaManager = DcaManager(_dcaManagerAddress);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function executeSwap(address buyer) external onlyOwner {
+        DcaManager.DcaDetails memory userDetails = dcaManager.getUserDcaDetails(buyer);
 
-    function executeSwap(address user) external onlyOwner {
-        require(swapStrategy.shouldExecuteSwap(user), "Swap conditions not met");
+        if (userDetails.rbtcBalance > 0) {
+            require(block.timestamp - userDetails.lastPurchaseTimestamp >= userDetails.purchasePeriod, "Cannot buy yet; purchase period has not elapsed.");
+        }
 
-        uint256 docAmount = swapStrategy.getDocAmountToSwap(user);
-        tokenHandler.redeemDocForRbtc(docAmount);  // This assumes TokenHandler has a function to handle redemption
-        emit SwapExecuted(user, docAmount, 0); // Assuming 0 for rbtcAmount as placeholder
+        uint256 rbtcAmount = tokenHandler.redeemDocForRbtc(buyer, userDetails.docPurchaseAmount);
+        dcaManager.updatePurchaseDetails(buyer, userDetails.docPurchaseAmount, rbtcAmount);
+        
+        emit SwapExecuted(buyer, userDetails.docPurchaseAmount, rbtcAmount);
     }
 }

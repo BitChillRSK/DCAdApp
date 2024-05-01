@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./TokenHandler.sol";
 
-contract DcaManager is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract DcaManager is Ownable {
     struct DcaDetails {
         uint256 docBalance;
         uint256 docPurchaseAmount;
@@ -17,35 +15,37 @@ contract DcaManager is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     mapping(address => DcaDetails) private s_dcaDetails;
     address[] private s_users;
-    mapping(address => mapping(bytes32 => uint256)) public userSettings;
+    mapping(address => bool) public authorized;
 
-    // Standard settings keys
-    bytes32 constant public BALANCE_KEY = keccak256("balance");
-    bytes32 constant public PURCHASE_AMOUNT_KEY = keccak256("purchaseAmount");
-    bytes32 constant public PURCHASE_PERIOD_KEY = keccak256("purchasePeriod");
-    bytes32 constant public LAST_PURCHASE_TIMESTAMP_KEY = keccak256("lastPurchaseTimestamp");
+    TokenHandler public tokenHandler;
 
-    address public tokenHandlerAddress;
-
-    event DocDeposited(address indexed user, uint256 amount);
-    event DocWithdrawn(address indexed user, uint256 amount);
-    event PurchaseAmountSet(address indexed user, uint256 purchaseAmount);
-    event PurchasePeriodSet(address indexed user, uint256 purchasePeriod);
     event NewDcaScheduleCreated(address indexed user, uint256 depositAmount, uint256 purchaseAmount, uint256 purchasePeriod);
-    event UserSettingUpdated(address indexed user, bytes32 key, uint256 value);
+    event DcaExited(address indexed user, uint256 docWithdrawn, uint256 rbtcWithdrawn);
+    event PurchaseUpdated(address indexed user, uint256 lastPurchaseTimestamp, uint256 rbtcAmount);
 
-    function initialize(address _tokenHandlerAddress) public initializer {
-        __Ownable_init();
-        tokenHandlerAddress = _tokenHandlerAddress;
+    constructor(address payable _tokenHandlerAddress) Ownable(msg.sender) {
+        require(_tokenHandlerAddress != address(0), "TokenHandler address cannot be zero.");
+        tokenHandler = TokenHandler(_tokenHandlerAddress);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    receive() external payable {}
+
+    modifier onlyAuthorized() {
+        require(authorized[msg.sender] || msg.sender == owner(), "Unauthorized");
+        _;
+    }
+
+    function addAuthorized(address _addr) public onlyOwner {
+        authorized[_addr] = true;
+    }
+
+    function removeAuthorized(address _addr) public onlyOwner {
+        authorized[_addr] = false;
+    }
 
     function createDcaSchedule(uint256 depositAmount, uint256 purchaseAmount, uint256 purchasePeriod) external {
-        require(depositAmount > 0, "Deposit amount must be greater than zero");
-        require(purchaseAmount > 0, "Purchase amount must be greater than zero");
-        require(purchaseAmount <= depositAmount / 2, "Purchase amount must be lower than half of deposit");
-        require(purchasePeriod > 0, "Purchase period must be greater than zero");
+        require(depositAmount > 0 && purchaseAmount > 0 && purchasePeriod > 0, "Invalid DCA parameters");
+        require(purchaseAmount <= depositAmount / 2, "Purchase amount too high");
 
         DcaDetails storage userDetails = s_dcaDetails[msg.sender];
         userDetails.docBalance += depositAmount;
@@ -53,48 +53,43 @@ contract DcaManager is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         userDetails.purchasePeriod = purchasePeriod;
         userDetails.lastPurchaseTimestamp = block.timestamp;
 
-        if (userDetails.docBalance == depositAmount) {  // New user setup
-            s_users.push(msg.sender);
-        }
-
-        TokenHandler(tokenHandlerAddress).depositDocToken(msg.sender, depositAmount);
+        tokenHandler.depositDocToken(msg.sender, depositAmount);
+        s_users.push(msg.sender);
         emit NewDcaScheduleCreated(msg.sender, depositAmount, purchaseAmount, purchasePeriod);
     }
 
-    function setPurchaseAmount(uint256 purchaseAmount) external {
-        require(purchaseAmount > 0, "Purchase amount must be greater than zero");
+    function exitDcaProtocol() external {
         DcaDetails storage userDetails = s_dcaDetails[msg.sender];
-        userDetails.docPurchaseAmount = purchaseAmount;
-        emit PurchaseAmountSet(msg.sender, purchaseAmount);
+        require(userDetails.docBalance > 0 || userDetails.rbtcBalance > 0, "No funds to withdraw");
+
+        if (userDetails.docBalance > 0) {
+            tokenHandler.withdrawDocToken(msg.sender, userDetails.docBalance);
+            userDetails.docBalance = 0;
+        }
+        if (userDetails.rbtcBalance > 0) {
+            payable(msg.sender).transfer(userDetails.rbtcBalance);
+            userDetails.rbtcBalance = 0;
+        }
+
+        emit DcaExited(msg.sender, userDetails.docBalance, userDetails.rbtcBalance);
     }
 
-    function setPurchasePeriod(uint256 purchasePeriod) external {
-        require(purchasePeriod > 0, "Purchase period must be greater than zero");
-        DcaDetails storage userDetails = s_dcaDetails[msg.sender];
-        userDetails.purchasePeriod = purchasePeriod;
-        emit PurchasePeriodSet(msg.sender, purchasePeriod);
+    function updatePurchaseDetails(address user, uint256 docAmount, uint256 rbtcAmount) external {
+        DcaDetails storage userDetails = s_dcaDetails[user];
+        userDetails.docBalance -= docAmount;
+        userDetails.lastPurchaseTimestamp = block.timestamp;
+        userDetails.rbtcBalance += rbtcAmount; 
     }
 
-    function withdrawDOC(uint256 withdrawalAmount) external {
-        require(withdrawalAmount > 0, "Withdrawal amount must be greater than zero");
-        DcaDetails storage userDetails = s_dcaDetails[msg.sender];
-        require(userDetails.docBalance >= withdrawalAmount, "Withdrawal amount exceeds balance");
-        userDetails.docBalance -= withdrawalAmount;
-        TokenHandler(tokenHandlerAddress).withdrawDocToken(msg.sender, withdrawalAmount);
-        emit DocWithdrawn(msg.sender, withdrawalAmount);
-    }
-
-    function setParameter(address user, bytes32 key, uint256 value) public onlyOwner {
-        userSettings[user][key] = value;
-        emit UserSettingUpdated(user, key, value);
-    }
-
-    // Getter functions
-    function getUserDcaDetails(address user) external view onlyOwner returns (DcaDetails memory) {
-        return s_dcaDetails[user];
+    function getMyDcaDetails() external view returns (DcaDetails memory) {
+        return s_dcaDetails[msg.sender];
     }
 
     function getUsers() external view onlyOwner returns (address[] memory) {
         return s_users;
+    }
+
+    function getUserDcaDetails(address user) public view returns (DcaDetails memory) {
+        return s_dcaDetails[user];
     }
 }
