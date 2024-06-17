@@ -8,18 +8,24 @@ import { Web3Context } from '../../context/Web3Context';
 import { Button } from '@mui/material';
 
 const clientId = import.meta.env.VITE_CLIENT_ID;
+const URL_RPC = import.meta.env.VITE_URL_RPC;
+const CHAIN_ID = import.meta.env.VITE_CHAIN_ID;
+const DISPLAY_NAME = import.meta.env.VITE_DISPLAY_NAME;
+const TICKER = import.meta.env.VITE_TICKER;
+const TICKER_NAME = import.meta.env.VITE_TICKER_NAME;
+const URL_EXPLORER = import.meta.env.VITE_URL_EXPLORER;
 
 const web3auth = new Web3Auth({
 	clientId, // get from https://dashboard.web3auth.io
 	web3AuthNetwork: 'sapphire_devnet',
 	chainConfig: {
-		chainId: '0x1F',
-		rpcTarget: 'https://public-node.testnet.rsk.co',
+		chainId: CHAIN_ID,
+		rpcTarget: URL_RPC,
 		chainNamespace: CHAIN_NAMESPACES.EIP155,
-		displayName: 'RSK Testnet',
-		ticker: 'tRBTC',
-		tickerName: 'RSK Testnet',
-		blockExplorer: 'https://explorer.testnet.rsk.co',
+		displayName: DISPLAY_NAME,
+		ticker: TICKER,
+		tickerName: TICKER_NAME,
+		blockExplorer: URL_EXPLORER,
 	},
 });
 

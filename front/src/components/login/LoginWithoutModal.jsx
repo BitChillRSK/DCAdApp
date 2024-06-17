@@ -13,8 +13,14 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Card, CardActions, Stack, Typography } from '@mui/material';
 
 const clientId = import.meta.env.VITE_CLIENT_ID;
-const explorerUrl = import.meta.env.VITE_EXPLORER_URL;
-const rpcTarget = import.meta.env.VITE_RPC_TARGET;
+
+const URL_RPC = import.meta.env.VITE_URL_RPC;
+const CHAIN_ID = import.meta.env.VITE_CHAIN_ID;
+const DISPLAY_NAME = import.meta.env.VITE_DISPLAY_NAME;
+const TICKER = import.meta.env.VITE_TICKER;
+const TICKER_NAME = import.meta.env.VITE_TICKER_NAME;
+const URL_EXPLORER = import.meta.env.VITE_URL_EXPLORER;
+
 function LoginWithoutModal() {
 	const navigateTo = useNavigate();
 	const { setProvider, web3auth, setWeb3auth } = useContext(Web3Context);
@@ -23,13 +29,13 @@ function LoginWithoutModal() {
 		const init = async () => {
 			try {
 				const chainConfig = {
-					chainId: '0x1F',
-					rpcTarget,
+					chainId: CHAIN_ID,
+					rpcTarget: URL_RPC,
 					chainNamespace: CHAIN_NAMESPACES.EIP155,
-					displayName: 'RSK Testnet',
-					ticker: 'tRBTC',
-					tickerName: 'RSK Testnet',
-					blockExplorer: explorerUrl,
+					displayName: DISPLAY_NAME,
+					ticker: TICKER,
+					tickerName: TICKER_NAME,
+					blockExplorer: URL_EXPLORER,
 				};
 				const web3auth = new Web3AuthNoModal({
 					clientId,
