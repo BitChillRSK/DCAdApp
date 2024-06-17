@@ -1,0 +1,3 @@
+[submodule "smart-contracts/lib/protocol-rsk"]
+	path = smart-contracts/lib/protocol-rsk
+	url = https://github.com/Tropykus/protocol-rsk

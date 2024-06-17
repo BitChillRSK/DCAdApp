@@ -1,0 +1,2 @@
+Contract deployment and verification:
+forge script script/DeployDca.s.sol --rpc-url $RSK_TESTNET_RPC_URL --private-key $PRIVATE_KEY --broadcast --verify --verifier blockscout --verifier-url $BLOCKSCOUT_API_URL --legacy
