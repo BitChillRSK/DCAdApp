@@ -18,6 +18,9 @@ export default function Menu() {
 			<Button component={Link} to='/actividad'>
 				<Typography sx={{ color: 'black' }}>Actividad</Typography>
 			</Button>
+			<Button component={Link} to='/my-dcas'>
+				<Typography sx={{ color: 'black' }}>My DCAs</Typography>
+			</Button>
 			<Logout />
 			<Withdraw />
 		</aside>

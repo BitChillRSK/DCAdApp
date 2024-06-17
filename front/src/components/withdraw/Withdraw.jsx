@@ -48,7 +48,14 @@ export default function Withdraw() {
 
 	return (
 		<>
-			<form onSubmit={withdrawDeposit}>
+			<form
+				onSubmit={withdrawDeposit}
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					alignItems: 'flex-start',
+				}}
+			>
 				<TextField
 					placeholder='DoC'
 					type='number'
