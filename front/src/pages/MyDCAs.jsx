@@ -20,6 +20,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DCA_MANAGER_ABI from './../abis/DcaManager.json';
 import { ADDRESS } from '../utils/contants';
 
+import DCAManagerAdapter from './../infraestructura/DCAManagerAdapter';
+import DCAManagerService from './../application/DCAManagerService';
+
 export const MyDCAs = () => {
 	const { provider } = useContext(Web3Context);
 	const navigate = useNavigate();
@@ -28,39 +31,12 @@ export const MyDCAs = () => {
 
 	const getDCAsUser = async () => {
 		if (provider) {
-			const provider3 = new ethers.providers.Web3Provider(provider);
-			const signer = provider3.getSigner();
-
-			const dcaContract = new ethers.Contract(
-				ADDRESS.DCA_MANAGER,
-				DCA_MANAGER_ABI.abi,
-				signer
-			);
 			try {
-				const DCAsUser = await dcaContract.getMyDcaSchedules(ADDRESS.DOC_TOKEN);
-				const formatDCA = DCAsUser.map(dca => {
-					const tokenBalance = ethers.utils.formatUnits(dca.tokenBalance, 18);
-					const purchaseAmount = ethers.utils.formatUnits(
-						dca.purchaseAmount,
-						18
-					);
-					const purchasePeriod = segundosAFrequencia(
-						ethers.utils.formatUnits(dca.purchasePeriod, 18)
-					);
-					const duracion = tokenBalance / purchaseAmount / purchasePeriod;
-					const lastPurchaseTimestamp = ethers.utils.formatUnits(
-						dca.lastPurchaseTimestamp,
-						18
-					);
-
-					return {
-						tokenBalance,
-						purchaseAmount,
-						purchasePeriod,
-						duracion,
-						lastPurchaseTimestamp,
-					};
-				});
+				const adapter = new DCAManagerAdapter(provider);
+				const dcaManagerService = new DCAManagerService(adapter);
+				const formatDCA = await dcaManagerService.getAllDCAsofUserByToken(
+					ADDRESS.DOC_TOKEN
+				);
 				setMyDCAs(formatDCA);
 			} catch (error) {
 				console.error('Error to get DCAs user', error);
