@@ -4,6 +4,8 @@ import { Button, Typography } from '@mui/material';
 import { Faucet } from '../fucet/Faucet';
 
 export default function Menu() {
+	const isLocal = import.meta.env.VITE_ENV === 'development';
+
 	return (
 		<aside
 			style={{
@@ -19,7 +21,7 @@ export default function Menu() {
 				<Typography sx={{ color: 'black' }}>My DCAs</Typography>
 			</Button>
 			<Logout />
-			<Faucet />
+			{isLocal && <Faucet />}
 		</aside>
 	);
 }
