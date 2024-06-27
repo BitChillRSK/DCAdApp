@@ -6,12 +6,10 @@ import { CardDCA } from './../components/card-dca/CardDCA';
 
 import { ADDRESS } from '../utils/contants';
 
-import DCAManagerAdapter from './../infraestructura/DCAManagerAdapter';
 import DCAManagerService from './../application/DCAManagerService';
 import { CardSkeleton } from '../components/card-dca/CardDCASkeleton';
 import { CardNewDCA } from '../components/card-dca/CardNewDCA';
 
-let adapter;
 let dcaManagerService;
 
 export const MyDCAs = () => {
@@ -39,8 +37,7 @@ export const MyDCAs = () => {
 
 	useEffect(() => {
 		if (provider) {
-			adapter = new DCAManagerAdapter(provider);
-			dcaManagerService = new DCAManagerService(adapter);
+			dcaManagerService = new DCAManagerService(provider);
 			getDCAsUser();
 		}
 	}, [provider]);
@@ -52,9 +49,10 @@ export const MyDCAs = () => {
 					ADDRESS.DOC_TOKEN,
 					index
 				);
-				getDCAsUser();
 			} catch (error) {
 				console.error(`Error al eliminar dca ${index}`, error);
+			} finally {
+				getDCAsUser();
 			}
 		}
 	};

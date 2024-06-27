@@ -1,8 +1,9 @@
 import { weiToUnit } from './EtherUtiles';
+import { DCAManagerAdapter } from './../infraestructura/DCAManagerAdapter';
 
 class DCAManagerService {
-	constructor(dcaManagerAdapter) {
-		this.dcaManagerAdapter = dcaManagerAdapter;
+	constructor(provider) {
+		this.dcaManagerAdapter = new DCAManagerAdapter(provider);
 	}
 
 	async getAllDCAsofUserByToken(tokenAddress) {
