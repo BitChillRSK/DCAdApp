@@ -20,9 +20,14 @@ class DCAManagerAdapter {
 	async deleteDcaScheduleByTokenAddressAndIndex(tokenAddress, index) {
 		const dcaContract = this._getContractDCAManager();
 		try {
-			const deleteDCA = await dcaContract.deleteDcaSchedule(
+			const gasEstimate = await dcaContract.estimateGas.deleteDcaSchedule(
 				tokenAddress,
 				index
+			);
+			const deleteDCA = await dcaContract.deleteDcaSchedule(
+				tokenAddress,
+				index,
+				{ gasLimit: gasEstimate }
 			);
 			return deleteDCA.wait();
 		} catch (error) {
@@ -32,6 +37,39 @@ class DCAManagerAdapter {
 				tokenAddress,
 				' with index ',
 				index
+			);
+		}
+	}
+
+	async createDcaSchedule(
+		tokenAddress,
+		depositAmount,
+		purchaseAmount,
+		purchasePeriod
+	) {
+		const dcaContract = this._getContractDCAManager();
+		try {
+			const gasEstimate = await dcaContract.estimateGas.createDcaSchedule(
+				tokenAddress,
+				depositAmount,
+				purchaseAmount,
+				purchasePeriod
+			);
+
+			const dcaSchedule = await dcaContract.createDcaSchedule(
+				tokenAddress,
+				depositAmount,
+				purchaseAmount,
+				purchasePeriod,
+				{ gasLimit: gasEstimate }
+			);
+			await dcaSchedule.wait();
+			return dcaSchedule;
+		} catch (error) {
+			console.error(error);
+			throw new Error(
+				'Error to create the dca schedule for token ',
+				tokenAddress
 			);
 		}
 	}

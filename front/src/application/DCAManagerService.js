@@ -1,8 +1,12 @@
-import { weiToUnit } from './EtherUtiles';
+import { weiToUnit, unitToWei } from './EtherUtiles';
 import DCAManagerAdapter from './../infraestructura/DCAManagerAdapter';
+import TokenHandlerAdapter from '../infraestructura/TokenHandlerAdapter';
+import { getTokenInfo } from '../utils/tokenInfo';
+import { frecuenciaASegundos } from '../components/dca/utils-dca';
 
 class DCAManagerService {
 	constructor(provider) {
+		this.provider = provider;
 		this.dcaManagerAdapter = new DCAManagerAdapter(provider);
 	}
 
@@ -30,6 +34,28 @@ class DCAManagerService {
 		return await this.dcaManagerAdapter.deleteDcaScheduleByTokenAddressAndIndex(
 			tokenAddress,
 			index
+		);
+	}
+
+	async createDcaSchedule(token, { cantidad, frequencia, duracion }) {
+		const { address, abi, tokenHandlerAddress } = getTokenInfo(token);
+
+		// approve token
+		const tokenHandler = new TokenHandlerAdapter(this.provider, address, abi);
+		const cantidadTotal = cantidad * frequencia * duracion;
+		const depositAmount = unitToWei(cantidadTotal);
+		await tokenHandler.tokenApprove(tokenHandlerAddress, depositAmount);
+
+		// create dca
+		const purchaseAmount = unitToWei(cantidad.toString());
+		const segundosFrecuencia = frecuenciaASegundos(frequencia);
+		const purchasePeriod = unitToWei(segundosFrecuencia.toString());
+
+		return this.dcaManagerAdapter.createDcaSchedule(
+			address,
+			depositAmount,
+			purchaseAmount,
+			purchasePeriod
 		);
 	}
 }

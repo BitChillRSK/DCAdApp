@@ -12,19 +12,10 @@ import {
 import DCAToggleGroup from './DCAToggleGroup';
 import { useContext, useState } from 'react';
 import { Web3Context } from '../../context/Web3Context';
-import { ABI_APPROVE } from './ABI_APPROVE';
-import { ethers } from 'ethers';
 
-import DCA_MANAGER_ABI from './../../abis/DcaManager.json';
-import { ADDRESS } from '../../utils/contants';
-
-import {
-	listaCantidad,
-	listaDuracion,
-	listaFrequencia,
-	frecuenciaASegundos,
-} from './utils-dca';
+import { listaCantidad, listaDuracion, listaFrequencia } from './utils-dca';
 import ExplorerLink from '../explorer/ExplorerLink';
+import DCAManagerService from '../../application/DCAManagerService';
 
 const DCAFrom = () => {
 	const [cantidad, setCantidad] = useState(0);
@@ -41,59 +32,13 @@ const DCAFrom = () => {
 		setTxPosition(null);
 
 		try {
-			/**
-			 * use ethers to sign...
-			 */
-			const provider3 = new ethers.providers.Web3Provider(provider);
-			const signer = await provider3.getSigner();
-
-			// Direcciones del contrato del token
-			const tokenContract = new ethers.Contract(
-				ADDRESS.DOC_TOKEN,
-				ABI_APPROVE,
-				signer
-			);
-			const dcaContract = new ethers.Contract(
-				ADDRESS.DCA_MANAGER,
-				DCA_MANAGER_ABI.abi,
-				signer
-			);
-			const cantidadTotal = cantidad * frequencia * duracion;
-
-			/**
-			 * El dock token debe dar approve al docTokenHandler
-			 */
-
-			const amount = ethers.utils.parseUnits(cantidadTotal.toString(), 18);
-			const tx = await tokenContract.approve(ADDRESS.DOC_TOKEN_HANDLER, amount);
-
-			// Wait for the transaction to be mined
-			await tx.wait();
-
-			const purchaseAmount = ethers.utils.parseUnits(cantidad.toString(), 18);
-			const segundosFrecuencia = frecuenciaASegundos(frequencia);
-			const frecuencia = ethers.utils.parseUnits(
-				segundosFrecuencia.toString(),
-				18
-			);
-
-			/* const gasEstimate = await dcaContract.estimateGas.createDcaSchedule(
-				ADDRESS_MOCK_DOC,
-				amount,
+			const dcaManagerService = new DCAManagerService(provider);
+			const tx = await dcaManagerService.createDcaSchedule('DOC', {
 				cantidad,
-				segundosFrecuencia
-			);
-			console.log('el gas calculado es:', gasEstimate);
-			*/
-			const dcaSchedule = await dcaContract.createDcaSchedule(
-				ADDRESS.DOC_TOKEN,
-				amount,
-				purchaseAmount,
-				frecuencia,
-				{ gasLimit: 30000000 }
-			);
-			await dcaSchedule.wait();
-			setTxPosition(dcaSchedule);
+				frequencia,
+				duracion,
+			});
+			setTxPosition(tx);
 		} catch (error) {
 			console.error('Error sending transaction:', error);
 		} finally {
