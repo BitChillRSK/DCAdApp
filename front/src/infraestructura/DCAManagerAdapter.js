@@ -17,6 +17,25 @@ class DCAManagerAdapter {
 		}
 	}
 
+	async deleteDcaScheduleByTokenAddressAndIndex(tokenAddress, index) {
+		const dcaContract = this._getContractDCAManager();
+		try {
+			const deleteDCA = await dcaContract.deleteDcaSchedule(
+				tokenAddress,
+				index
+			);
+			return deleteDCA.wait();
+		} catch (error) {
+			console.error(error);
+			throw new Error(
+				'Error to delete the dca schedule for token ',
+				tokenAddress,
+				' with index ',
+				index
+			);
+		}
+	}
+
 	_getContractDCAManager() {
 		const signer = this.provider.getSigner();
 		return new ethers.Contract(

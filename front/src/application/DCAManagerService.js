@@ -24,6 +24,13 @@ class DCAManagerService {
 			};
 		});
 	}
+
+	async deleteDCASchedulerBytokenAndIndex(tokenAddress, index) {
+		return await this.dcaManagerAdapter.deleteDcaScheduleByTokenAddressAndIndex(
+			tokenAddress,
+			index
+		);
+	}
 }
 
 export default DCAManagerService;
