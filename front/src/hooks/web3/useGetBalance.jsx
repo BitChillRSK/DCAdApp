@@ -1,6 +1,5 @@
 import { useEffect, useContext, useState } from 'react';
 import { Web3Context } from '../../context/Web3Context';
-import EthereumAdapter from '../../infraestructura/EthereumAdapter';
 import EthereumService from '../../application/EthereumService';
 
 import { ADDRESS } from './../../utils/contants';
@@ -13,8 +12,7 @@ export default function useGetBalance(account) {
 		const getBalance = async () => {
 			if (provider && account) {
 				try {
-					const adapter = new EthereumAdapter(provider);
-					const ethereumService = new EthereumService(adapter);
+					const ethereumService = new EthereumService(provider);
 					const balance = await ethereumService.getTokenBalance(
 						ADDRESS.DOC_TOKEN,
 						DOC_ABI.abi

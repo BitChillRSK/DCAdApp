@@ -1,10 +1,12 @@
+import EthereumAdapter from './../infraestructura/EthereumAdapter';
+
 class EthereumService {
-	constructor(etheruemAdapter) {
-		this.etheruemAdapter = etheruemAdapter;
+	constructor(provider) {
+		this.ethereumAdapter = new EthereumAdapter(provider);
 	}
 
 	async getAccountDetails() {
-		const mainWallet = await this.etheruemAdapter.getAccount();
+		const mainWallet = await this.ethereumAdapter.getAccount();
 		const prefix = mainWallet.slice(0, 4);
 		const suffix = mainWallet.slice(-4);
 		const reduceWallet = `${prefix}...${suffix}`;
@@ -16,8 +18,8 @@ class EthereumService {
 	}
 
 	async getTokenBalance(addressToken, abi) {
-		const account = await this.etheruemAdapter.getAccount();
-		const balance = await this.etheruemAdapter.getTokenBalance(
+		const account = await this.ethereumAdapter.getAccount();
+		const balance = await this.ethereumAdapter.getTokenBalance(
 			addressToken,
 			abi,
 			account

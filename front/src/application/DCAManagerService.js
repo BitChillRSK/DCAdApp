@@ -1,5 +1,5 @@
 import { weiToUnit } from './EtherUtiles';
-import { DCAManagerAdapter } from './../infraestructura/DCAManagerAdapter';
+import DCAManagerAdapter from './../infraestructura/DCAManagerAdapter';
 
 class DCAManagerService {
 	constructor(provider) {

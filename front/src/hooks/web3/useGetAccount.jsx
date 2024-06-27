@@ -1,6 +1,5 @@
 import { useEffect, useContext, useState } from 'react';
 import { Web3Context } from '../../context/Web3Context';
-import EthereumAdapter from '../../infraestructura/EthereumAdapter';
 import EthereumService from '../../application/EthereumService';
 
 export default function useGetAccount() {
@@ -10,8 +9,7 @@ export default function useGetAccount() {
 	useEffect(() => {
 		const getAccount = async () => {
 			if (provider) {
-				const adapter = new EthereumAdapter(provider);
-				const ethereumService = new EthereumService(adapter);
+				const ethereumService = new EthereumService(provider);
 				const { mainWallet, reduceWallet } =
 					await ethereumService.getAccountDetails();
 				setAccount(mainWallet);
