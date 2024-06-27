@@ -11,7 +11,7 @@ export default function AppRouter() {
 			<Routes>
 				<Route path='/' element={<PrivateRouter />}>
 					<Route index element={<Home />} />
-					<Route path='actividad' element={<Actividad />} />
+					<Route path='actividad/:index' element={<Actividad />} />
 					<Route path='my-dcas' element={<MyDCAs />} />
 					<Route path='*' element={<Home />} />
 				</Route>

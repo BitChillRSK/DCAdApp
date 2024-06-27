@@ -14,19 +14,37 @@ contract DeployContracts is Script {
     address FEE_COLLECTOR = makeAddr(FEE_COLLECTOR_STRING);
     uint256 MIN_PURCHASE_AMOUNT = 10 ether; // at least 10 DOC on each purchase
 
-    function run() external returns (AdminOperations, DocTokenHandler, DcaManager, HelperConfig) {
+    function run()
+        external
+        returns (AdminOperations, DocTokenHandler, DcaManager, HelperConfig)
+    {
         HelperConfig helperConfig = new HelperConfig();
-        (address docToken, address mocProxy, address kDocToken) = helperConfig.activeNetworkConfig();
+        (address docToken, address mocProxy, address kDocToken) = helperConfig
+            .activeNetworkConfig();
 
         vm.startBroadcast();
         // After startBroadcast -> "real" tx
         AdminOperations adminOperations = new AdminOperations();
         DcaManager dcaManager = new DcaManager(address(adminOperations));
-        DocTokenHandler docTokenHandler = 
-            new DocTokenHandler(address(dcaManager), docToken, kDocToken, MIN_PURCHASE_AMOUNT, FEE_COLLECTOR, mocProxy, 
-                                MIN_FEE_RATE, MAX_FEE_RATE, MIN_ANNUAL_AMOUNT, MAX_ANNUAL_AMOUNT, DOC_YIELDS_INTEREST);
+        DocTokenHandler docTokenHandler = new DocTokenHandler(
+            address(dcaManager),
+            docToken,
+            kDocToken,
+            MIN_PURCHASE_AMOUNT,
+            FEE_COLLECTOR,
+            mocProxy,
+            MIN_FEE_RATE,
+            MAX_FEE_RATE,
+            MIN_ANNUAL_AMOUNT,
+            MAX_ANNUAL_AMOUNT,
+            DOC_YIELDS_INTEREST
+        );
 
         // For local tests:
+        adminOperations.assignOrUpdateTokenHandler(
+            docToken,
+            address(docTokenHandler)
+        );
         dcaManager.transferOwnership(OWNER); // Only for tests!!!
         adminOperations.transferOwnership(OWNER); // Only for tests!!!
         docTokenHandler.transferOwnership(OWNER); // Only for tests!!!

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import Logout from '../logout/Logout';
 import { Button, Typography } from '@mui/material';
-import Withdraw from '../withdraw/Withdraw';
+import { Faucet } from '../fucet/Faucet';
 
 export default function Menu() {
 	return (
@@ -15,14 +15,11 @@ export default function Menu() {
 			<Button component={Link} to='/home'>
 				<Typography sx={{ color: 'black' }}>Inicio</Typography>
 			</Button>
-			<Button component={Link} to='/actividad'>
-				<Typography sx={{ color: 'black' }}>Actividad</Typography>
-			</Button>
 			<Button component={Link} to='/my-dcas'>
 				<Typography sx={{ color: 'black' }}>My DCAs</Typography>
 			</Button>
 			<Logout />
-			<Withdraw />
+			<Faucet />
 		</aside>
 	);
 }

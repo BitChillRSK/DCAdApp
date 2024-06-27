@@ -12,8 +12,11 @@ import {
 import DCAToggleGroup from './DCAToggleGroup';
 import { useContext, useState } from 'react';
 import { Web3Context } from '../../context/Web3Context';
-import { ABI_APPROVE, ABI_DCA } from './ABI_APPROVE';
+import { ABI_APPROVE } from './ABI_APPROVE';
 import { ethers } from 'ethers';
+
+import DCA_MANAGER_ABI from './../../abis/DcaManager.json';
+import { ADDRESS } from '../../utils/contants';
 
 import {
 	listaCantidad,
@@ -22,10 +25,6 @@ import {
 	frecuenciaASegundos,
 } from './utils-dca';
 import ExplorerLink from '../explorer/ExplorerLink';
-
-const DCA_ADDRESS = import.meta.env.VITE_DCA_ADDRESS;
-
-const WALLET_APPROVE = import.meta.env.VITE_WALLET_APPROVE;
 
 const DCAFrom = () => {
 	const [cantidad, setCantidad] = useState(0);
@@ -48,36 +47,50 @@ const DCAFrom = () => {
 			const provider3 = new ethers.providers.Web3Provider(provider);
 			const signer = await provider3.getSigner();
 
-			// Direcciones del contrato del token y del contrato al que se le dará la aprobación
+			// Direcciones del contrato del token
 			const tokenContract = new ethers.Contract(
-				WALLET_APPROVE,
+				ADDRESS.DOC_TOKEN,
 				ABI_APPROVE,
 				signer
 			);
-			const dcaContract = new ethers.Contract(DCA_ADDRESS, ABI_DCA, signer);
+			const dcaContract = new ethers.Contract(
+				ADDRESS.DCA_MANAGER,
+				DCA_MANAGER_ABI.abi,
+				signer
+			);
 			const cantidadTotal = cantidad * frequencia * duracion;
-			/**
-			 * 0 Llamar a la función approve del contrato
-			 */
-			const amount = ethers.utils.parseUnits(cantidadTotal.toString(), 18); // Asegúrate de usar la cantidad correcta de decimales
 
-			const tx = await tokenContract.approve(DCA_ADDRESS, amount);
+			/**
+			 * El dock token debe dar approve al docTokenHandler
+			 */
+
+			const amount = ethers.utils.parseUnits(cantidadTotal.toString(), 18);
+			const tx = await tokenContract.approve(ADDRESS.DOC_TOKEN_HANDLER, amount);
 
 			// Wait for the transaction to be mined
-			const receipt = await tx.wait();
-			console.log('receipt', receipt);
+			await tx.wait();
 
 			const purchaseAmount = ethers.utils.parseUnits(cantidad.toString(), 18);
 			const segundosFrecuencia = frecuenciaASegundos(frequencia);
+			const frecuencia = ethers.utils.parseUnits(
+				segundosFrecuencia.toString(),
+				18
+			);
 
-			console.log('amount', amount);
-			console.log('purchaseAmount', purchaseAmount);
-			console.log('segundosFrecuencia', segundosFrecuencia);
-
+			/* const gasEstimate = await dcaContract.estimateGas.createDcaSchedule(
+				ADDRESS_MOCK_DOC,
+				amount,
+				cantidad,
+				segundosFrecuencia
+			);
+			console.log('el gas calculado es:', gasEstimate);
+			*/
 			const dcaSchedule = await dcaContract.createDcaSchedule(
+				ADDRESS.DOC_TOKEN,
 				amount,
 				purchaseAmount,
-				segundosFrecuencia
+				frecuencia,
+				{ gasLimit: 30000000 }
 			);
 			await dcaSchedule.wait();
 			setTxPosition(dcaSchedule);

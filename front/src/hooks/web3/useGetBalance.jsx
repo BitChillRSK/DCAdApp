@@ -2,7 +2,8 @@ import { useEffect, useContext, useState } from 'react';
 import { Web3Context } from '../../context/Web3Context';
 import Web3 from 'web3';
 
-const TOKEN_ADDRESS = '0xCb46C0DdC60d18eFEB0e586c17AF6Ea36452DaE0';
+import { ADDRESS } from './../../utils/contants';
+
 const MIN_ABI = [
 	{
 		constant: true,
@@ -34,7 +35,7 @@ export default function useGetBalance(account) {
 				try {
 					const web3 = new Web3(provider);
 
-					const contrato = new web3.eth.Contract(MIN_ABI, TOKEN_ADDRESS);
+					const contrato = new web3.eth.Contract(MIN_ABI, ADDRESS.DOC_TOKEN);
 
 					contrato.methods
 						.balanceOf(account)

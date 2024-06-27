@@ -48,3 +48,29 @@ const segundosMes = 2592000;
 export const frecuenciaASegundos = frequencia => {
 	return segundosMes / frequencia;
 };
+
+export const segundosAFrequencia = segundos => {
+	return segundosMes / segundos;
+};
+
+export const textoFrecuencia = frequencia => {
+	switch (frequencia) {
+		case 4:
+			return 'Semanal';
+		case 2:
+			return 'Quincenal';
+		case 1:
+			return 'Mensual';
+	}
+};
+
+export const textoDuracion = duracion => {
+	switch (duracion) {
+		case 12:
+			return '1 Año';
+		case 24:
+			return '2 Años';
+		case 60:
+			return '5 años';
+	}
+};

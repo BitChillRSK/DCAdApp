@@ -13,20 +13,49 @@ npm install
 crear fichero .env e incluir
 
 ```bash
-VITE_API_ADDRESS_SM_HELLO_WORLD=ADDRESS_SMART_CONTRACT_HELLO_WORLD
-VITE_API_NODE_ENDPOINT=URL_NODE_LOCAL
-VITE_API_BACKEND_ENDPOINT=ULR_BACKEND
+# DCA Manager
+VITE_DCA_MANAGER= address del DCA MANAGER
 
-VITE_CLIENT_ID=ID_WEB3_AUTH
+# DOC TOKEN
+VITE_DOC_TOKEN_HANDLER= address token handler para DOC
+VITE_DOC_TOKEN= address token DOC
 
-VITE_EXPLORER_URL= url of the explorer
-VITE_GET_BLOCK_PROVIDER= url of the provider to get the event, for example getblock.io
+# WEB3 AUTH
+VITE_CLIENT_ID= CLIENT ID de WEB3 Auth
+VITE_DISPLAY_NAME= nombre red
+VITE_URL_RPC= url rpc
+VITE_CHAIN_ID= chain id en hexadecimal
+VITE_TICKER=tRBTC
+VITE_TICKER_NAME=RSK Localhost
+VITE_URL_EXPLORER= url del explorer
 
-VITE_DCA_ADDRESS= address of the DCA smart contract
 
-VITE_WALLET_APPROVE = address of the approve smart contract
+# EXPLORER
+VITE_EXPLORER_URL= url explorer
+VITE_GET_BLOCK_PROVIDER= url + /id de get block
+```
+
+Arrancamos el nodo
+
+```bash
+anvil
+forge script script/DeployContracts.s.sol:DeployContracts --rpc-url  127.0.0.1:8545 --private-key <PRIVATE_KEY> --broadcast
 ```
 
 ```bash
 npm run dev
+```
+
+```javascript
+// faucet
+const mockDockContract = new ethers.Contract(
+	ADDRESS_MOCK_DOC,
+	MOCK_DOCK_TOKEN_ABI.abi,
+	signer
+);
+const valueInWei = ethers.utils.parseUnits('9999999999999999999999999', 'wei');
+await mockDockContract.mint(
+	'0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+	valueInWei
+);
 ```

@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 
 import { ethers } from 'ethers';
 import useGetAccount from '../web3/useGetAccount';
-import { ABI_DCA } from '../../components/dca/ABI_APPROVE';
+
+import { ADDRESS, EVENTS } from './../../utils/contants';
+import DCA_MANAGER_ABI from './../../abis/DcaManager.json';
 
 const PROVIDER_GET_BLOCK = import.meta.env.VITE_GET_BLOCK_PROVIDER;
-const DCA_ADDRESS = import.meta.env.VITE_DCA_ADDRESS;
-const EVENT_NAME_BUY = 'RbtcBought';
 
 export default function useEventsActividad() {
 	const { account } = useGetAccount();
@@ -24,13 +24,13 @@ export default function useEventsActividad() {
 					PROVIDER_GET_BLOCK
 				);
 				const dcaContract = new ethers.Contract(
-					DCA_ADDRESS,
-					ABI_DCA,
+					ADDRESS.DCA_MANAGER,
+					DCA_MANAGER_ABI.abi,
 					provider3
 				);
 				const currentBlockNumber = await provider3.getBlockNumber();
 				const events = await dcaContract.queryFilter(
-					dcaContract.filters[EVENT_NAME_BUY](account),
+					dcaContract.filters[EVENTS.buyRBTC](account),
 					0,
 					currentBlockNumber
 				);

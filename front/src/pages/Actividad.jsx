@@ -1,43 +1,18 @@
 import { Card, Stack, Typography } from '@mui/material';
 import TableActividad from '../components/actividad/TableActividad';
 import useEventsActividad from '../hooks/actividad/useEventsActividad';
-import { useEffect, useContext } from 'react';
-import { Web3Context } from '../context/Web3Context';
-import { ethers } from 'ethers';
-import { ABI_DCA } from '../components/dca/ABI_APPROVE';
+import { textoDuracion, textoFrecuencia } from '../components/dca/utils-dca';
+import Withdraw from './../components/withdraw/Withdraw';
 
-const DCA_ADDRESS = import.meta.env.VITE_DCA_ADDRESS;
+import { useLocation, useParams } from 'react-router-dom';
 
 export default function Actividad() {
 	const { rows, isLoading, comprado, gastado } = useEventsActividad();
 
-	const { provider } = useContext(Web3Context);
-
-	useEffect(() => {
-		const getDcaDetails = async () => {
-			const provider3 = new ethers.providers.Web3Provider(provider);
-			const signer = provider3.getSigner();
-			const dcaContract = new ethers.Contract(DCA_ADDRESS, ABI_DCA, signer);
-			const details = await dcaContract.getMyDcaDetails();
-			console.log('details', details);
-			console.log('docBalance', ethers.utils.formatEther(details[0]));
-			console.log('docPurchaseAmount', ethers.utils.formatEther(details[1]));
-			console.log(
-				'lastPurchaseTimestamp',
-				ethers.utils.formatEther(details[2])
-			);
-			console.log('purchasePeriod', ethers.utils.formatEther(details[3]));
-			console.log('rbtcBalance', ethers.utils.formatEther(details[4]));
-			const docBalance = await dcaContract.getDocBalance();
-			console.log('getDocBalance', docBalance);
-			const purchaseAount = await dcaContract.getPurchaseAmount();
-			console.log('getPurchaseAmount', purchaseAount);
-			const purchasePeriod = await dcaContract.getPurchasePeriod();
-			console.log('getPurchasePeriod', purchasePeriod);
-		};
-
-		getDcaDetails();
-	}, []);
+	const { index } = useParams();
+	const location = useLocation();
+	const { tokenBalance, purchasePeriod, duracion, tokenAddress } =
+		location.state || {};
 
 	return (
 		<div
@@ -59,10 +34,14 @@ export default function Actividad() {
 			>
 				<Stack direction={'column'} spacing={4}>
 					<div>
-						<Typography variant='h5'>Estrategia DCA 1</Typography>
+						<Typography variant='h5'>Estrategia DCA</Typography>
 						<Typography variant='h6' color={'primary'}>
-							12.000 USD - 24 compras - 2años
+							{tokenBalance} USD - {textoFrecuencia(purchasePeriod)} -{' '}
+							{textoDuracion(duracion)}
 						</Typography>
+					</div>
+					<div>
+						<Withdraw index={Number(index)} tokenAddress={tokenAddress} />
 					</div>
 					<div>
 						<Typography variant='h6'>Comprado: {comprado} rBTC</Typography>
