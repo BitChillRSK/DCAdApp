@@ -1,6 +1,7 @@
 import { useEffect, useContext, useState } from 'react';
 import { Web3Context } from '../../context/Web3Context';
-import Web3 from 'web3';
+import EthereumAdapter from '../../infraestructura/EthereumAdapter';
+import EthereumService from '../../application/EthereumService';
 
 export default function useGetAccount() {
 	const { provider } = useContext(Web3Context);
@@ -9,15 +10,12 @@ export default function useGetAccount() {
 	useEffect(() => {
 		const getAccount = async () => {
 			if (provider) {
-				const web3 = new Web3(provider);
-
-				// Get user's Ethereum public address
-				const address = await web3.eth.getAccounts();
-				const mainWallet = address[0];
+				const adapter = new EthereumAdapter(provider);
+				const ethereumService = new EthereumService(adapter);
+				// Get account details
+				const { mainWallet, reduceWallet } =
+					await ethereumService.getAccountDetails();
 				setAccount(mainWallet);
-				const prefix = mainWallet.slice(0, 4);
-				const suffix = mainWallet.slice(-4);
-				const reduceWallet = `${prefix}...${suffix}`;
 				setAccountReduce(reduceWallet);
 			}
 		};
