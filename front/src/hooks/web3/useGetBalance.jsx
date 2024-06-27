@@ -1,30 +1,10 @@
 import { useEffect, useContext, useState } from 'react';
 import { Web3Context } from '../../context/Web3Context';
-import Web3 from 'web3';
+import EthereumAdapter from '../../infraestructura/EthereumAdapter';
+import EthereumService from '../../application/EthereumService';
 
 import { ADDRESS } from './../../utils/contants';
-
-const MIN_ABI = [
-	{
-		constant: true,
-		inputs: [
-			{
-				name: 'account',
-				type: 'address',
-			},
-		],
-		name: 'balanceOf',
-		outputs: [
-			{
-				name: 'balance',
-				type: 'uint256',
-			},
-		],
-		payable: false,
-		stateMutability: 'view',
-		type: 'function',
-	},
-];
+import DOC_ABI from './../../abis/DocToken.json';
 
 export default function useGetBalance(account) {
 	const { provider } = useContext(Web3Context);
@@ -33,18 +13,13 @@ export default function useGetBalance(account) {
 		const getBalance = async () => {
 			if (provider && account) {
 				try {
-					const web3 = new Web3(provider);
-
-					const contrato = new web3.eth.Contract(MIN_ABI, ADDRESS.DOC_TOKEN);
-
-					contrato.methods
-						.balanceOf(account)
-						.call()
-						.then(balance => {
-							const balanceEther = web3.utils.fromWei(balance, 'ether');
-							setBalance(balanceEther);
-						})
-						.catch(console.error);
+					const adapter = new EthereumAdapter(provider);
+					const ethereumService = new EthereumService(adapter);
+					const balance = await ethereumService.getTokenBalance(
+						ADDRESS.DOC_TOKEN,
+						DOC_ABI.abi
+					);
+					setBalance(balance);
 				} catch (err) {
 					console.error(err);
 				}

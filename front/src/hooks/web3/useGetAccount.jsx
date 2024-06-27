@@ -12,7 +12,6 @@ export default function useGetAccount() {
 			if (provider) {
 				const adapter = new EthereumAdapter(provider);
 				const ethereumService = new EthereumService(adapter);
-				// Get account details
 				const { mainWallet, reduceWallet } =
 					await ethereumService.getAccountDetails();
 				setAccount(mainWallet);

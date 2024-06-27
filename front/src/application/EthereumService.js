@@ -14,6 +14,16 @@ class EthereumService {
 			reduceWallet,
 		};
 	}
+
+	async getTokenBalance(addressToken, abi) {
+		const account = await this.etheruemAdapter.getAccount();
+		const balance = await this.etheruemAdapter.getTokenBalance(
+			addressToken,
+			abi,
+			account
+		);
+		return balance;
+	}
 }
 
 export default EthereumService;

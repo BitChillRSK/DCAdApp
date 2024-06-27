@@ -10,6 +10,12 @@ class EthereumAdapter {
 		const address = await signer.getAddress();
 		return address;
 	}
+
+	async getTokenBalance(tokenAddress, abi, account) {
+		const contract = new ethers.Contract(tokenAddress, abi, this.provider);
+		const balance = await contract.balanceOf(account);
+		return ethers.utils.formatUnits(balance, 18);
+	}
 }
 
 export default EthereumAdapter;
