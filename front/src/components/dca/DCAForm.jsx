@@ -3,19 +3,17 @@ import {
 	Card,
 	CircularProgress,
 	Divider,
-	FormControl,
-	InputAdornment,
-	OutlinedInput,
 	Stack,
 	Typography,
 } from '@mui/material';
-import DCAToggleGroup from './DCAToggleGroup';
 import { useContext, useState } from 'react';
 import { Web3Context } from '../../context/Web3Context';
 
 import { listaCantidad, listaDuracion, listaFrequencia } from './utils-dca';
 import ExplorerLink from '../explorer/ExplorerLink';
 import DCAManagerService from '../../application/DCAManagerService';
+import { DCASelectForm } from './DCASelectForm';
+import { DCAInputForm } from './DCAInputForm';
 
 const DCAFrom = () => {
 	const [cantidad, setCantidad] = useState(0);
@@ -69,37 +67,24 @@ const DCAFrom = () => {
 				<Typography variant='h6'>Cantidad periódica (DOC)</Typography>
 
 				<Stack direction={'column'} spacing={3}>
-					<FormControl fullWidth sx={{ m: 1 }}>
-						<OutlinedInput
-							id='outlined-adornment-amount'
-							startAdornment={
-								<InputAdornment position='start'>$</InputAdornment>
-							}
-							onChange={e => setCantidad(e.target.value)}
-							value={cantidad || ''}
-						/>
-					</FormControl>
-					<DCAToggleGroup
+					<DCAInputForm
+						value={cantidad}
 						listOfTogles={listaCantidad}
-						handlerSelect={setCantidad}
+						initValue={0}
+						onHandlerSelect={setCantidad}
+					/>
+					<DCASelectForm
+						label={'Frequencia'}
+						listOfTogles={listaFrequencia}
+						onHandlerSelect={setFrequencia}
 						initValue={0}
 					/>
-					<div>
-						<Typography variant='h6'>Frecuencia</Typography>
-						<DCAToggleGroup
-							listOfTogles={listaFrequencia}
-							handlerSelect={setFrequencia}
-							initValue={0}
-						/>
-					</div>
-					<div>
-						<Typography variant='h6'>Duración</Typography>
-						<DCAToggleGroup
-							listOfTogles={listaDuracion}
-							handlerSelect={setDuracion}
-							initValue={0}
-						/>
-					</div>
+					<DCASelectForm
+						label={'Duración'}
+						listOfTogles={listaDuracion}
+						onHandlerSelect={setDuracion}
+						initValue={0}
+					/>
 					<Divider />
 					<div>
 						<Typography variant='h5'>
