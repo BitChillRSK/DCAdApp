@@ -1,25 +1,13 @@
 import { useContext, useEffect } from 'react';
-import { Web3AuthNoModal } from '@web3auth/no-modal';
-import { EthereumPrivateKeyProvider } from '@web3auth/ethereum-provider';
-import {
-	CHAIN_NAMESPACES,
-	WALLET_ADAPTERS,
-	WEB3AUTH_NETWORK,
-} from '@web3auth/base';
-import { OpenloginAdapter } from '@web3auth/openlogin-adapter';
-import { MetamaskAdapter } from '@web3auth/metamask-adapter';
+import { WALLET_ADAPTERS } from '@web3auth/base';
 import { Web3Context } from '../../context/Web3Context';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, CardActions, Stack, Typography } from '@mui/material';
-
-const clientId = import.meta.env.VITE_CLIENT_ID;
-
-const URL_RPC = import.meta.env.VITE_URL_RPC;
-const CHAIN_ID = import.meta.env.VITE_CHAIN_ID;
-const DISPLAY_NAME = import.meta.env.VITE_DISPLAY_NAME;
-const TICKER = import.meta.env.VITE_TICKER;
-const TICKER_NAME = import.meta.env.VITE_TICKER_NAME;
-const URL_EXPLORER = import.meta.env.VITE_URL_EXPLORER;
+import {
+	loginAdapterConfig,
+	metamaskAdapterConfig,
+	web3AuthModalConfig,
+} from './loginConfig';
 
 function LoginWithoutModal() {
 	const navigateTo = useNavigate();
@@ -28,51 +16,16 @@ function LoginWithoutModal() {
 	useEffect(() => {
 		const init = async () => {
 			try {
-				const chainConfig = {
-					chainId: CHAIN_ID,
-					rpcTarget: URL_RPC,
-					chainNamespace: CHAIN_NAMESPACES.EIP155,
-					displayName: DISPLAY_NAME,
-					ticker: TICKER,
-					tickerName: TICKER_NAME,
-					blockExplorer: URL_EXPLORER,
-				};
-				const web3auth = new Web3AuthNoModal({
-					clientId,
-					chainConfig,
-					web3AuthNetwork: 'sapphire_devnet',
-				});
+				const web3auth = web3AuthModalConfig();
 
-				const privateKeyProvider = new EthereumPrivateKeyProvider({
-					config: { chainConfig },
-				});
-
-				const openloginAdapter = new OpenloginAdapter({
-					adapterSettings: {
-						whiteLabel: {
-							appName: 'Fuck Degens',
-							appUrl: 'https://fuck-degens.io',
-							defaultLanguage: 'en', // en, de, ja, ko, zh, es, fr, pt, nl
-							mode: 'auto', // whether to enable dark mode. defaultValue: false
-							theme: {
-								primary: '#768729',
-							},
-							useLogoLoader: true,
-						},
-					},
-					privateKeyProvider,
-				});
+				const openloginAdapter = loginAdapterConfig();
 				web3auth.configureAdapter(openloginAdapter);
 				setWeb3auth(web3auth);
 
 				/**
 				 * METAMASK
 				 */
-				const metamaskAdapter = new MetamaskAdapter({
-					clientId,
-					web3AuthNetwork: WEB3AUTH_NETWORK.TESTNET,
-					chainConfig,
-				});
+				const metamaskAdapter = metamaskAdapterConfig();
 				web3auth.configureAdapter(metamaskAdapter);
 
 				await web3auth.init();

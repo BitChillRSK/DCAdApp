@@ -56,7 +56,7 @@ export const loginAdapterConfig = () => {
 	return new OpenloginAdapter(loginAdapter);
 };
 
-export const metamasAdapterConfig = () => {
+export const metamaskAdapterConfig = () => {
 	return new MetamaskAdapter({
 		clientId,
 		web3AuthNetwork: WEB3AUTH_NETWORK.TESTNET,
