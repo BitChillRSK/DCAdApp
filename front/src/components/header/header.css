@@ -1,0 +1,18 @@
+.header_container {
+  margin-bottom: 50px;
+  margin-top: 25px;
+}
+
+.card {
+  width: 330px;
+  height: 80px;
+  border-radius: 20px;
+}
+
+.card_container {
+  height: 100%;
+}
+
+.icon_copy {
+  font-size: 15px;
+}
