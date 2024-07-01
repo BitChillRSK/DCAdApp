@@ -2,7 +2,10 @@ import { weiToUnit, unitToWei } from './EtherUtiles';
 import DCAManagerAdapter from './../infraestructura/DCAManagerAdapter';
 import TokenHandlerAdapter from '../infraestructura/TokenHandlerAdapter';
 import { getTokenInfo } from '../utils/tokenInfo';
-import { frecuenciaASegundos } from '../components/dca/utils-dca';
+import {
+	frecuenciaASegundos,
+	segundosAFrequencia,
+} from '../components/dca/utils-dca';
 
 class DCAManagerService {
 	constructor(provider) {
@@ -16,8 +19,9 @@ class DCAManagerService {
 		return dcasUser.map(dca => {
 			const tokenBalance = weiToUnit(dca.tokenBalance);
 			const purchaseAmount = weiToUnit(dca.purchaseAmount);
-			const purchasePeriod = weiToUnit(dca.purchasePeriod);
-			const duracion = tokenBalance / purchaseAmount / purchasePeriod;
+			const purchasePeriod = segundosAFrequencia(weiToUnit(dca.purchasePeriod));
+			const duracion =
+				Number(tokenBalance) / Number(purchaseAmount) / Number(purchasePeriod);
 			const lastPurchaseTimestamp = weiToUnit(dca.lastPurchaseTimestamp);
 
 			return {

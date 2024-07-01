@@ -5,5 +5,5 @@ export const ADDRESS = {
 };
 
 export const EVENTS = {
-	buyRBTC: 'TokenHandler__RbtcBought',
+	buyRBTC: 'RbtcBought',
 };

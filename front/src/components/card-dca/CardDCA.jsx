@@ -59,7 +59,7 @@ export const CardDCA = ({
 CardDCA.propTypes = {
 	tokenBalance: PropTypes.string,
 	purchaseAmount: PropTypes.string,
-	purchasePeriod: PropTypes.string,
+	purchasePeriod: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 	duracion: PropTypes.number,
 	lastPurchaseTimestamp: PropTypes.string,
 	onActivityClick: PropTypes.func.isRequired,

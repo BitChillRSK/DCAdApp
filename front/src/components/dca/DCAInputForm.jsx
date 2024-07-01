@@ -33,5 +33,5 @@ DCAInputForm.propTypes = {
 	onHandlerSelect: PropTypes.func,
 	initValue: PropTypes.number,
 	listOfTogles: PropTypes.array,
-	value: PropTypes.string,
+	value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 };
