@@ -1,4 +1,5 @@
 import EthereumAdapter from './../infraestructura/EthereumAdapter';
+import { getTokenInfo } from '../utils/tokenInfo';
 
 class EthereumService {
 	constructor(provider) {
@@ -17,10 +18,10 @@ class EthereumService {
 		};
 	}
 
-	async getTokenBalance(addressToken, abi) {
-		const account = await this.ethereumAdapter.getAccount();
+	async getTokenBalance(token, account) {
+		const { address, abi } = getTokenInfo(token);
 		const balance = await this.ethereumAdapter.getTokenBalance(
-			addressToken,
+			address,
 			abi,
 			account
 		);
