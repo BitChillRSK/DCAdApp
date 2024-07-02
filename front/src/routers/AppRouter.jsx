@@ -4,6 +4,7 @@ import Home from '../pages/Home';
 import PrivateRouter from './PrivateRouter';
 import Actividad from '../pages/Actividad';
 import { MyDCAs } from '../pages/MyDCAs';
+import Intercambio from '../pages/Intercambio';
 
 export default function AppRouter() {
 	return (
@@ -13,6 +14,7 @@ export default function AppRouter() {
 					<Route index element={<Home />} />
 					<Route path='actividad/:index' element={<Actividad />} />
 					<Route path='my-dcas' element={<MyDCAs />} />
+					<Route path='intercambio' element={<Intercambio />} />
 					<Route path='*' element={<Home />} />
 				</Route>
 				<Route path='/landing' element={<Landing />} />

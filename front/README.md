@@ -46,7 +46,7 @@ forge script script/DeployContracts.s.sol:DeployContracts --rpc-url  127.0.0.1:8
 npm run dev
 ```
 
-### FAUCEt
+## FAUCET
 
 Se ha creado un componente faucet para uso en local,
 si se quiere utilizar hay que incluir en el fichero **.env** la siguiente variable de entorno

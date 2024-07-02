@@ -20,6 +20,9 @@ export default function Menu() {
 			<Button component={Link} to='/my-dcas'>
 				<Typography sx={{ color: 'black' }}>My DCAs</Typography>
 			</Button>
+			<Button component={Link} to='/intercambio'>
+				<Typography sx={{ color: 'black' }}>Intercambio</Typography>
+			</Button>
 			<Logout />
 			{isLocal && <Faucet />}
 		</aside>
