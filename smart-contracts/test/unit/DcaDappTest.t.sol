@@ -97,7 +97,7 @@ contract DcaDappTest is Test {
         (adminOperations, docTokenHandler, dcaManager, helperConfig) = deployContracts.run();
         // console.log("Test contract", address(this));
 
-        (address docTokenAddress, address mocProxyAddress, address kDocTokenAddress) =
+        (address docTokenAddress, address mocProxyAddress, address kDocTokenAddress,) =
             helperConfig.activeNetworkConfig();
 
         mockDocToken = MockDocToken(docTokenAddress);

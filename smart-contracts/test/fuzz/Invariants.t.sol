@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
@@ -15,7 +15,6 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {Handler} from "./Handler.t.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import "../Constants.sol";
-
 
 contract InvariantTest is StdInvariant, Test {
     DcaManager dcaManager;
@@ -40,7 +39,8 @@ contract InvariantTest is StdInvariant, Test {
     function setUp() external {
         deployer = new DeployContracts();
         (adminOperations, docTokenHandler, dcaManager, helperConfig) = deployer.run();
-        (address docTokenAddress, address mocProxyAddress, address kDocTokenAddress) = helperConfig.activeNetworkConfig();
+        (address docTokenAddress, address mocProxyAddress, address kDocTokenAddress,) =
+            helperConfig.activeNetworkConfig();
         mockDocToken = MockDocToken(docTokenAddress);
         mockKdocToken = MockKdocToken(kDocTokenAddress);
 
@@ -88,7 +88,7 @@ contract InvariantTest is StdInvariant, Test {
 
     function invariant_kDocContractDocBalanceEqualsSumOfAllUsers() public {
         // get the total amount of DOC deposited in the kDOC contract
-        // compare it to the sum of all users' balances 
+        // compare it to the sum of all users' balances
         vm.prank(OWNER);
         address[] memory users = dcaManager.getUsers();
         uint256 sumOfUsersDepositedDoc;
@@ -107,8 +107,8 @@ contract InvariantTest is StdInvariant, Test {
         uint256 sumOfUsersKdoc;
         for (uint256 i; i < users.length; ++i) {
             sumOfUsersKdoc += docTokenHandler.getUsersKdocBalance(users[i]);
-        }        
-        assertEq(sumOfUsersDepositedDoc, sumOfUsersKdoc * 1E18 / mockKdocToken.exchangeRateStored()); 
+        }
+        assertEq(sumOfUsersDepositedDoc, sumOfUsersKdoc * 1e18 / mockKdocToken.exchangeRateStored());
         // console.log("Sum of users' DOC balances:", DepositedDoc);
         // console.log("DOC balance of the DOC token handler contract:", mockDocToken.balanceOf(address(docTokenHandler)));
     }
@@ -141,7 +141,7 @@ contract InvariantTest is StdInvariant, Test {
     //     rbtcDca.getUsers();
     //     rbtcDca.getTotalNumberOfDeposits();
     // }
-    
+
     function removeDuplicates(address[] memory arr) public pure returns (address[] memory) {
         uint256 length = arr.length;
         address[] memory result = new address[](length);

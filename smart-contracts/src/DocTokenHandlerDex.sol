@@ -49,12 +49,12 @@ contract DocTokenHandlerDex is TokenHandler, IDocTokenHandlerDex {
      */
     constructor(
         address dcaManagerAddress,
-        address docTokenAddress, // TODO: modify this to passing the interface
-        address kDocTokenAddress, // TODO: modify this to passing the interface
-        IWRBTC wrBtcToken,
+        address docTokenAddress,
+        address kDocTokenAddress,
+        address wrBtcTokenAddress,
         ISwapRouter02 swapRouter02,
         address[] memory swapIntermediateTokens,
-        uint24[] memory swappoolFeeRates,
+        uint24[] memory swapPoolFeeRates,
         ICoinPairPrice mocOracle,
         address feeCollector,
         uint256 minPurchaseAmount,
@@ -80,9 +80,9 @@ contract DocTokenHandlerDex is TokenHandler, IDocTokenHandlerDex {
         i_docToken = IERC20(docTokenAddress);
         i_kDocToken = IkDocToken(kDocTokenAddress);
         i_swapRouter02 = swapRouter02;
-        i_wrBtcToken = wrBtcToken;
+        i_wrBtcToken = IWRBTC(wrBtcTokenAddress);
         i_MocOracle = mocOracle;
-        setPurchasePath(swapIntermediateTokens, swappoolFeeRates);
+        setPurchasePath(swapIntermediateTokens, swapPoolFeeRates);
     }
 
     /*//////////////////////////////////////////////////////////////
