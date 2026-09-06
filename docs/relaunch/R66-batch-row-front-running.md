@@ -200,6 +200,9 @@ Every purchase-path revert now names its schedule, so that retry drops one row r
   should present the temporary retry block when a guarded user mutation is refused. Monitoring should
   ingest the activation event and new errors. Update the
   existing R64/R66 follow-up issues rather than opening duplicates. Final corrections:
-  [swapper-bot#7](https://github.com/BitChillRSK/swapper-bot/issues/7#issuecomment-5558374581),
-  [bitchill-monitoring#10](https://github.com/BitChillRSK/bitchill-monitoring/issues/10#issuecomment-5558375453),
-  and [front-end#24](https://github.com/BitChillRSK/front-end/issues/24#issuecomment-5558376270).
+  [swapper-bot#7](https://github.com/BitChillRSK/swapper-bot/issues/7#issuecomment-5558647498),
+  [bitchill-monitoring#10](https://github.com/BitChillRSK/bitchill-monitoring/issues/10#issuecomment-5558648893),
+  and [front-end#24](https://github.com/BitChillRSK/front-end/issues/24#issuecomment-5558649032).
+  The swapper bot carries the substantive change: with every stale-row revert naming its schedule, an
+  unprotected tick recovers by dropping that row and resubmitting, which is the retry the dormant
+  default relies on.
