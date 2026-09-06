@@ -1,6 +1,6 @@
 # R67 — Exact batch share accounting
 
-Status: **in progress** · Assigned: yes · Optional/further-review: no (approved 2026-09-06)
+Status: **in progress** · Assigned: yes · Optional/further-review: no (approved 2026-09-06) · PR: [#122](https://github.com/BitChillRSK/dca-contracts/pull/122)
 
 ## Objective
 
