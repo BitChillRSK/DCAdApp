@@ -121,6 +121,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R55 | 58 ([#113](https://github.com/BitChillRSK/dca-contracts/pull/113)) | none (measured; recommendation is keep stock solc, no IR) |
 | R60 | 59 (planned) | none (`via_ir` deploy profile; whole suite runs against shipped bytecode) |
 | R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
+| R69 | 69 (planned) | none (OZ IERC165; SafeERC20 approve on Dex; last-buyer batch rBTC dust) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 
@@ -963,6 +964,17 @@ floor or floor+1 underlying so Aave half-up maps back to the exact scaled burn. 
 `testSinglePurchase` / fee-free withdraw **+8,080** gas; 5-row `testBatchPurchasesOneUser`
 **+16,355**; harness `batchRetrieve` 1/10/200 rows 65,134 / 70,225 / 1,188,494.
 
+### R69 - token I/O consistency and batch rBTC dust ([spec](./R69-token-io-consistency-and-batch-dust.md))
+
+Pre-cutover housekeeping after R68. Three small gaps that should not ship: `OperationsAdmin` imports
+`IERC165` from forge-std while handlers advertise through OpenZeppelin; `PurchaseUniswap` is the only
+first-party path that uses Uniswap `TransferHelper.safeApprove` instead of `SafeERC20.forceApprove`
+(and that library is the only Uniswap code compiled into Dex leaves); and `batchBuyRbtc`'s floor
+pro-rata can leave up to `n − 1` wei of measured rBTC on the handler with no `s_usersAccumulatedRbtc`
+credit — stranded after R8 removed the owner rescue. Fix: one OZ IERC165 import, SafeERC20 on the Dex
+approve, last-buyer remainder so every measured wei is credited. Does not flatten handler inheritance,
+reopen licensing, or revive a rescue. Lands after R68 and before relaunch.
+
 ## Closed non-implementation decisions
 
 There is no optional-late queue. Items either have an ordered spec above or are closed here:
@@ -989,7 +1001,10 @@ the deployed Dex handlers, not merely an interface, so an MIT declaration over t
 best contested. Uniswap handle this on their own tree by shipping periphery as GPL-2.0-or-later and
 core as BUSL-1.1. `lib/v3-core` is BUSL-1.1 but nothing in `src/` imports it, so it is moot. The
 mechanism for a fix is per-file SPDX: the Uniswap-importing files take GPL-2.0-or-later, the rest
-take whatever question 2 settles.
+take whatever question 2 settles. **R69** ([spec](./R69-token-io-consistency-and-batch-dust.md))
+removes the compiled `TransferHelper` dependency in favour of `SafeERC20.forceApprove`; after that
+lands, only the router *interfaces* remain as GPL imports, which narrows but does not close this
+gap — question 2 and the SPDX on `PurchaseUniswap` / `IPurchaseUniswap` stay a human decision.
 
 **2. Which license.** Four realistic options. MIT (today) is maximally permissive with no patent
 grant. Apache-2.0 is permissive with an explicit patent grant and a trademark clause, and is
