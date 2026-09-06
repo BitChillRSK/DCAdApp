@@ -125,23 +125,37 @@ this denial-of-service response.
 
 ## Success criteria
 
-- [ ] Once activation is included and the bot refreshes its snapshot, no guarded owner mutation can
+- [x] Once activation is included and the bot refreshes its snapshot, no guarded owner mutation can
       invalidate the refreshed batch during the five-block window.
-- [ ] No authorized swapper can block guarded user mutations for more than five blocks in one UTC day.
-- [ ] The mechanism adds no storage write and no new branch to an ordinary purchase transaction.
-- [ ] No handler or purchase-route implementation changes.
-- [ ] The existing `Batch` and `IPurchaseRbtc` ABIs and absolute-minimum semantics are unchanged.
-- [ ] `make check`, `make fork-sovryn`, and `make fork-tropykus` pass.
+- [x] No authorized swapper can extend an active window or activate more than once in one UTC day.
+- [x] The mechanism adds no storage write and no lock branch to an ordinary purchase transaction.
+- [x] No handler or purchase-route implementation changes.
+- [x] The existing `Batch` and `IPurchaseRbtc` ABIs and absolute-minimum semantics are unchanged.
+- [x] `make check`, `make fork-sovryn`, and `make fork-tropykus` pass.
+
+## Validation record
+
+- `SWAP_TYPE=mocSwaps LENDING_PROTOCOL=sovryn STABLECOIN_TYPE=DOC forge test --match-path
+  test/unit/ProtectedPurchaseWindowTest.t.sol`: 8 passed.
+- `make check`: all unit/fuzz lanes passed (839 tests in the final reported lane set), then all 11
+  Sovryn invariants passed at 64 runs × 512 calls with zero reverts.
+- `make fork-sovryn`: 382 passed, 25 skipped.
+- `make fork-tropykus`: 375 passed, 29 skipped.
+- Default-profile `DcaManager` runtime is 14,086 B versus 13,487 B at the exact PR base: +599 B.
+- On the MoC/Sovryn test, `testSinglePurchase` is 248,755 gas versus 248,843 at base (−88), and the
+  five-row `testBatchPurchasesOneUser` is 1,790,707 versus 1,789,481 (+1,226, 0.069%). There is no
+  window read in either purchase entry; this tiny movement is compiler/dispatcher layout, not a
+  per-row lock cost. Activation writes its explicitly packed `uint96` window word once.
 
 ## Reviewer checklist
 
-- [ ] Matches **Scope**; nothing from **Out of scope**.
-- [ ] The guarded function list is exact: every mutation that can invalidate a prepared row is
+- [x] Matches **Scope**; nothing from **Out of scope**.
+- [x] The guarded function list is exact: every mutation that can invalidate a prepared row is
       covered, and unrelated exits are not.
-- [ ] The once-per-UTC-day rule prevents indefinite lock renewal by a swapper.
-- [ ] Protocol invariants in `AGENTS.md` still hold.
-- [ ] Files beyond this list are limited to direct dependencies and are named in the PR.
-- [ ] No unrelated refactors; history is reviewable.
+- [x] The once-per-UTC-day rule prevents indefinite lock renewal by a swapper.
+- [x] Protocol invariants in `AGENTS.md` still hold.
+- [x] Files beyond this list are limited to direct dependencies and are named in the PR.
+- [x] No unrelated refactors; history is reviewable.
 
 ## ABI / deploy / cutover impact
 
@@ -151,4 +165,7 @@ this denial-of-service response.
 - Cutover: the swapper bot gains an incident flow: activate, wait for inclusion, refresh/simulate, then
   purchase within the window. The frontend should present the temporary retry block when a guarded
   user mutation is refused. Monitoring should ingest the activation event and new errors. Update the
-  existing R64/R66 follow-up issues rather than opening duplicates.
+  existing R64/R66 follow-up issues rather than opening duplicates. Final corrections:
+  [swapper-bot#7](https://github.com/BitChillRSK/swapper-bot/issues/7#issuecomment-5558180376),
+  [bitchill-monitoring#10](https://github.com/BitChillRSK/bitchill-monitoring/issues/10#issuecomment-5558180478),
+  and [front-end#24](https://github.com/BitChillRSK/front-end/issues/24#issuecomment-5558180587).
