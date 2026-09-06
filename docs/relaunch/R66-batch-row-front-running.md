@@ -173,12 +173,17 @@ Every purchase-path revert now names its schedule, so that retry drops one row r
 - On the MoC/Sovryn test, `testSinglePurchase` is 248,667 gas versus 248,843 at base (−176), and the
   five-row `testBatchPurchasesOneUser` is 1,789,828 versus 1,789,481 (+347, 0.019%). There is no
   window read in either purchase entry; this tiny movement is compiler/dispatcher layout, not a
-  per-row lock cost. Activation writes two adjacent state variables (packed into one slot by ordinary
-  storage layout, with no manual bit math) once. Guarded user calls do pay one permanent cold read:
-  the MoC/Sovryn sentinel `withdrawToken` fixture (`test_sentinelWithdrawsTheWholeScheduleBalance`) is
-  105,008 gas versus 103,219 at base (+1,789, 1.73%), and `withdrawTokenAndInterest`
-  (`test_withdrawTokenAndInterestWithTheSentinelExitsThePosition`) is 158,953 versus 157,216
-  (+1,737, 1.10%) — both deltas track the same single added cold `SLOAD`.
+  per-row lock cost. Activation writes two adjacent state variables, packed into one slot by ordinary
+  storage layout with no manual bit math; that is two read-modify-writes of one warm slot rather than
+  the single word the earlier `uint96` wrote, worth +131 gas on activation. Guarded user calls do pay
+  one permanent cold read: in the `mocSwaps`/`sovryn`/`DOC` lane the sentinel `withdrawToken` fixture
+  (`test_sentinelWithdrawsTheWholeScheduleBalance`) is 108,608 gas versus 106,888 at base (+1,720,
+  1.61%), and `withdrawTokenAndInterest` (`test_withdrawTokenAndInterestWithTheSentinelExitsThePosition`)
+  is 176,615 versus 174,575 (+2,040, 1.17%) — both deltas track the same single added cold `SLOAD`.
+  A *refused* guarded call is cheaper than it would otherwise be: `whenUserMutationsAllowed` precedes
+  `nonReentrant` on the seven guarded mutations, so a refusal reverts before the guard's `SSTORE` and
+  costs the caller ~5,100 gas less. That ordering is safe because the check is a private view over one
+  slot; `AGENTS.md` invariant 6 is presence, not position.
 
 ## Reviewer checklist
 

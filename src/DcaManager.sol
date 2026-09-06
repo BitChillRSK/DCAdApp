@@ -16,9 +16,13 @@ import {IPurchaseRbtc} from "src/interfaces/IPurchaseRbtc.sol";
  * @notice Stores every DCA schedule and routes user and swapper calls to the handler that holds the
  *         funds they name.
  * @dev `s_dcaSchedules` is written only in this contract, and every external function that writes it
- *      takes `nonReentrant` as its first modifier, so the guard is checkable by grep rather than by
- *      reading each function. The two `onlySwapper` purchase paths are the deliberate exception: each
- *      is CEI-clean per handler, and only an allowlisted swapper reaches them. A swapper may also open
+ *      carries `nonReentrant`, so the guard is checkable by grep rather than by reading each function.
+ *      It is the first modifier everywhere except behind `whenUserMutationsAllowed`, which precedes it
+ *      on the seven guarded mutations: that check is a private view over one slot, so refusing there
+ *      cannot re-enter anything, and refusing before the guard's `SSTORE` saves the caller ~5,100 gas
+ *      on a refused call. Presence, not position, is the invariant. The two `onlySwapper` purchase
+ *      paths are the deliberate exception to presence: each is CEI-clean per handler, and only an
+ *      allowlisted swapper reaches them. A swapper may also open
  *      one five-block protected purchase window per UTC day; it temporarily blocks only the user
  *      mutations that can invalidate a batch refreshed after activation, and expires without an
  *      administrator call.
