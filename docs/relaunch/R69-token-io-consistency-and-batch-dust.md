@@ -289,11 +289,9 @@ is material enough to want the shipping profile in the PR record.
 ## ABI / deploy / cutover impact
 
 - ABI: none. No selector, event, error, or mutability change. `public` → `external` on an
-      already-external interface method does not change the ABI JSON. Behavior change is internal
-      credit conservation only (last buyer may receive up to `n − 1` extra wei of rBTC per batch vs
-      today).
+      already-external interface method does not change the ABI JSON. With the last-row remainder
+      reverted, the allocation loop is unchanged against `main`: both sides still floor, and per-row
+      figures can still sum up to one wei per row below the batch total.
 - Scripts: none.
-- Cutover: none expected. No consumer ABI change. If monitoring ever asserted that per-buyer rBTC
-  event amounts sum to less than the batch total, update that assertion — check
-  `bitchill-monitoring` before closing the implementation PR and comment on the existing R68/R67
-  thread if needed rather than opening a duplicate issue.
+- Cutover: none. No consumer ABI or event-field change. Monitoring already sees floor truncation on
+  both `rBtcBought` and `amountSpent`; do not invite an exact-equality reconciliation on either.
