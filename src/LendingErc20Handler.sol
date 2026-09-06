@@ -8,7 +8,6 @@ import {TokenLending} from "src/TokenLending.sol";
 import {StablecoinSource} from "src/StablecoinSource.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title LendingErc20Handler
@@ -208,6 +207,9 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
 
     /**
      * @dev Retrieve several users' stablecoin in one protocol redemption.
+     *      Each row uses the same ceil(stablecoin → shares) as a single redeem; the protocol
+     *      burn is exactly the sum of those debits so virtual books and the lending position
+     *      stay aligned (an aggregate-then-pro-rata ceil can debit more shares than it burns).
      */
     function _batchRetrieveStablecoin(
         address[] memory users,
@@ -215,18 +217,17 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
         uint256 totalStablecoinAmount
     ) internal virtual override returns (uint256) {
         uint256 exchangeRate = _exchangeRate();
-        uint256 totalSharesToRedeem = _stablecoinToShares(totalStablecoinAmount, exchangeRate);
+        uint256 totalSharesToRedeem;
 
         uint256 numOfPurchases = users.length;
         for (uint256 i; i < numOfPurchases; ++i) {
-            // round up so we never underestimate the debit against this user
-            uint256 usersSharesToRedeem =
-                Math.mulDiv(totalSharesToRedeem, purchaseAmounts[i], totalStablecoinAmount, Math.Rounding.Ceil);
+            uint256 usersSharesToRedeem = _stablecoinToShares(purchaseAmounts[i], exchangeRate);
             uint256 usersShares = s_shares[users[i]];
             if (usersSharesToRedeem > usersShares) {
                 revert TokenLending__InsufficientShares(users[i], usersSharesToRedeem, usersShares);
             }
             _setUserShares(users[i], usersShares - usersSharesToRedeem);
+            totalSharesToRedeem += usersSharesToRedeem;
             emit TokenLending__SharesRedeemed(users[i], purchaseAmounts[i], usersSharesToRedeem);
         }
         uint256 stablecoinReceived = _measuredProtocolRedeem(totalSharesToRedeem, exchangeRate);
