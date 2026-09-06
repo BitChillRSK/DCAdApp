@@ -176,9 +176,9 @@ hostile edits), it may reopen after expiry without waiting for a UTC-day rollove
 - On the MoC/Sovryn test, `testSinglePurchase` is 248,667 gas versus 248,843 at base (−176), and the
   five-row `testBatchPurchasesOneUser` is 1,789,828 versus 1,789,481 (+347, 0.019%). There is no
   window read in either purchase entry; this tiny movement is compiler/dispatcher layout, not a
-  per-row lock cost. Activation writes two adjacent state variables, packed into one slot by ordinary
-  storage layout with no manual bit math; that is two read-modify-writes of one warm slot rather than
-  the single word the earlier `uint96` wrote, worth +131 gas on activation. Guarded user calls do pay
+  per-row lock cost. With the day marker gone, activation writes one `uint64` in one slot, with no
+  manual bit math and no second field to merge; the activation fixture is 47,580 gas, down from
+  48,328 with the daily budget. Guarded user calls do pay
   one permanent cold read: in the `mocSwaps`/`sovryn`/`DOC` lane the sentinel `withdrawToken` fixture
   (`test_sentinelWithdrawsTheWholeScheduleBalance`) is 108,608 gas versus 106,888 at base (+1,720,
   1.61%), and `withdrawTokenAndInterest` (`test_withdrawTokenAndInterestWithTheSentinelExitsThePosition`)
