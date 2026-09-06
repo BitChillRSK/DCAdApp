@@ -318,19 +318,18 @@ contract InvariantTest is StdInvariant, Test {
         console2.log("Total lending balances (kTokens):", totalLendingBalances);
     }
     
-    /**
-     * @notice Handler's rBTC balance should be reasonable and non-negative
-     * @dev Simplified rBTC invariant - handler maintains proper rBTC balance
-     */
-    function invariant_rbtcBalancesConsistent() public {
-        uint256 handlerRbtcBalance = address(handler).balance;
-        
-        // Basic invariant: handler should have reasonable rBTC balance 
-        assertGe(handlerRbtcBalance, 0);
-        
-        console2.log("Handler rBTC balance:", handlerRbtcBalance);
-    }
-    
+    // No rBTC invariant lives here, deliberately. The handlers this suite targets are the wrappers at
+    // the bottom of this file: they reimplement `batchBuyRbtc` to credit each row directly, so
+    // `PurchaseRbtc`'s allocation never executes and its conservation cannot be observed. They also
+    // credit books without the fixture moving matching cash — `buyRbtcOneSchedule` provisions from its
+    // own 0.03-rBTC-per-token estimate, not from what the wrapper credits — so even plain solvency is
+    // false here by construction, at roughly 2x books to balance. Both properties are pinned against
+    // the real contract in `PurchaseRbtcConservationInvariantTest`.
+    //
+    // What stood here was `invariant_rbtcBalancesConsistent`: `assertGe(address(handler).balance, 0)`
+    // on a `uint256`. It was removed rather than repaired because no execution could fail it, and
+    // nothing this fixture can honestly say about rBTC replaces it.
+
     /**
      * @notice User balances should never be negative or exceed reasonable bounds
      */

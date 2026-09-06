@@ -52,10 +52,17 @@ interface IPurchaseRbtc {
      * @param minRbtcOut Minimum rBTC this batch as a whole must buy, in rBTC/WRBTC wei (18 decimals)
      *        whatever the stablecoin's decimals. `0` disables this check.
      * @dev Called only by DcaManager after it has debited each schedule. Fees are aggregated and
-     *      transferred once. Each buyer before the last is credited a floor share of the measured rBTC
-     *      (and of the net stablecoin reported in `RbtcBought`) by planned-net weight; the last buyer
-     *      receives any leftover so every measured rBTC wei is attributed to someone's books — there is
-     *      no owner sweep of that residue. `minRbtcOut` is compared against the rBTC this handler
+     *      transferred once. Each row before the last is credited a floor share of the measured rBTC by
+     *      planned-net weight, and the last row is credited that measured total minus the floors already
+     *      handed out, so a batch's credits sum to exactly the rBTC its venue leg measured. Withdrawals
+     *      pay from those books and there is no owner sweep, so an uncredited remainder would have no
+     *      exit; that is why the last row takes it. Which row is last is the caller's batch order and
+     *      carries no entitlement — the remainder is under one wei per row. The `amountSpent` reported
+     *      in `RbtcBought` keeps the plain floor on every row, the last included: that stablecoin has
+     *      already left for the venue, so the figure is a report rather than a claim on anything held,
+     *      and the per-row figures can sum a few wei below the batch total. This says nothing about the
+     *      handler's own rBTC or WRBTC balance, which is not bounded by these books: the contract
+     *      accepts native rBTC from anyone. `minRbtcOut` is compared against the rBTC this handler
      *      measures itself receiving, so it applies to every purchase venue and never trusts an
      *      integrator return value. Where the venue applies a floor of its own — `PurchaseUniswap` does,
      *      `PurchaseMoc` does not — that floor is enforced independently and the stricter of the two
