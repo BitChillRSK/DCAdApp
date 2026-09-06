@@ -8,12 +8,11 @@ import {TokenLending} from "src/TokenLending.sol";
 import {StablecoinSource} from "src/StablecoinSource.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title LendingErc20Handler
  * @author BitChill team: Antonio Rodríguez-Ynyesto
- * @notice Shared per-user share accounting, withdraw clamp, interest, and batch pro-rata
+ * @notice Shared per-user share accounting, withdraw clamp, interest, and exact-sum batch
  *         redeem for lending handlers. Protocol adapters implement the exchange-rate and
  *         mint/redeem hooks.
  */
@@ -70,7 +69,8 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
         }
         uint256 mintedAmount = _protocolDeposit(depositAmount);
         if (mintedAmount == 0) revert TokenLending__LendingProtocolDepositFailed();
-        _setUserShares(user, s_shares[user] + mintedAmount);
+        uint256 previousShares = s_shares[user];
+        _setUserShares(user, previousShares, previousShares + mintedAmount);
     }
 
     /**
@@ -168,13 +168,6 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
     }
 
     /**
-     * @dev Retrieve the user's stablecoin by redeeming shares.
-     */
-    function _retrieveStablecoin(address user, uint256 stablecoinAmount) internal virtual override returns (uint256) {
-        return _redeemShares(user, stablecoinAmount, _exchangeRate());
-    }
-
-    /**
      * @dev Redeem shares for stablecoin, sized by the share count this contract debits.
      *      Clamp to this user's book, never the handler's pooled balance: schedule accounting can
      *      sit ahead of share-backed underlying, and purchases have no outer withdraw clamp.
@@ -198,7 +191,7 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
         if (sharesToRedeem == 0) {
             return 0;
         }
-        _setUserShares(user, usersShares - sharesToRedeem);
+        _setUserShares(user, usersShares, usersShares - sharesToRedeem);
         stablecoinReceived = _measuredProtocolRedeem(sharesToRedeem, exchangeRate);
         if (stablecoinReceived == 0) {
             revert TokenLending__ZeroStablecoinReceived(stablecoinAmount);
@@ -208,31 +201,40 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
 
     /**
      * @dev Retrieve several users' stablecoin in one protocol redemption.
+     *      Each row uses the same ceil(stablecoin → shares) as a single redeem; the protocol
+     *      burn is exactly the sum of those debits so virtual books and the lending position
+     *      stay aligned (an aggregate-then-pro-rata ceil can debit more shares than it burns).
+     *      Shortfalls revert rather than clamp: PurchaseRbtc still allocates by the planned
+     *      weights, so clamping one row would dilute every other buyer in the batch.
      */
     function _batchRetrieveStablecoin(
         address[] memory users,
-        uint256[] memory purchaseAmounts,
-        uint256 totalStablecoinAmount
+        uint256[] memory purchaseAmounts
     ) internal virtual override returns (uint256) {
         uint256 exchangeRate = _exchangeRate();
-        uint256 totalSharesToRedeem = _stablecoinToShares(totalStablecoinAmount, exchangeRate);
+        uint256 totalSharesToRedeem;
 
         uint256 numOfPurchases = users.length;
         for (uint256 i; i < numOfPurchases; ++i) {
-            // round up so we never underestimate the debit against this user
-            uint256 usersSharesToRedeem =
-                Math.mulDiv(totalSharesToRedeem, purchaseAmounts[i], totalStablecoinAmount, Math.Rounding.Ceil);
+            uint256 usersSharesToRedeem = _stablecoinToShares(purchaseAmounts[i], exchangeRate);
             uint256 usersShares = s_shares[users[i]];
             if (usersSharesToRedeem > usersShares) {
                 revert TokenLending__InsufficientShares(users[i], usersSharesToRedeem, usersShares);
             }
-            _setUserShares(users[i], usersShares - usersSharesToRedeem);
+            _setUserShares(users[i], usersShares, usersShares - usersSharesToRedeem);
+            totalSharesToRedeem += usersSharesToRedeem;
             emit TokenLending__SharesRedeemed(users[i], purchaseAmounts[i], usersSharesToRedeem);
         }
         uint256 stablecoinReceived = _measuredProtocolRedeem(totalSharesToRedeem, exchangeRate);
-        if (stablecoinReceived > 0) emit TokenLending__SharesRedeemedBatch(stablecoinReceived, totalSharesToRedeem);
-        else revert TokenLending__ZeroStablecoinReceived(totalStablecoinAmount);
-        return stablecoinReceived;
+        if (stablecoinReceived > 0) {
+            emit TokenLending__SharesRedeemedBatch(stablecoinReceived, totalSharesToRedeem);
+            return stablecoinReceived;
+        }
+        uint256 requested;
+        for (uint256 i; i < numOfPurchases; ++i) {
+            requested += purchaseAmounts[i];
+        }
+        revert TokenLending__ZeroStablecoinReceived(requested);
     }
 
     /**
@@ -292,9 +294,9 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
     /**
      * @dev Write the user's virtual share balance and emit the canonical transition.
      *      No log when the balance is unchanged, so a zero-share debit is silent.
+     *      Callers pass the already-loaded `previousShares` to avoid a second SLOAD.
      */
-    function _setUserShares(address user, uint256 newShares) private {
-        uint256 previousShares = s_shares[user];
+    function _setUserShares(address user, uint256 previousShares, uint256 newShares) private {
         s_shares[user] = newShares;
         if (previousShares != newShares) {
             emit TokenLending__UserSharesUpdated(user, previousShares, newShares);

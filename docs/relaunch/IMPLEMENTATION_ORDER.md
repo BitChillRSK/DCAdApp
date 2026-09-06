@@ -938,13 +938,12 @@ the bot must wait for activation inclusion and then refresh or simulate before p
 window cannot be extended; after expiry the swapper may activate again with no daily budget. Existing
 batch calldata, absolute min-out, handler behavior, and all-or-nothing semantics stay unchanged.
 
-### R67 - exact batch share accounting ([spec](./R67-exact-batch-share-accounting.md), optional and unassigned)
+### R67 - exact batch share accounting ([spec](./R67-exact-batch-share-accounting.md))
 
-Later measurement and product decision only. Lending batches currently round one aggregate share
-redemption, then round each row's pro-rata debit up, so the virtual shares removed from users may
-exceed the protocol shares redeemed by bounded dust. Do not implement without a fresh `Start with
-R67` decision. If approved, preserve the insufficient-share revert; do not revive R66's discarded
-row-skipping or handler-return redesign.
+Approved 2026-09-06. Lending batches debit each row with the same `ceil(stablecoin → shares)`
+as a single redeem and burn exactly that sum, so virtual books never orphan shares the
+protocol did not redeem. Preserves the insufficient-share revert; does not revive R66's
+discarded row-skipping or handler-return redesign.
 
 ## Closed non-implementation decisions
 

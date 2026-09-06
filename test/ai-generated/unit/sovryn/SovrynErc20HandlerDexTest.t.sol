@@ -484,7 +484,7 @@ contract SovrynErc20HandlerDexTest is HandlerTestHarness {
     
     /**
      * @notice Test that batchBuyRbtc funds the purchase by redeeming the buyer's lending shares
-     * @dev Covers the shared PurchaseRbtc pipeline resolving _retrieveStablecoin to LendingErc20Handler
+     * @dev Covers the shared PurchaseRbtc pipeline resolving _batchRetrieveStablecoin to LendingErc20Handler
      */
     function test_sovrynDex_lengthOneBatchRedeemsSharesForPurchase() public {
         // Setup: User deposits tokens first
@@ -498,7 +498,7 @@ contract SovrynErc20HandlerDexTest is HandlerTestHarness {
         uint256 purchaseAmount = 100 ether;
         uint64 mockScheduleId = 1;
         
-        // Call batchBuyRbtc, which redeems shares through _retrieveStablecoin
+        // Call batchBuyRbtc, which redeems shares through _batchRetrieveStablecoin
         vm.prank(address(dcaManager));
         handlerBatchBuyOne(IPurchaseRbtc(address(sovrynDexHandler)), USER, mockScheduleId, purchaseAmount);
         

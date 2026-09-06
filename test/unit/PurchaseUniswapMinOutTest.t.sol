@@ -380,18 +380,16 @@ contract MinOutHarness is PurchaseTokenBase, PurchaseUniswap {
         return IERC20(address(i_token));
     }
 
-    function _retrieveStablecoin(address, uint256) internal pure override returns (uint256) {
-        return 0;
-    }
-
     /// @dev The stablecoin is minted straight to the harness, so a batch "retrieves" exactly what it asked for.
-    function _batchRetrieveStablecoin(address[] memory, uint256[] memory, uint256 totalStablecoinToRetrieve)
+    function _batchRetrieveStablecoin(address[] memory, uint256[] memory purchaseAmounts)
         internal
         pure
         override
-        returns (uint256)
+        returns (uint256 total)
     {
-        return totalStablecoinToRetrieve;
+        for (uint256 i; i < purchaseAmounts.length; ++i) {
+            total += purchaseAmounts[i];
+        }
     }
 }
 

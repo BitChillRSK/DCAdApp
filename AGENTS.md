@@ -30,7 +30,7 @@ OperationsAdmin     roles; token × lending-index → handler
 FeeHandler          fee math (inherited by TokenHandler and PurchaseRbtc)
 TokenHandler        deposit/withdraw stablecoin (owns FeeHandler)
 TokenLending        share ↔ underlying conversion (no TokenHandler inherit)
-LendingErc20Handler TokenHandler + TokenLending; per-user shares, withdraw clamp, interest, batch pro-rata
+LendingErc20Handler TokenHandler + TokenLending; per-user shares, withdraw clamp, interest, exact-sum batch redeem
 StablecoinSource    funding-hook + _purchaseToken declarations (PurchaseRbtc consumes; lending/idle implement)
 PurchaseRbtc        shared buy/batch pipeline; accumulated rBTC; withdraw to signer
 PurchaseMoc         MoC redeem DOC → rBTC (_purchaseRbtc only)

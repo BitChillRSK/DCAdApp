@@ -363,7 +363,7 @@ contract TropykusErc20HandlerTest is HandlerTestHarness {
                 ITokenLending.TokenLending__InsufficientShares.selector, user1, requested, available
             )
         );
-        tropykusHandler.testBatchRetrieveStablecoin(users, amounts, excessiveAmount);
+        tropykusHandler.testBatchRetrieveStablecoin(users, amounts);
     }
 
     function test_tropykus_batchRetrieveStablecoin_zeroPayout_reverts() public {
@@ -388,7 +388,7 @@ contract TropykusErc20HandlerTest is HandlerTestHarness {
         vm.expectRevert(
             abi.encodeWithSelector(ITokenLending.TokenLending__ZeroStablecoinReceived.selector, amounts[0])
         );
-        tropykusHandler.testBatchRetrieveStablecoin(users, amounts, amounts[0]);
+        tropykusHandler.testBatchRetrieveStablecoin(users, amounts);
 
         assertEq(tropykusHandler.getUserShares(user1), kTokenBalanceBefore);
     }
@@ -418,9 +418,8 @@ contract TropykusTestHandler is TropykusErc20Handler {
     
     function testBatchRetrieveStablecoin(
         address[] memory users,
-        uint256[] memory purchaseAmounts,
-        uint256 totalStablecoinAmount
+        uint256[] memory purchaseAmounts
     ) external returns (uint256) {
-        return _batchRetrieveStablecoin(users, purchaseAmounts, totalStablecoinAmount);
+        return _batchRetrieveStablecoin(users, purchaseAmounts);
     }
 } 

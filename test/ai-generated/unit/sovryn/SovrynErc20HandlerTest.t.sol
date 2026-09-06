@@ -300,7 +300,7 @@ contract SovrynErc20HandlerTest is HandlerTestHarness {
         // Call _batchRetrieveStablecoin through the test handler
         uint256 totalToRetrieve = amounts[0] + amounts[1];
         
-        uint256 retrieved = sovrynHandler.testBatchRetrieveStablecoin(users, amounts, totalToRetrieve);
+        uint256 retrieved = sovrynHandler.testBatchRetrieveStablecoin(users, amounts);
         
         // Verify the batch redemption worked
         assertGt(retrieved, 0);
@@ -350,7 +350,7 @@ contract SovrynErc20HandlerTest is HandlerTestHarness {
                 ITokenLending.TokenLending__InsufficientShares.selector, user1, requested, available
             )
         );
-        sovrynHandler.testBatchRetrieveStablecoin(users, amounts, excessiveAmount);
+        sovrynHandler.testBatchRetrieveStablecoin(users, amounts);
     }
 
     /**
@@ -404,9 +404,8 @@ contract SovrynTestHandler is SovrynErc20Handler {
      */
     function testBatchRetrieveStablecoin(
         address[] memory users,
-        uint256[] memory purchaseAmounts,
-        uint256 totalStablecoinAmount
+        uint256[] memory purchaseAmounts
     ) external returns (uint256) {
-        return _batchRetrieveStablecoin(users, purchaseAmounts, totalStablecoinAmount);
+        return _batchRetrieveStablecoin(users, purchaseAmounts);
     }
 } 
