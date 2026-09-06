@@ -61,9 +61,10 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     mapping(address user => mapping(address token => uint64[] scheduleIds)) private s_scheduleIds;
 
     ProtocolSettings private s_protocolSettings;
-    /// @dev One-write layout: low 64 bits are the block at which mutations resume; high 32 bits are
-    ///      the latest UTC day plus one, leaving zero as the never-activated sentinel on day zero.
-    uint96 private s_protectedPurchaseWindow;
+    /// @dev Adjacent sub-word fields share one storage slot without manual packing. Zero is the
+    ///      never-activated sentinel: day zero is never a valid "latest UTC day plus one".
+    uint64 private s_userMutationsAllowedFromBlock;
+    uint32 private s_protectedWindowDayMarker;
     mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Custom minimum purchase amounts per token
 
     /*//////////////////////////////////////////////////////////////
@@ -148,8 +149,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     function updatePurchaseAmount(address token, uint64 scheduleId, uint256 newPurchaseAmount)
         external
         override
-        nonReentrant
         whenUserMutationsAllowed
+        nonReentrant
     {
         DcaSchedule storage dcaSchedule = _callersSchedule(token, scheduleId);
         uint96 newAmount = newPurchaseAmount.toUint96();
@@ -165,8 +166,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     function updatePurchasePeriod(address token, uint64 scheduleId, uint256 newPurchasePeriod)
         external
         override
-        nonReentrant
         whenUserMutationsAllowed
+        nonReentrant
     {
         DcaSchedule storage dcaSchedule = _callersSchedule(token, scheduleId);
         _validatePurchasePeriod(newPurchasePeriod);
@@ -181,8 +182,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     function setSchedulePaused(address token, uint64 scheduleId, bool paused)
         external
         override
-        nonReentrant
         whenUserMutationsAllowed
+        nonReentrant
     {
         DcaSchedule storage dcaSchedule = _callersSchedule(token, scheduleId);
         if (dcaSchedule.paused == paused) return;
@@ -254,8 +255,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     function deleteDcaSchedule(address token, uint64 scheduleId)
         external
         override
-        nonReentrant
         whenUserMutationsAllowed
+        nonReentrant
     {
         DcaSchedule storage dcaSchedule = _callersSchedule(token, scheduleId);
 
@@ -283,8 +284,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     function withdrawToken(address token, uint64 scheduleId, uint256 withdrawalAmount)
         external
         override
-        nonReentrant
         whenUserMutationsAllowed
+        nonReentrant
     {
         _withdrawToken(token, scheduleId, withdrawalAmount);
     }
@@ -295,18 +296,18 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     function activateProtectedPurchaseWindow() external override onlySwapper {
         uint256 utcDay = block.timestamp / 1 days;
         uint32 dayMarker = (utcDay + 1).toUint32();
-        uint96 protectedPurchaseWindow = s_protectedPurchaseWindow;
-        if (uint32(protectedPurchaseWindow >> 64) == dayMarker) {
+        if (s_protectedWindowDayMarker == dayMarker) {
             revert DcaManager__ProtectedPurchaseWindowAlreadyActivated(utcDay);
         }
 
-        uint256 currentUserMutationsAllowedFromBlock = uint64(protectedPurchaseWindow);
+        uint256 currentUserMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
         if (block.number < currentUserMutationsAllowedFromBlock) {
             revert DcaManager__ProtectedPurchaseWindowStillActive(currentUserMutationsAllowedFromBlock);
         }
 
         uint64 userMutationsAllowedFromBlock = (block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS).toUint64();
-        s_protectedPurchaseWindow = uint96(userMutationsAllowedFromBlock) | (uint96(dayMarker) << 64);
+        s_userMutationsAllowedFromBlock = userMutationsAllowedFromBlock;
+        s_protectedWindowDayMarker = dayMarker;
         emit DcaManager__ProtectedPurchaseWindowActivated(msg.sender, userMutationsAllowedFromBlock);
     }
 
@@ -357,8 +358,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     function withdrawTokenAndInterest(address token, uint64 scheduleId, uint256 withdrawalAmount)
         external
         override
-        nonReentrant
         whenUserMutationsAllowed
+        nonReentrant
     {
         uint256 routeIndex = _withdrawToken(token, scheduleId, withdrawalAmount);
         _checkTokenYieldsInterest(token, routeIndex);
@@ -405,8 +406,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     function withdrawAllAccumulatedInterest(address[] calldata tokens, uint256[] calldata routeIndexes)
         external
         override
-        nonReentrant
         whenUserMutationsAllowed
+        nonReentrant
     {
         uint256 numOfPairs = _requirePairedWithdrawalArrays(tokens, routeIndexes);
         for (uint256 i; i < numOfPairs; ++i) {
@@ -497,16 +498,15 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
      * @inheritdoc IDcaManager
      */
     function getUserMutationsAllowedFromBlock() external view override returns (uint256) {
-        return uint64(s_protectedPurchaseWindow);
+        return s_userMutationsAllowedFromBlock;
     }
 
     /**
      * @inheritdoc IDcaManager
      */
     function canActivateProtectedPurchaseWindow() external view override returns (bool) {
-        uint96 protectedPurchaseWindow = s_protectedPurchaseWindow;
-        return block.number >= uint64(protectedPurchaseWindow)
-            && uint256(uint32(protectedPurchaseWindow >> 64)) != block.timestamp / 1 days + 1;
+        return block.number >= s_userMutationsAllowedFromBlock
+            && uint256(s_protectedWindowDayMarker) != block.timestamp / 1 days + 1;
     }
 
     /**
@@ -578,10 +578,10 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Read the shared window once rather than inlining its check into every guarded entry point.
+     * @dev Shared so the check lives in one place rather than inlined into every guarded entry point.
      */
     function _requireUserMutationsAllowed() private view {
-        uint256 userMutationsAllowedFromBlock = uint64(s_protectedPurchaseWindow);
+        uint256 userMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
         if (block.number < userMutationsAllowedFromBlock) {
             revert DcaManager__UserMutationsLocked(userMutationsAllowedFromBlock);
         }
