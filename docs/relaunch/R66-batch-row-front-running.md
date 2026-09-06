@@ -93,6 +93,10 @@ this denial-of-service response.
 - [x] Add public getters for the unlock block and current activation eligibility, an activation event,
       and distinct custom errors for the window and its once-per-day limit. Index only the activating
       swapper address.
+- [x] Name the row in `DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed`, the one purchase-path
+      revert that did not, so an unprotected tick can drop the offending schedule and retry rather
+      than rebuild. This is what makes retry-on-failure — not activation before every tick — the
+      correct default.
 - [x] Update the durable invariant and consumer follow-ups for the new public surface.
 
 ## Out of scope
@@ -132,6 +136,18 @@ this denial-of-service response.
 - Existing absolute-minimum behavior and batch ABI remain unchanged.
 - Fork tests add no R66-specific assertions, but `make fork-sovryn` and `make fork-tropykus` remain the
   before-push gate.
+
+### Why the default is retry, not activate-every-tick
+
+The once-per-day budget is one tick's worth, and eligibility is day-granular, so a bot *could* open a
+window before every tick and cover benign same-block edits too. That is deliberately not the default.
+Activating turns each daily tick into two sequential transactions with a mandatory wait-for-receipt
+and refresh between them — permanent machinery in the critical path, plus a failure mode where the
+activation lands, the purchase does not, and the day's budget is spent mid-flow — and it freezes every
+user's exits for five blocks a day. The failure it would prevent is self-healing: eligibility is
+day-granular, so a retry hours later costs no user a purchase. A rare, cheap, recoverable revert is
+the better trade against a permanent operational tax, so the window stays dormant and the bot retries.
+Every purchase-path revert now names its schedule, so that retry drops one row rather than rebuilding.
 
 ## Success criteria
 
@@ -173,8 +189,11 @@ this denial-of-service response.
 ## ABI / deploy / cutover impact
 
 - ABI: adds `activateProtectedPurchaseWindow()`, protected-window unlock and eligibility getters, one
-  activation event, and three custom errors. Existing selectors, structs, events, and parameter
-  meanings are unchanged.
+  activation event, and three custom errors. One existing error signature changes:
+  `DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(uint256 timeRemaining)` becomes
+  `(address token, uint64 scheduleId, uint256 timeRemaining)`, matching the four other purchase-path
+  reverts that already name the row. Every other selector, struct, event, and parameter meaning is
+  unchanged.
 - Scripts: none.
 - Cutover: the swapper bot gains an incident flow: activate, wait for inclusion, refresh/simulate, then
   purchase within the window. The bot can preflight today's activation eligibility. The frontend

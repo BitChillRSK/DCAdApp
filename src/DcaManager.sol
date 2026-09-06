@@ -760,7 +760,9 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
             uint256 nextDueTimestamp = lastPurchaseTimestamp + purchasePeriod;
             uint256 nextPurchaseDayStart = nextDueTimestamp - (nextDueTimestamp % 1 days);
             if (currentDayStart < nextPurchaseDayStart) {
-                revert DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(nextPurchaseDayStart - block.timestamp);
+                revert DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(
+                    token, scheduleId, nextPurchaseDayStart - block.timestamp
+                );
             }
         }
 

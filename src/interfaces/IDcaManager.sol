@@ -159,7 +159,9 @@ interface IDcaManager {
     /// @notice Purchase amount exceeds the schedule's current `tokenBalance`.
     error DcaManager__PurchaseAmountExceedsBalance(address token, uint256 purchaseAmount, uint256 tokenBalance);
     /// @notice The UTC day of `lastPurchaseTimestamp + purchasePeriod` has not started.
-    error DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(uint256 timeRemaining);
+    /// @dev Names the row like every other purchase-path revert, so a batch that a mid-flight
+    ///      `updatePurchasePeriod` unwound tells the caller which schedule to drop before retrying.
+    error DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(address token, uint64 scheduleId, uint256 timeRemaining);
     /// @notice No live schedule of this stablecoin holds this id. The pair is the storage key, so a
     ///         right id named with the wrong stablecoin reads the same as one that never existed.
     error DcaManager__InexistentSchedule(address token, uint64 scheduleId);
