@@ -24,8 +24,8 @@ import {IPurchaseRbtc} from "src/interfaces/IPurchaseRbtc.sol";
  *      paths are the deliberate exception to presence: each is CEI-clean per handler, and only an
  *      allowlisted swapper reaches them. A swapper may also open a five-block protected purchase
  *      window; it temporarily blocks only the user mutations that can invalidate a batch refreshed
- *      after activation, and expires without an administrator call. There is no daily activation
- *      budget: after a window ends the swapper may open another.
+ *      after activation, and expires without an administrator call. This prevents (unlikely) DoS 
+ *      front-running attacks.
  */
 contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     using SafeCast for uint256;
