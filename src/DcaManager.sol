@@ -18,7 +18,10 @@ import {IPurchaseRbtc} from "src/interfaces/IPurchaseRbtc.sol";
  * @dev `s_dcaSchedules` is written only in this contract, and every external function that writes it
  *      takes `nonReentrant` as its first modifier, so the guard is checkable by grep rather than by
  *      reading each function. The two `onlySwapper` purchase paths are the deliberate exception: each
- *      is CEI-clean per handler, and only an allowlisted swapper reaches them.
+ *      is CEI-clean per handler, and only an allowlisted swapper reaches them. A swapper may also open
+ *      one five-block protected purchase window per UTC day; it temporarily blocks only the user
+ *      mutations that can invalidate a batch refreshed after activation, and expires without an
+ *      administrator call.
  */
 contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     using SafeCast for uint256;
@@ -54,6 +57,12 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     mapping(address user => mapping(address token => uint64[] scheduleIds)) private s_scheduleIds;
 
     ProtocolSettings private s_protocolSettings;
+    /// @dev Five block heights including the activation block; fixed because this is an execution
+    ///      buffer, not a confirmation or finality period.
+    uint64 private constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
+    /// @dev One-write layout: low 64 bits are the block at which mutations resume; high 32 bits are
+    ///      the latest UTC day plus one, leaving zero as the never-activated sentinel on day zero.
+    uint96 private s_protectedPurchaseWindow;
     mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Custom minimum purchase amounts per token
 
     /*//////////////////////////////////////////////////////////////
@@ -74,6 +83,14 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         if (!i_operationsAdmin.isSwapper(msg.sender)) {
             revert DcaManager__UnauthorizedSwapper(msg.sender);
         }
+        _;
+    }
+
+    /**
+     * @dev Refuse only the user actions that can invalidate a batch refreshed after window activation.
+     */
+    modifier whenUserMutationsAllowed() {
+        _requireUserMutationsAllowed();
         _;
     }
 
@@ -131,6 +148,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         external
         override
         nonReentrant
+        whenUserMutationsAllowed
     {
         DcaSchedule storage dcaSchedule = _callersSchedule(token, scheduleId);
         uint96 newAmount = newPurchaseAmount.toUint96();
@@ -147,6 +165,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         external
         override
         nonReentrant
+        whenUserMutationsAllowed
     {
         DcaSchedule storage dcaSchedule = _callersSchedule(token, scheduleId);
         _validatePurchasePeriod(newPurchasePeriod);
@@ -158,7 +177,12 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function setSchedulePaused(address token, uint64 scheduleId, bool paused) external override nonReentrant {
+    function setSchedulePaused(address token, uint64 scheduleId, bool paused)
+        external
+        override
+        nonReentrant
+        whenUserMutationsAllowed
+    {
         DcaSchedule storage dcaSchedule = _callersSchedule(token, scheduleId);
         if (dcaSchedule.paused == paused) return;
         dcaSchedule.paused = paused;
@@ -226,7 +250,12 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function deleteDcaSchedule(address token, uint64 scheduleId) external override nonReentrant {
+    function deleteDcaSchedule(address token, uint64 scheduleId)
+        external
+        override
+        nonReentrant
+        whenUserMutationsAllowed
+    {
         DcaSchedule storage dcaSchedule = _callersSchedule(token, scheduleId);
 
         // Both fields are read before the schedule is deleted, and both live in its first slot.
@@ -254,8 +283,30 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         external
         override
         nonReentrant
+        whenUserMutationsAllowed
     {
         _withdrawToken(token, scheduleId, withdrawalAmount);
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
+    function activateProtectedPurchaseWindow() external override onlySwapper {
+        uint256 utcDay = block.timestamp / 1 days;
+        uint32 dayMarker = (utcDay + 1).toUint32();
+        uint96 protectedPurchaseWindow = s_protectedPurchaseWindow;
+        if (uint32(protectedPurchaseWindow >> 64) == dayMarker) {
+            revert DcaManager__ProtectedPurchaseWindowAlreadyActivated(utcDay);
+        }
+
+        uint256 currentUserMutationsAllowedFromBlock = uint64(protectedPurchaseWindow);
+        if (block.number < currentUserMutationsAllowedFromBlock) {
+            revert DcaManager__UserMutationsLocked(currentUserMutationsAllowedFromBlock);
+        }
+
+        uint64 userMutationsAllowedFromBlock = (block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS).toUint64();
+        s_protectedPurchaseWindow = uint96(userMutationsAllowedFromBlock) | (uint96(dayMarker) << 64);
+        emit DcaManager__ProtectedPurchaseWindowActivated(msg.sender, userMutationsAllowedFromBlock);
     }
 
     /**
@@ -306,6 +357,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         external
         override
         nonReentrant
+        whenUserMutationsAllowed
     {
         uint256 routeIndex = _withdrawToken(token, scheduleId, withdrawalAmount);
         _checkTokenYieldsInterest(token, routeIndex);
@@ -353,6 +405,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         external
         override
         nonReentrant
+        whenUserMutationsAllowed
     {
         uint256 numOfPairs = _requirePairedWithdrawalArrays(tokens, routeIndexes);
         for (uint256 i; i < numOfPairs; ++i) {
@@ -442,6 +495,13 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
+    function getUserMutationsAllowedFromBlock() external view override returns (uint256) {
+        return uint64(s_protectedPurchaseWindow);
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
     function getMinPurchasePeriod() external view override returns (uint256) {
         return s_protocolSettings.minPurchasePeriod;
     }
@@ -506,6 +566,16 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                             PRIVATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Read the shared window once rather than inlining its check into every guarded entry point.
+     */
+    function _requireUserMutationsAllowed() private view {
+        uint256 userMutationsAllowedFromBlock = uint64(s_protectedPurchaseWindow);
+        if (block.number < userMutationsAllowedFromBlock) {
+            revert DcaManager__UserMutationsLocked(userMutationsAllowedFromBlock);
+        }
+    }
 
     /**
      * @dev Validate one handler's batch, debit every named schedule, then call that handler.

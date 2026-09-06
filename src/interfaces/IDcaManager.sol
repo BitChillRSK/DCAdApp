@@ -108,6 +108,12 @@ interface IDcaManager {
     /// @dev Filterable by user and scheduleId only, matching PurchaseAmountUpdated / PurchasePeriodUpdated.
     ///      Token is recovered by joining on scheduleId; it is not a third topic.
     event DcaManager__SchedulePauseSet(address indexed user, uint64 indexed scheduleId, bool paused);
+    /// @notice An authorized swapper opened the day's five-block protected purchase window.
+    /// @dev `userMutationsAllowedFromBlock` is not indexed: it is a scalar rather than an address or
+    ///      schedule id. Guarded user mutations are refused before this block and available from it.
+    event DcaManager__ProtectedPurchaseWindowActivated(
+        address indexed swapper, uint256 userMutationsAllowedFromBlock
+    );
     /// @notice Accrued lending interest was credited to one schedule's spendable balance.
     /// @dev No tokens move: the position stays in the lending protocol and only this schedule's
     ///      `tokenBalance` claim over it grows. `interest` is what was credited, which may be less
@@ -175,6 +181,10 @@ interface IDcaManager {
     error DcaManager__TokenDoesNotYieldInterest(address token);
     /// @notice Caller is not on the OperationsAdmin swapper allowlist.
     error DcaManager__UnauthorizedSwapper(address sender);
+    /// @notice A protected purchase window was already activated during this UTC day.
+    error DcaManager__ProtectedPurchaseWindowAlreadyActivated(uint256 utcDay);
+    /// @notice This user mutation is unavailable until the protected purchase window ends.
+    error DcaManager__UserMutationsLocked(uint256 userMutationsAllowedFromBlock);
     /// @notice A batch row's schedule is on a different route than this batch's `routeIndex`.
     error DcaManager__RouteIndexMismatch(address token, uint64 scheduleId, uint256 actualRouteIndex, uint256 expectedRouteIndex);
     /// @notice Constructor `operationsAdmin` has no code.
@@ -302,6 +312,21 @@ interface IDcaManager {
      *      `batchBuyRbtcAcrossHandlers` reverts every handler in the bundle.
      */
     function setSchedulePaused(address token, uint64 scheduleId, bool paused) external;
+
+    /**
+     * @notice Open today's five-block window for preparing and submitting purchases against fixed user state.
+     * @dev Only an address currently on the OperationsAdmin swapper allowlist may call. At most one
+     *      activation is accepted per UTC day, and an active window cannot be extended. Activation in
+     *      block `N` refuses the user mutations that can invalidate a prepared batch through block
+     *      `N + 4`; they are available again in block `N + 5`. The bot must wait for activation to be
+     *      included, then refresh or simulate against that locked state before it submits the purchase.
+     *
+     *      The guarded functions are `updatePurchaseAmount`, `updatePurchasePeriod`,
+     *      `setSchedulePaused`, `deleteDcaSchedule`, `withdrawToken`, `withdrawTokenAndInterest`, and
+     *      `withdrawAllAccumulatedInterest`. Deposits, schedule creation, interest top-ups,
+     *      accumulated-rBTC withdrawals, purchases, reads, and governance setters stay available.
+     */
+    function activateProtectedPurchaseWindow() external;
 
     /**
      * @notice Buy rBTC for every named due schedule on one handler.
@@ -457,6 +482,13 @@ interface IDcaManager {
      * @return The constructor-supplied OperationsAdmin address.
      */
     function getOperationsAdminAddress() external view returns (address);
+
+    /**
+     * @notice Block from which guarded user mutations are allowed after the latest protected window.
+     * @return The latest activation block plus five, or zero before the first activation.
+     * @dev Compare with `block.number`: mutations are locked while the current block is lower.
+     */
+    function getUserMutationsAllowedFromBlock() external view returns (uint256);
 
     /**
      * @notice Lending interest a user has accrued on one token and route, above locked principal.

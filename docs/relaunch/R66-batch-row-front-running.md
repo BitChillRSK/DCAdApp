@@ -33,10 +33,12 @@ The chosen response is an opt-in cross-transaction execution window:
    consecutive nonces so the purchase cannot be included without the activation first.
 
 The repository's indexer treats 12 Rootstock confirmations as finalized, but the protected flow acts
-on inclusion rather than waiting for that threshold. Five blocks therefore provide an execution
-buffer, not finality: at Rootstock's roughly 30-second average block interval, about 2.5 minutes. If
-operations later require waiting 12 confirmations after activation, this fixed window is no longer
-long enough and must be revisited before adopting that workflow.
+on inclusion rather than waiting for that threshold. Five blocks therefore provide four subsequent
+inclusion opportunities, not finality. [Rootstock's block-time proposal](https://ips.rootstock.io/IPs/RSKIP517.html)
+describes a 14-second target and roughly 24-second observed main-block interval, so that is typically
+around one to two minutes rather than a guaranteed wall-clock duration. If operations later require waiting 12
+confirmations after activation, or cannot reliably refresh and submit inside those four following
+blocks, this fixed window is too short and must be revisited before adopting that workflow.
 
 ### Why the absolute minimum stays
 
@@ -57,7 +59,7 @@ this denial-of-service response.
 
 - Five-block global window, fixed in code.
 - At most one activation per UTC day, enforced onchain. An authorized swapper cannot extend an active
-  window or renew it after expiry on the same UTC day.
+  window across a UTC-day boundary or renew it after expiry on the same UTC day.
 - The lock is dormant until a swapper activates it. Purchases never require activation.
 - Only mutations that can invalidate an already prepared row are blocked. Reads, deposits, schedule
   creation, interest top-ups, accumulated-rBTC withdrawals, purchases, and governance setters remain
@@ -111,7 +113,8 @@ this denial-of-service response.
 - Activation at block `N` blocks every listed mutation in blocks `N` through `N + 4`, and each is
   available again at `N + 5`.
 - A second activation on the same UTC day reverts both while the first window is live and after it
-  expires; activation succeeds on the next UTC day.
+  expires. A next-day activation still reverts while the old window is active, then succeeds after
+  it expires.
 - Deposits, creation, top-ups, accumulated-rBTC withdrawals, owner setters, and purchases do not take
   the lock modifier. Structural assertions should make additions or removals from the guarded set
   visible in review.
