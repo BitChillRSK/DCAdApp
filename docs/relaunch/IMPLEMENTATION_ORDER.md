@@ -121,7 +121,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R55 | 58 ([#113](https://github.com/BitChillRSK/dca-contracts/pull/113)) | none (measured; recommendation is keep stock solc, no IR) |
 | R60 | 59 (planned) | none (`via_ir` deploy profile; whole suite runs against shipped bytecode) |
 | R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
-| R69 | 69 (planned) | none (OZ IERC165; SafeERC20 approve on Dex; last-buyer batch rBTC dust) |
+| R69 | 69 (planning [#125](https://github.com/BitChillRSK/dca-contracts/pull/125)) | none (OZ IERC165; SafeERC20 approve on Dex; last-buyer batch rBTC dust) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 
@@ -964,7 +964,7 @@ floor or floor+1 underlying so Aave half-up maps back to the exact scaled burn. 
 `testSinglePurchase` / fee-free withdraw **+8,080** gas; 5-row `testBatchPurchasesOneUser`
 **+16,355**; harness `batchRetrieve` 1/10/200 rows 65,134 / 70,225 / 1,188,494.
 
-### R69 - token I/O consistency and batch rBTC dust ([spec](./R69-token-io-consistency-and-batch-dust.md))
+### R69 - token I/O consistency and batch rBTC dust ([spec](./R69-token-io-consistency-and-batch-dust.md), planning [#125](https://github.com/BitChillRSK/dca-contracts/pull/125))
 
 Pre-cutover housekeeping after R68. Three small gaps that should not ship: `OperationsAdmin` imports
 `IERC165` from forge-std while handlers advertise through OpenZeppelin; `PurchaseUniswap` is the only
