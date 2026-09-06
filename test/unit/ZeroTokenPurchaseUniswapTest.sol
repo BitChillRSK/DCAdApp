@@ -46,11 +46,7 @@ contract ZeroTokenPurchaseUniswap is PurchaseUniswap {
         return IERC20(address(0));
     }
 
-    function _retrieveStablecoin(address, uint256) internal pure override returns (uint256) {
-        return 0;
-    }
-
-    function _batchRetrieveStablecoin(address[] memory, uint256[] memory, uint256)
+    function _batchRetrieveStablecoin(address[] memory, uint256[] memory)
         internal
         pure
         override

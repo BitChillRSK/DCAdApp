@@ -69,7 +69,8 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
         }
         uint256 mintedAmount = _protocolDeposit(depositAmount);
         if (mintedAmount == 0) revert TokenLending__LendingProtocolDepositFailed();
-        _setUserShares(user, s_shares[user] + mintedAmount);
+        uint256 previousShares = s_shares[user];
+        _setUserShares(user, previousShares, previousShares + mintedAmount);
     }
 
     /**
@@ -167,13 +168,6 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
     }
 
     /**
-     * @dev Retrieve the user's stablecoin by redeeming shares.
-     */
-    function _retrieveStablecoin(address user, uint256 stablecoinAmount) internal virtual override returns (uint256) {
-        return _redeemShares(user, stablecoinAmount, _exchangeRate());
-    }
-
-    /**
      * @dev Redeem shares for stablecoin, sized by the share count this contract debits.
      *      Clamp to this user's book, never the handler's pooled balance: schedule accounting can
      *      sit ahead of share-backed underlying, and purchases have no outer withdraw clamp.
@@ -212,14 +206,10 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
      *      stay aligned (an aggregate-then-pro-rata ceil can debit more shares than it burns).
      *      Shortfalls revert rather than clamp: PurchaseRbtc still allocates by the planned
      *      weights, so clamping one row would dilute every other buyer in the batch.
-     *      The StablecoinSource `totalStablecoinToRetrieve` argument is unused here — share math
-     *      sizes each row from `purchaseAmounts` alone, and the zero-cash revert reports
-     *      `sum(purchaseAmounts)` computed on that failure path instead of trusting the caller total.
      */
     function _batchRetrieveStablecoin(
         address[] memory users,
-        uint256[] memory purchaseAmounts,
-        uint256 /* totalStablecoinAmount */
+        uint256[] memory purchaseAmounts
     ) internal virtual override returns (uint256) {
         uint256 exchangeRate = _exchangeRate();
         uint256 totalSharesToRedeem;
@@ -304,21 +294,13 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
     /**
      * @dev Write the user's virtual share balance and emit the canonical transition.
      *      No log when the balance is unchanged, so a zero-share debit is silent.
-     *      Callers that already hold `s_shares[user]` pass it as `previousShares` to skip a
-     *      second (warm) SLOAD on the purchase path.
+     *      Callers pass the already-loaded `previousShares` to avoid a second SLOAD.
      */
     function _setUserShares(address user, uint256 previousShares, uint256 newShares) private {
         s_shares[user] = newShares;
         if (previousShares != newShares) {
             emit TokenLending__UserSharesUpdated(user, previousShares, newShares);
         }
-    }
-
-    /**
-     * @dev Convenience overload when the caller has not already loaded the prior balance.
-     */
-    function _setUserShares(address user, uint256 newShares) private {
-        _setUserShares(user, s_shares[user], newShares);
     }
 
     /**

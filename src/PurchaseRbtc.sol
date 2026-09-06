@@ -57,7 +57,7 @@ abstract contract PurchaseRbtc is IPurchaseRbtc, FeeHandler, DcaManagerAccessCon
             // charges. What comes back is what the retrieval delivered, which a lending handler can leave
             // short of the request.
             totalStablecoinAmountToSpend =
-                _batchRetrieveStablecoin(buyers, purchaseAmounts, totalNetStablecoinPlanned + aggregatedFee);
+                _batchRetrieveStablecoin(buyers, purchaseAmounts);
             if (totalStablecoinAmountToSpend <= aggregatedFee) {
                 revert PurchaseRbtc__StablecoinRetrievedBelowFee(totalStablecoinAmountToSpend, aggregatedFee);
             }

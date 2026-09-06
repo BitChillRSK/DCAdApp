@@ -330,7 +330,7 @@ contract LayerBankErc20HandlerTest is HandlerTestHarness {
                 ITokenLending.TokenLending__InsufficientShares.selector, user1, requested, available
             )
         );
-        layerbankHandler.testBatchRetrieveStablecoin(users, amounts, excessiveAmount);
+        layerbankHandler.testBatchRetrieveStablecoin(users, amounts);
     }
 
     function test_layerbank_batchRetrieveStablecoin_zeroPayout_reverts() public {
@@ -355,7 +355,7 @@ contract LayerBankErc20HandlerTest is HandlerTestHarness {
         vm.expectRevert(
             abi.encodeWithSelector(ITokenLending.TokenLending__ZeroStablecoinReceived.selector, amounts[0])
         );
-        layerbankHandler.testBatchRetrieveStablecoin(users, amounts, amounts[0]);
+        layerbankHandler.testBatchRetrieveStablecoin(users, amounts);
 
         assertEq(layerbankHandler.getUserShares(user1), aTokenBalanceBefore);
     }
@@ -435,9 +435,8 @@ contract LayerBankTestHandler is LayerBankErc20Handler {
 
     function testBatchRetrieveStablecoin(
         address[] memory users,
-        uint256[] memory purchaseAmounts,
-        uint256 totalStablecoinAmount
+        uint256[] memory purchaseAmounts
     ) external returns (uint256) {
-        return _batchRetrieveStablecoin(users, purchaseAmounts, totalStablecoinAmount);
+        return _batchRetrieveStablecoin(users, purchaseAmounts);
     }
 }

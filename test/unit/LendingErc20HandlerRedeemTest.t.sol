@@ -137,7 +137,7 @@ contract LendingErc20HandlerRedeemTest is Test {
         amounts[1] = secondDebit;
 
         vm.recordLogs();
-        harness.batchRetrieveStablecoin(users, amounts, firstDebit + secondDebit);
+        harness.batchRetrieveStablecoin(users, amounts);
 
         _assertSequentialShareDebits(start, firstShares, secondShares);
         assertEq(harness.getUserShares(userA), start - firstShares - secondShares);
@@ -163,7 +163,7 @@ contract LendingErc20HandlerRedeemTest is Test {
 
         uint256 expectedBurn =
             _stablecoinToSharesUp(amounts[0], rate) + _stablecoinToSharesUp(amounts[1], rate);
-        uint256 received = harness.batchRetrieveStablecoin(users, amounts, amounts[0] + amounts[1]);
+        uint256 received = harness.batchRetrieveStablecoin(users, amounts);
 
         assertEq(sharesABefore - harness.getUserShares(userA), _stablecoinToSharesUp(amounts[0], rate));
         assertEq(sharesBBefore - harness.getUserShares(userB), _stablecoinToSharesUp(amounts[1], rate));
@@ -189,7 +189,7 @@ contract LendingErc20HandlerRedeemTest is Test {
         amounts[0] = rowAmount;
         amounts[1] = rowAmount;
 
-        harness.batchRetrieveStablecoin(users, amounts, rowAmount * 2);
+        harness.batchRetrieveStablecoin(users, amounts);
 
         assertEq(harness.getUserShares(userA), start - rowShares * 2);
         assertEq(protocolBefore - harness.protocolShares(), rowShares * 2);
@@ -218,7 +218,7 @@ contract LendingErc20HandlerRedeemTest is Test {
                 sharesA
             )
         );
-        harness.batchRetrieveStablecoin(users, amounts, amounts[0] + amounts[1]);
+        harness.batchRetrieveStablecoin(users, amounts);
 
         assertEq(harness.getUserShares(userA), sharesA);
         assertEq(harness.getUserShares(userB), sharesB);
@@ -245,7 +245,7 @@ contract LendingErc20HandlerRedeemTest is Test {
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = 10 ether;
         amounts[1] = 15 ether;
-        harness.batchRetrieveStablecoin(users, amounts, 25 ether);
+        harness.batchRetrieveStablecoin(users, amounts);
 
         (uint256 replayedA, uint256 replayedB) = _replayUserShares(userA, userB);
         assertEq(replayedA, harness.getUserShares(userA));
@@ -386,10 +386,9 @@ contract LendingErc20HandlerHarness is LendingErc20Handler {
 
     function batchRetrieveStablecoin(
         address[] memory users,
-        uint256[] memory purchaseAmounts,
-        uint256 totalStablecoinAmount
+        uint256[] memory purchaseAmounts
     ) external returns (uint256) {
-        return _batchRetrieveStablecoin(users, purchaseAmounts, totalStablecoinAmount);
+        return _batchRetrieveStablecoin(users, purchaseAmounts);
     }
 
     function _viewExchangeRate() internal view override returns (uint256) {

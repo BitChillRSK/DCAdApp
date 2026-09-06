@@ -572,8 +572,12 @@ contract TropykusHandlerWrapper is TropykusErc20Handler {
         uint64 scheduleId,
         uint256 purchaseAmount
     ) internal returns (uint256) {
-        // Retrieve the stablecoin the purchase will spend
-        uint256 retrieved = _retrieveStablecoin(buyer, purchaseAmount);
+        // Retrieve the stablecoin the purchase will spend (length-1 batch — the only purchase path)
+        address[] memory buyersOne = new address[](1);
+        buyersOne[0] = buyer;
+        uint256[] memory amountsOne = new uint256[](1);
+        amountsOne[0] = purchaseAmount;
+        uint256 retrieved = _batchRetrieveStablecoin(buyersOne, amountsOne);
         
         // ✅ SIMULATE: Consume the stablecoin retrieved (as it would be used for actual rBTC purchase)
         // In real protocol, this stablecoin gets sent to DEX/MoC and consumed
@@ -694,8 +698,12 @@ contract SovrynHandlerWrapper is SovrynErc20Handler {
         uint64 scheduleId,
         uint256 purchaseAmount
     ) internal returns (uint256) {
-        // Retrieve the stablecoin the purchase will spend
-        uint256 retrieved = _retrieveStablecoin(buyer, purchaseAmount);
+        // Retrieve the stablecoin the purchase will spend (length-1 batch — the only purchase path)
+        address[] memory buyersOne = new address[](1);
+        buyersOne[0] = buyer;
+        uint256[] memory amountsOne = new uint256[](1);
+        amountsOne[0] = purchaseAmount;
+        uint256 retrieved = _batchRetrieveStablecoin(buyersOne, amountsOne);
         
         // ✅ SIMULATE: Consume the stablecoin retrieved (as it would be used for actual rBTC purchase)
         // In real protocol, this stablecoin gets sent to DEX/MoC and consumed

@@ -96,21 +96,12 @@ abstract contract IdleErc20Handler is TokenHandler, IIdleErc20Handler, Stablecoi
     }
 
     /**
-     * @dev Retrieve `amount` of the user's idle stablecoin for the purchase path. A lending handler
-     *      redeems shares to pull the stablecoin onto itself first; an idle one already holds it, so
-     *      this only debits the mapping.
-     */
-    function _retrieveStablecoin(address user, uint256 amount) internal virtual override returns (uint256) {
-        return _debitIdleBalance(user, amount);
-    }
-
-    /**
      * @dev Debit each buyer's idle balance for a batch purchase. Reverts if any buyer cannot
      *      cover their purchase amount. Clamping here would return a short total that
      *      PurchaseRbtc still splits by the original planned weights, so one underfunded
      *      buyer would dilute every other buyer in the batch.
      */
-    function _batchRetrieveStablecoin(address[] memory users, uint256[] memory purchaseAmounts, uint256)
+    function _batchRetrieveStablecoin(address[] memory users, uint256[] memory purchaseAmounts)
         internal
         virtual
         override

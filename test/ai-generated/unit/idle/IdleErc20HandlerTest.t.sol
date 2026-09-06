@@ -94,19 +94,6 @@ contract IdleErc20HandlerTest is HandlerTestHarness {
         assertEq(stablecoin.balanceOf(other), 0);
     }
 
-    function test_idle_retrieveStablecoin_clampsToOwnBalance() public {
-        vm.prank(address(dcaManager));
-        handler.depositToken(USER, DEPOSIT_AMOUNT);
-
-        vm.expectEmit(true, false, false, true, address(handler));
-        emit IIdleErc20Handler.IdleErc20Handler__AmountAdjusted(USER, DEPOSIT_AMOUNT * 2, DEPOSIT_AMOUNT);
-        uint256 retrieved = idleHandler.testRetrieveStablecoin(USER, DEPOSIT_AMOUNT * 2);
-
-        assertEq(retrieved, DEPOSIT_AMOUNT);
-        assertEq(idleHandler.getUsersIdleTokenBalance(USER), 0);
-        // DOC stays on the handler until a purchase or withdraw moves it
-        assertEq(stablecoin.balanceOf(address(handler)), DEPOSIT_AMOUNT);
-    }
 
     function test_idle_withdraw_revertsWhenIdleIsZero() public {
         vm.prank(address(dcaManager));
@@ -146,7 +133,7 @@ contract IdleErc20HandlerTest is HandlerTestHarness {
                 DEPOSIT_AMOUNT
             )
         );
-        idleHandler.testBatchRetrieveStablecoin(users, amounts, amounts[0] + amounts[1]);
+        idleHandler.testBatchRetrieveStablecoin(users, amounts);
 
         assertEq(idleHandler.getUsersIdleTokenBalance(user1), DEPOSIT_AMOUNT);
         assertEq(idleHandler.getUsersIdleTokenBalance(user2), DEPOSIT_AMOUNT);
@@ -166,15 +153,10 @@ contract IdleTestHandler is IdleErc20Handler {
         address initialOwner
     ) IdleErc20Handler(dcaManagerAddress, stableTokenAddress, feeCollector, feeSettings, initialOwner) {}
 
-    function testRetrieveStablecoin(address user, uint256 amount) external returns (uint256) {
-        return _retrieveStablecoin(user, amount);
-    }
-
-    function testBatchRetrieveStablecoin(
-        address[] memory users,
-        uint256[] memory purchaseAmounts,
-        uint256 totalStablecoinAmount
-    ) external returns (uint256) {
-        return _batchRetrieveStablecoin(users, purchaseAmounts, totalStablecoinAmount);
+    function testBatchRetrieveStablecoin(address[] memory users, uint256[] memory purchaseAmounts)
+        external
+        returns (uint256)
+    {
+        return _batchRetrieveStablecoin(users, purchaseAmounts);
     }
 }
