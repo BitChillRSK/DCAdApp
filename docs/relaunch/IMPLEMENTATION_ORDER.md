@@ -929,6 +929,23 @@ Implemented except the Rootstock testnet deploy + Blockscout verification, which
 the spec's Scope and Success criteria for the full account of the design change from the original `src/`-only
 plan, the two solc/via-IR compile-failure root causes, and the timestamp-rematerialization fix.
 
+### R66 - protected purchase window ([spec](./R66-batch-row-front-running.md), GitHub [#121](https://github.com/BitChillRSK/dca-contracts/pull/121))
+
+Pre-cutover security follow-up discovered during R64 review. The selected response is a dormant,
+five-block execution window that an authorized swapper may activate whenever none is live. It
+temporarily blocks only the user mutations that can invalidate a batch prepared after activation;
+the bot must wait for activation inclusion and then refresh or simulate before purchasing. An active
+window cannot be extended; after expiry the swapper may activate again with no daily budget. Existing
+batch calldata, absolute min-out, handler behavior, and all-or-nothing semantics stay unchanged.
+
+### R67 - exact batch share accounting ([spec](./R67-exact-batch-share-accounting.md), optional and unassigned)
+
+Later measurement and product decision only. Lending batches currently round one aggregate share
+redemption, then round each row's pro-rata debit up, so the virtual shares removed from users may
+exceed the protocol shares redeemed by bounded dust. Do not implement without a fresh `Start with
+R67` decision. If approved, preserve the insufficient-share revert; do not revive R66's discarded
+row-skipping or handler-return redesign.
+
 ## Closed non-implementation decisions
 
 There is no optional-late queue. Items either have an ordered spec above or are closed here:

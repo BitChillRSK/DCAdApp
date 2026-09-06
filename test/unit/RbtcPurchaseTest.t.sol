@@ -56,6 +56,8 @@ contract RbtcPurchaseTest is DcaDappTest {
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         bytes memory encodedRevert = abi.encodeWithSelector(
             IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
+            address(stablecoin),
+            scheduleId,
             _secondsUntilDueUtcDayStart(schedule.lastPurchaseTimestamp, schedule.purchasePeriod)
         );
         vm.expectRevert(encodedRevert);
@@ -86,6 +88,8 @@ contract RbtcPurchaseTest is DcaDappTest {
         vm.warp(dueDayStart - 1);
         bytes memory encodedRevert = abi.encodeWithSelector(
             IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
+            address(stablecoin),
+            scheduleId,
             uint256(1)
         );
         vm.expectRevert(encodedRevert);
@@ -108,6 +112,8 @@ contract RbtcPurchaseTest is DcaDappTest {
         vm.warp(dueDayStart + 9 hours); // still the due UTC day
         bytes memory encodedRevert = abi.encodeWithSelector(
             IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
+            address(stablecoin),
+            scheduleId,
             _secondsUntilDueUtcDayStart(schedule.lastPurchaseTimestamp, schedule.purchasePeriod)
         );
         vm.expectRevert(encodedRevert);

@@ -348,7 +348,11 @@ contract InvariantTest is StdInvariant, Test {
             ) {
                 for (uint256 j = 0; j < schedules.length; j++) {
                     if (schedules[j].purchaseAmount > 0) {
-                        assertGt(schedules[j].purchaseAmount, MIN_PURCHASE_AMOUNT);
+                        // `>=`, not `>`: DcaManager rejects only `purchaseAmount < minPurchaseAmount`,
+                        // so a schedule sitting exactly on the minimum is valid, and the fuzz handler
+                        // bounds into a range whose floor is that minimum. Asserting `>` here failed
+                        // whenever the fuzzer landed on the boundary.
+                        assertGe(schedules[j].purchaseAmount, MIN_PURCHASE_AMOUNT);
                         assertGe(schedules[j].purchasePeriod, MIN_PURCHASE_PERIOD);
                     }
                     assertNotEq(schedulesIds[j], uint64(0));

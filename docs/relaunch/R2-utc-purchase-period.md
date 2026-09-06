@@ -114,6 +114,6 @@ Fork tests: not required.
 
 ## ABI / deploy / cutover impact
 
-- ABI: new error `DcaManager__MinPurchasePeriodMustBeAtLeastOneDay`. Existing `DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(uint256 timeRemaining)` kept; `timeRemaining` is now seconds until 00:00 UTC of the due day, not until `last + period` wall-clock. No function or event signature changes.
+- ABI: new error `DcaManager__MinPurchasePeriodMustBeAtLeastOneDay`. Existing `DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(uint256 timeRemaining)` kept; `timeRemaining` is now seconds until 00:00 UTC of the due day, not until `last + period` wall-clock. No function or event signature changes. (R66 later widens this error to `(address token, uint64 scheduleId, uint256 timeRemaining)` so the swapper bot can attribute the revert to a row; see `docs/relaunch/R66-batch-row-front-running.md`.)
 - Scripts: none. Deploy scripts already pass `MIN_PURCHASE_PERIOD = 1 days`.
 - Cutover: swapper may run at a fixed UTC time once the due calendar day has started. Frontend/ops: eligibility is UTC-day, not exact second. Do not include broadcast steps.
