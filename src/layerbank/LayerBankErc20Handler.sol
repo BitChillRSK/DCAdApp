@@ -97,12 +97,13 @@ abstract contract LayerBankErc20Handler is LendingErc20Handler, ILayerBankErc20H
      *      `sharesAmount` scaled shares. The Pool has no share-sized withdraw; BitChill sizes
      *      shares with a ceiling while Aave burns with nearest-RAY division, so the floored
      *      conversion can undershoot by one wei of underlying. Try floor, then floor + 1, and
-     *      leave the shared base to prove the measured `scaledBalanceOf` delta.
+     *      leave the shared base to prove the measured `scaledBalanceOf` delta. Assumes
+     *      `exchangeRate >= RAY`: Aave's liquidity index starts at `1e27` and only grows (the
+     *      live probe asserts that). Below RAY, floor-then-+1 is not always exact — any miss
+     *      still reverts in the shared share-consumption check rather than orphaning a claim.
      */
     function _protocolRedeem(uint256 sharesAmount, uint256 exchangeRate) internal override {
         uint256 amountOut = _underlyingForExactScaledBurn(sharesAmount, exchangeRate);
-        if (amountOut == 0) return;
-
         i_pool.withdraw(address(i_stableToken), amountOut, address(this));
     }
 
@@ -112,7 +113,9 @@ abstract contract LayerBankErc20Handler is LendingErc20Handler, ILayerBankErc20H
 
     /**
      * @dev Underlying `a` such that Aave's `(a * RAY + index/2) / index` equals `sharesAmount`.
-     *      Floor never rayDivs above the target; when it undershoots, one more wei is enough.
+     *      Under the `index >= RAY` assumption on `_protocolRedeem`, floor never rayDivs above
+     *      the target; when it undershoots, one more wei is enough. Callers only pass
+     *      `sharesAmount >= 1` (`_redeemShares` no-ops a zero debit), so the result is never zero.
      */
     function _underlyingForExactScaledBurn(uint256 sharesAmount, uint256 index)
         private
