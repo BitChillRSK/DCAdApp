@@ -108,7 +108,7 @@ interface IDcaManager {
     /// @dev Filterable by user and scheduleId only, matching PurchaseAmountUpdated / PurchasePeriodUpdated.
     ///      Token is recovered by joining on scheduleId; it is not a third topic.
     event DcaManager__SchedulePauseSet(address indexed user, uint64 indexed scheduleId, bool paused);
-    /// @notice An authorized swapper opened the day's five-block protected purchase window.
+    /// @notice An authorized swapper opened a five-block protected purchase window.
     /// @dev `userMutationsAllowedFromBlock` is not indexed: it is a scalar rather than an address or
     ///      schedule id. Guarded user mutations are refused before this block and available from it.
     event DcaManager__ProtectedPurchaseWindowActivated(
@@ -183,8 +183,6 @@ interface IDcaManager {
     error DcaManager__TokenDoesNotYieldInterest(address token);
     /// @notice Caller is not on the OperationsAdmin swapper allowlist.
     error DcaManager__UnauthorizedSwapper(address sender);
-    /// @notice A protected purchase window was already activated during this UTC day.
-    error DcaManager__ProtectedPurchaseWindowAlreadyActivated(uint256 utcDay);
     /// @notice A new protected purchase window cannot start until the current one ends.
     error DcaManager__ProtectedPurchaseWindowStillActive(uint256 userMutationsAllowedFromBlock);
     /// @notice This user mutation is unavailable until the protected purchase window ends.
@@ -318,12 +316,13 @@ interface IDcaManager {
     function setSchedulePaused(address token, uint64 scheduleId, bool paused) external;
 
     /**
-     * @notice Open today's five-block window for preparing and submitting purchases against fixed user state.
-     * @dev Only an address currently on the OperationsAdmin swapper allowlist may call. At most one
-     *      activation is accepted per UTC day, and an active window cannot be extended. Activation in
-     *      block `N` refuses the user mutations that can invalidate a prepared batch through block
-     *      `N + 4`; they are available again in block `N + 5`. The bot must wait for activation to be
-     *      included, then refresh or simulate against that locked state before it submits the purchase.
+     * @notice Open a five-block window for preparing and submitting purchases against fixed user state.
+     * @dev Only an address currently on the OperationsAdmin swapper allowlist may call. An active
+     *      window cannot be extended or renewed early; once it expires the swapper may activate again
+     *      with no daily budget. Activation in block `N` refuses the user mutations that can invalidate
+     *      a prepared batch through block `N + 4`; they are available again in block `N + 5`. The bot
+     *      must wait for activation to be included, then refresh or simulate against that locked state
+     *      before it submits the purchase.
      *
      *      The guarded functions are `updatePurchaseAmount`, `updatePurchasePeriod`,
      *      `setSchedulePaused`, `deleteDcaSchedule`, `withdrawToken`, `withdrawTokenAndInterest`, and
@@ -496,7 +495,7 @@ interface IDcaManager {
 
     /**
      * @notice Whether an authorized swapper could activate a protected purchase window now.
-     * @return True only when no window is active and today's activation has not already been used.
+     * @return True when no window is currently active.
      */
     function canActivateProtectedPurchaseWindow() external view returns (bool);
 

@@ -932,9 +932,10 @@ plan, the two solc/via-IR compile-failure root causes, and the timestamp-remater
 ### R66 - protected purchase window ([spec](./R66-batch-row-front-running.md), GitHub [#121](https://github.com/BitChillRSK/dca-contracts/pull/121))
 
 Pre-cutover security follow-up discovered during R64 review. The selected response is a dormant,
-five-block execution window that an authorized swapper may activate at most once per UTC day. It
+five-block execution window that an authorized swapper may activate whenever none is live. It
 temporarily blocks only the user mutations that can invalidate a batch prepared after activation;
-the bot must wait for activation inclusion and then refresh or simulate before purchasing. Existing
+the bot must wait for activation inclusion and then refresh or simulate before purchasing. An active
+window cannot be extended; after expiry the swapper may activate again with no daily budget. Existing
 batch calldata, absolute min-out, handler behavior, and all-or-nothing semantics stay unchanged.
 
 ### R67 - exact batch share accounting ([spec](./R67-exact-batch-share-accounting.md), optional and unassigned)

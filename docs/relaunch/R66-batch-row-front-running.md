@@ -7,8 +7,8 @@ Status: **assigned** · Assigned: yes · Optional/further-review: no
 Give the swapper a narrowly bounded incident-response mechanism for a malicious schedule owner who
 repeatedly changes their own row after the bot has prepared a batch, causing the shared purchase to
 revert or to execute against a stale absolute minimum. The mechanism is dormant by default: an
-authorized swapper may open one five-block protected purchase window per UTC day, during which only
-the user mutations that can invalidate an already prepared batch are refused.
+authorized swapper may open a five-block protected purchase window whenever none is live, during which
+only the user mutations that can invalidate an already prepared batch are refused.
 
 This is an explicit proportionality decision. Normal batches keep their existing all-or-nothing
 semantics and gas cost. Benign same-block edits may still revert a batch when no protected window was
@@ -42,12 +42,13 @@ blocks, this fixed window is too short and must be revisited before adopting tha
 is true if one tick must be split beyond those four opportunities: R64 measured roughly 525 rows per
 transaction, so a tick materially above 2,000 rows could leave a tail outside the protected window.
 
-Activation is a once-per-day budget, not a purchase reservation. If the protected purchase fails for
-an unrelated reason, the activation remains consumed and a retry that day is unprotected. Nothing
-onchain requires a purchase to land before `N + 5`; the bot must enforce that deadline. UTC-day
-eligibility uses `block.timestamp / 1 days`, whose day-boundary attribution a block producer can
-influence slightly. In the colluding-producer edge case this can admit one additional bounded window,
-not an indefinite lock, because a live window still cannot be extended.
+Activation is not a purchase reservation and has no daily budget. If the protected purchase fails for
+an unrelated reason, the swapper waits for the window to expire and may activate again. An active
+window still cannot be extended: that is what keeps any single lock to five blocks. Nothing onchain
+requires a purchase to land before `N + 5`; the bot must enforce that deadline. There is no onchain
+UTC-day gate — BitChill's incentive is to complete fee-earning purchases, not to hold user exits, and
+re-activating costs the swapper gas, so a once-per-day quota only punished a failed protected attempt
+without buying real abuse resistance.
 
 ### Why the absolute minimum stays
 
@@ -64,11 +65,11 @@ this denial-of-service response.
 
 ## Open product decisions
 
-**none** — decided 2026-09-06:
+**none** — decided 2026-09-06; daily budget dropped 2026-09-06 (review):
 
 - Five-block global window, fixed in code.
-- At most one activation per UTC day, enforced onchain. An authorized swapper cannot extend an active
-  window across a UTC-day boundary or renew it after expiry on the same UTC day.
+- No daily activation budget. An authorized swapper may activate whenever no window is live; an active
+  window still cannot be extended or renewed early.
 - The lock is dormant until a swapper activates it. Purchases never require activation.
 - Only mutations that can invalidate an already prepared row are blocked. Reads, deposits, schedule
   creation, interest top-ups, accumulated-rBTC withdrawals, purchases, and governance setters remain
@@ -80,19 +81,19 @@ this denial-of-service response.
 
 - [x] Add `activateProtectedPurchaseWindow`, callable only by an address currently authorized as a
       swapper by the constructor-pinned `OperationsAdmin`.
-- [x] Store the block at which user mutations resume and the UTC day of the latest activation in one
-      packed storage slot.
+- [x] Store the block at which user mutations resume (`uint64`; zero = never activated).
 - [x] Lock exactly five block heights including the activation block: activation in block `N` allows
       the guarded functions again in block `N + 5`.
-- [x] Reject a second activation in the same UTC day, including after the first window expired.
+- [x] Reject activation only while a window is still live; after expiry the swapper may activate again
+      with no daily quota.
 - [x] During the window reject `updatePurchaseAmount`, `updatePurchasePeriod`, `setSchedulePaused`,
       `deleteDcaSchedule`, `withdrawToken`, `withdrawTokenAndInterest`, and
       `withdrawAllAccumulatedInterest`.
 - [x] Keep `depositToken`, `createDcaSchedule`, `topUpFromInterest`, accumulated-rBTC withdrawals,
       getters, owner setters, and both purchase entry points available.
 - [x] Add public getters for the unlock block and current activation eligibility, an activation event,
-      and distinct custom errors for the window and its once-per-day limit. Index only the activating
-      swapper address.
+      and a distinct custom error when a window is still live. Index only the activating swapper
+      address.
 - [x] Name the row in `DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed`, the one purchase-path
       revert that did not, so an unprotected tick can drop the offending schedule and retry rather
       than rebuild. This is what makes retry-on-failure — not activation before every tick — the
@@ -126,9 +127,8 @@ this denial-of-service response.
 - A swapper can activate a window; an unauthorized account cannot.
 - Activation at block `N` blocks every listed mutation in blocks `N` through `N + 4`, and each is
   available again at `N + 5`.
-- A second activation on the same UTC day reverts both while the first window is live and after it
-  expires. A next-day activation still reverts while the old window is active, then succeeds after
-  it expires.
+- A second activation while the window is live reverts. After expiry the swapper may activate again
+  immediately (no UTC-day quota).
 - Deposits, creation, top-ups, accumulated-rBTC withdrawals, owner setters, and purchases do not take
   the lock modifier. Structural assertions should make additions or removals from the guarded set
   visible in review.
@@ -139,21 +139,22 @@ this denial-of-service response.
 
 ### Why the default is retry, not activate-every-tick
 
-The once-per-day budget is one tick's worth, and eligibility is day-granular, so a bot *could* open a
-window before every tick and cover benign same-block edits too. That is deliberately not the default.
-Activating turns each daily tick into two sequential transactions with a mandatory wait-for-receipt
-and refresh between them — permanent machinery in the critical path, plus a failure mode where the
-activation lands, the purchase does not, and the day's budget is spent mid-flow — and it freezes every
-user's exits for five blocks a day. The failure it would prevent is self-healing: eligibility is
-day-granular, so a retry hours later costs no user a purchase. A rare, cheap, recoverable revert is
-the better trade against a permanent operational tax, so the window stays dormant and the bot retries.
-Every purchase-path revert now names its schedule, so that retry drops one row rather than rebuilding.
+Eligibility for a purchase is day-granular, so a bot *could* open a window before every tick and cover
+benign same-block edits too. That is deliberately not the default. Activating turns each daily tick
+into two sequential transactions with a mandatory wait-for-receipt and refresh between them —
+permanent machinery in the critical path, plus a failure mode where the activation lands and the
+purchase does not — and it freezes every user's exits for five blocks per activation. The failure it
+would prevent is self-healing: eligibility is day-granular, so a retry hours later costs no user a
+purchase. A rare, cheap, recoverable revert is the better trade against a permanent operational tax,
+so the window stays dormant and the bot retries. Every purchase-path revert now names its schedule,
+so that retry drops one row rather than rebuilding. When the bot *does* need the window (repeated
+hostile edits), it may reopen after expiry without waiting for a UTC-day rollover.
 
 ## Success criteria
 
 - [x] Once activation is included and the bot refreshes its snapshot, no guarded owner mutation can
       invalidate the refreshed batch during the five-block window.
-- [x] No authorized swapper can extend an active window or activate more than once in one UTC day.
+- [x] No authorized swapper can extend an active window; after expiry another activation is allowed.
 - [x] The mechanism adds no storage write and no lock branch to an ordinary purchase transaction.
 - [x] No handler or purchase-route implementation changes.
 - [x] The existing `Batch` and `IPurchaseRbtc` ABIs and absolute-minimum semantics are unchanged.
@@ -162,12 +163,14 @@ Every purchase-path revert now names its schedule, so that retry drops one row r
 ## Validation record
 
 - `SWAP_TYPE=mocSwaps LENDING_PROTOCOL=sovryn STABLECOIN_TYPE=DOC forge test --match-path
-  test/unit/ProtectedPurchaseWindowTest.t.sol`: 8 passed.
+  test/unit/ProtectedPurchaseWindowTest.t.sol`: 7 passed.
 - `make check`: all unit/fuzz lanes passed (839 tests in the final reported lane set), then all 11
   Sovryn invariants passed at 64 runs × 512 calls with zero reverts.
-- `make fork-sovryn`: 381 passed, 26 skipped.
-- `make fork-tropykus`: 374 passed, 30 skipped.
-- Default-profile `DcaManager` runtime is 14,209 B versus 13,487 B at the exact PR base: +722 B.
+- `make fork-sovryn`: 380 passed, 26 skipped.
+- `make fork-tropykus`: 373 passed, 30 skipped.
+  Both drop one against the previous record: the two daily-budget tests are gone and one replaces them.
+- Default-profile `DcaManager` runtime is 14,023 B versus 13,487 B at the exact PR base: +536 B.
+  Dropping the daily budget took 186 B off the 14,209 B the capped version measured.
   The four gas fixtures below are byte-identical before and after that change; only the failure path
   carries more data.
 - On the MoC/Sovryn test, `testSinglePurchase` is 248,667 gas versus 248,843 at base (−176), and the
@@ -190,7 +193,8 @@ Every purchase-path revert now names its schedule, so that retry drops one row r
 - [x] Matches **Scope**; nothing from **Out of scope**.
 - [x] The guarded function list is exact: every mutation that can invalidate a prepared row is
       covered, and unrelated exits are not.
-- [x] The once-per-UTC-day rule prevents indefinite lock renewal by a swapper.
+- [x] An active window cannot be extended; after expiry the swapper may activate again (no daily
+      quota).
 - [x] Protocol invariants in `AGENTS.md` still hold.
 - [x] Files beyond this list are limited to direct dependencies and are named in the PR.
 - [x] No unrelated refactors; history is reviewable.
@@ -198,20 +202,25 @@ Every purchase-path revert now names its schedule, so that retry drops one row r
 ## ABI / deploy / cutover impact
 
 - ABI: adds `activateProtectedPurchaseWindow()`, protected-window unlock and eligibility getters, one
-  activation event, and three custom errors. One existing error signature changes:
+  activation event, and two custom errors (`ProtectedPurchaseWindowStillActive`,
+  `UserMutationsLocked`). One existing error signature changes:
   `DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(uint256 timeRemaining)` becomes
   `(address token, uint64 scheduleId, uint256 timeRemaining)`, matching the four other purchase-path
   reverts that already name the row. Every other selector, struct, event, and parameter meaning is
   unchanged.
 - Scripts: none.
 - Cutover: the swapper bot gains an incident flow: activate, wait for inclusion, refresh/simulate, then
-  purchase within the window. The bot can preflight today's activation eligibility. The frontend
-  should present the temporary retry block when a guarded user mutation is refused. Monitoring should
-  ingest the activation event and new errors. Update the
-  existing R64/R66 follow-up issues rather than opening duplicates. Final corrections:
-  [swapper-bot#7](https://github.com/BitChillRSK/swapper-bot/issues/7#issuecomment-5558647498),
-  [bitchill-monitoring#10](https://github.com/BitChillRSK/bitchill-monitoring/issues/10#issuecomment-5558648893),
-  and [front-end#24](https://github.com/BitChillRSK/front-end/issues/24#issuecomment-5558649032).
+  purchase within the window. It preflights with `canActivateProtectedPurchaseWindow()`, which now
+  reports one thing — whether a window is live — rather than a calendar allowance. The frontend
+  should present the temporary retry block when a guarded user mutation is refused, without promising
+  it cannot recur the same day. Monitoring must alert on activation *frequency*: with the onchain
+  quota gone, a sustained run of activations five blocks apart is the signature of a misbehaving
+  swapper key, and off-chain alerting plus multisig removal from the allowlist is the control that
+  replaces the quota. Update the existing R64/R66 follow-up issues rather than opening duplicates.
+  Final corrections:
+  [swapper-bot#7](https://github.com/BitChillRSK/swapper-bot/issues/7#issuecomment-5559758856),
+  [bitchill-monitoring#10](https://github.com/BitChillRSK/bitchill-monitoring/issues/10#issuecomment-5559760788),
+  and [front-end#24](https://github.com/BitChillRSK/front-end/issues/24#issuecomment-5559760898).
   The swapper bot carries the substantive change: with every stale-row revert naming its schedule, an
   unprotected tick recovers by dropping that row and resubmitting, which is the retry the dormant
   default relies on.

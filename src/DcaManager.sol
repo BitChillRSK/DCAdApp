@@ -22,10 +22,10 @@ import {IPurchaseRbtc} from "src/interfaces/IPurchaseRbtc.sol";
  *      cannot re-enter anything, and refusing before the guard's `SSTORE` saves the caller ~5,100 gas
  *      on a refused call. Presence, not position, is the invariant. The two `onlySwapper` purchase
  *      paths are the deliberate exception to presence: each is CEI-clean per handler, and only an
- *      allowlisted swapper reaches them. A swapper may also open
- *      one five-block protected purchase window per UTC day; it temporarily blocks only the user
- *      mutations that can invalidate a batch refreshed after activation, and expires without an
- *      administrator call.
+ *      allowlisted swapper reaches them. A swapper may also open a five-block protected purchase
+ *      window; it temporarily blocks only the user mutations that can invalidate a batch refreshed
+ *      after activation, and expires without an administrator call. There is no daily activation
+ *      budget: after a window ends the swapper may open another.
  */
 contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     using SafeCast for uint256;
@@ -65,10 +65,9 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     mapping(address user => mapping(address token => uint64[] scheduleIds)) private s_scheduleIds;
 
     ProtocolSettings private s_protocolSettings;
-    /// @dev Adjacent sub-word fields share one storage slot without manual packing. Zero is the
-    ///      never-activated sentinel: day zero is never a valid "latest UTC day plus one".
+    /// @dev Zero means never activated: every real block number is at least zero, so mutations start
+    ///      unlocked. While live this holds the first block at which the seven guarded calls resume.
     uint64 private s_userMutationsAllowedFromBlock;
-    uint32 private s_protectedWindowDayMarker;
     mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Custom minimum purchase amounts per token
 
     /*//////////////////////////////////////////////////////////////
@@ -298,12 +297,6 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
      * @inheritdoc IDcaManager
      */
     function activateProtectedPurchaseWindow() external override onlySwapper {
-        uint256 utcDay = block.timestamp / 1 days;
-        uint32 dayMarker = (utcDay + 1).toUint32();
-        if (s_protectedWindowDayMarker == dayMarker) {
-            revert DcaManager__ProtectedPurchaseWindowAlreadyActivated(utcDay);
-        }
-
         uint256 currentUserMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
         if (block.number < currentUserMutationsAllowedFromBlock) {
             revert DcaManager__ProtectedPurchaseWindowStillActive(currentUserMutationsAllowedFromBlock);
@@ -311,7 +304,6 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
         uint64 userMutationsAllowedFromBlock = (block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS).toUint64();
         s_userMutationsAllowedFromBlock = userMutationsAllowedFromBlock;
-        s_protectedWindowDayMarker = dayMarker;
         emit DcaManager__ProtectedPurchaseWindowActivated(msg.sender, userMutationsAllowedFromBlock);
     }
 
@@ -509,8 +501,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
      * @inheritdoc IDcaManager
      */
     function canActivateProtectedPurchaseWindow() external view override returns (bool) {
-        return block.number >= s_userMutationsAllowedFromBlock
-            && uint256(s_protectedWindowDayMarker) != block.timestamp / 1 days + 1;
+        return block.number >= s_userMutationsAllowedFromBlock;
     }
 
     /**

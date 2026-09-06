@@ -95,20 +95,9 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
         dcaManager.updatePurchaseAmount(address(stablecoin), scheduleId, AMOUNT_TO_SPEND);
     }
 
-    function testActivationCannotBeRenewedOrExtended() external {
-        vm.warp(100 days - 1);
+    function testActivationCannotBeExtendedWhileLiveButCanReopenAfterExpiry() external {
         uint256 allowedFromBlock = _activateWindow();
-        uint256 activationDay = block.timestamp / 1 days;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IDcaManager.DcaManager__ProtectedPurchaseWindowAlreadyActivated.selector, activationDay
-            )
-        );
-        vm.prank(SWAPPER);
-        dcaManager.activateProtectedPurchaseWindow();
-
-        vm.warp(100 days);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IDcaManager.DcaManager__ProtectedPurchaseWindowStillActive.selector, allowedFromBlock
@@ -122,20 +111,6 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
         vm.prank(SWAPPER);
         dcaManager.activateProtectedPurchaseWindow();
         assertEq(dcaManager.getUserMutationsAllowedFromBlock(), allowedFromBlock + 5);
-    }
-
-    function testSameUtcDayCannotActivateAgainAfterExpiry() external {
-        vm.warp(100 days + 1 hours);
-        uint256 allowedFromBlock = _activateWindow();
-        vm.roll(allowedFromBlock);
-
-        uint256 utcDay = block.timestamp / 1 days;
-        assertFalse(dcaManager.canActivateProtectedPurchaseWindow());
-        vm.expectRevert(
-            abi.encodeWithSelector(IDcaManager.DcaManager__ProtectedPurchaseWindowAlreadyActivated.selector, utcDay)
-        );
-        vm.prank(SWAPPER);
-        dcaManager.activateProtectedPurchaseWindow();
     }
 
     function testPreparedBatchPurchasesWhileOwnerMutationIsLocked() external {
