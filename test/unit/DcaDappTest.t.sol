@@ -752,9 +752,11 @@ contract DcaDappTest is Test {
     /**
      * @notice assert that the batch redemption event reports the stablecoin the handler measured
      * @param requestedGross the total stablecoin the purchase path asked the lending protocol for
-     * @dev data[0] is the measured redemption. Live iSUSD / kDOC conversion can be 1 wei off the
-     * request; SIP-0094 is not enabled, so a 0.1% band would hide a wrong emit. If the Perimeter
-     * Fee starts charging, this 1-wei check will fail on `make fork-sovryn` — that is the signal.
+     * @dev data[0] is the measured redemption. Lending batches ceil each row independently, so the
+     * protocol can burn up to `(n − 1)` more shares than `ceil(sum → shares)` and pay a few wei of
+     * DOC above the request; live iToken conversion can add another wei. Keep this absolute — a
+     * 0.1% band would hide a wrong emit / SIP-0094 fee. If the Perimeter Fee starts charging, this
+     * check will fail on `make fork-sovryn` — that is the signal.
      */
     function _assertBatchRedemptionReported(uint256 requestedGross) internal {
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -762,7 +764,8 @@ contract DcaDappTest is Test {
         for (uint256 i; i < entries.length; ++i) {
             if (entries[i].topics[0] == TokenLending__SharesRedeemedBatch.selector) {
                 (uint256 underlyingAmount,) = abi.decode(entries[i].data, (uint256, uint256));
-                assertApproxEqAbs(underlyingAmount, requestedGross, 1);
+                // n−1 share dust × ~2 DOC wei/share at rates near 1–2e18, plus 1 wei conversion.
+                assertApproxEqAbs(underlyingAmount, requestedGross, 2 * NUM_OF_SCHEDULES + 1);
                 found = true;
                 break;
             }

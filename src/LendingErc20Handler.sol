@@ -197,7 +197,7 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
         if (sharesToRedeem == 0) {
             return 0;
         }
-        _setUserShares(user, usersShares - sharesToRedeem);
+        _setUserShares(user, usersShares, usersShares - sharesToRedeem);
         stablecoinReceived = _measuredProtocolRedeem(sharesToRedeem, exchangeRate);
         if (stablecoinReceived == 0) {
             revert TokenLending__ZeroStablecoinReceived(stablecoinAmount);
@@ -210,11 +210,16 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
      *      Each row uses the same ceil(stablecoin → shares) as a single redeem; the protocol
      *      burn is exactly the sum of those debits so virtual books and the lending position
      *      stay aligned (an aggregate-then-pro-rata ceil can debit more shares than it burns).
+     *      Shortfalls revert rather than clamp: PurchaseRbtc still allocates by the planned
+     *      weights, so clamping one row would dilute every other buyer in the batch.
+     *      The StablecoinSource `totalStablecoinToRetrieve` argument is unused here — share math
+     *      sizes each row from `purchaseAmounts` alone, and the zero-cash revert reports
+     *      `sum(purchaseAmounts)` computed on that failure path instead of trusting the caller total.
      */
     function _batchRetrieveStablecoin(
         address[] memory users,
         uint256[] memory purchaseAmounts,
-        uint256 totalStablecoinAmount
+        uint256 /* totalStablecoinAmount */
     ) internal virtual override returns (uint256) {
         uint256 exchangeRate = _exchangeRate();
         uint256 totalSharesToRedeem;
@@ -226,14 +231,20 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
             if (usersSharesToRedeem > usersShares) {
                 revert TokenLending__InsufficientShares(users[i], usersSharesToRedeem, usersShares);
             }
-            _setUserShares(users[i], usersShares - usersSharesToRedeem);
+            _setUserShares(users[i], usersShares, usersShares - usersSharesToRedeem);
             totalSharesToRedeem += usersSharesToRedeem;
             emit TokenLending__SharesRedeemed(users[i], purchaseAmounts[i], usersSharesToRedeem);
         }
         uint256 stablecoinReceived = _measuredProtocolRedeem(totalSharesToRedeem, exchangeRate);
-        if (stablecoinReceived > 0) emit TokenLending__SharesRedeemedBatch(stablecoinReceived, totalSharesToRedeem);
-        else revert TokenLending__ZeroStablecoinReceived(totalStablecoinAmount);
-        return stablecoinReceived;
+        if (stablecoinReceived > 0) {
+            emit TokenLending__SharesRedeemedBatch(stablecoinReceived, totalSharesToRedeem);
+            return stablecoinReceived;
+        }
+        uint256 requested;
+        for (uint256 i; i < numOfPurchases; ++i) {
+            requested += purchaseAmounts[i];
+        }
+        revert TokenLending__ZeroStablecoinReceived(requested);
     }
 
     /**
@@ -293,13 +304,21 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
     /**
      * @dev Write the user's virtual share balance and emit the canonical transition.
      *      No log when the balance is unchanged, so a zero-share debit is silent.
+     *      Callers that already hold `s_shares[user]` pass it as `previousShares` to skip a
+     *      second (warm) SLOAD on the purchase path.
      */
-    function _setUserShares(address user, uint256 newShares) private {
-        uint256 previousShares = s_shares[user];
+    function _setUserShares(address user, uint256 previousShares, uint256 newShares) private {
         s_shares[user] = newShares;
         if (previousShares != newShares) {
             emit TokenLending__UserSharesUpdated(user, previousShares, newShares);
         }
+    }
+
+    /**
+     * @dev Convenience overload when the caller has not already loaded the prior balance.
+     */
+    function _setUserShares(address user, uint256 newShares) private {
+        _setUserShares(user, s_shares[user], newShares);
     }
 
     /**
