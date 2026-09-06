@@ -81,7 +81,7 @@ this denial-of-service response.
 
 - [x] Add `activateProtectedPurchaseWindow`, callable only by an address currently authorized as a
       swapper by the constructor-pinned `OperationsAdmin`.
-- [x] Store the block at which user mutations resume (`uint64`; zero = never activated).
+- [x] Store the block at which user mutations resume (`uint256`; zero = never activated).
 - [x] Lock exactly five block heights including the activation block: activation in block `N` allows
       the guarded functions again in block `N + 5`.
 - [x] Reject activation only while a window is still live; after expiry the swapper may activate again
@@ -176,7 +176,8 @@ hostile edits), it may reopen after expiry without waiting for a UTC-day rollove
 - On the MoC/Sovryn test, `testSinglePurchase` is 248,667 gas versus 248,843 at base (−176), and the
   five-row `testBatchPurchasesOneUser` is 1,789,828 versus 1,789,481 (+347, 0.019%). There is no
   window read in either purchase entry; this tiny movement is compiler/dispatcher layout, not a
-  per-row lock cost. With the day marker gone, activation writes one `uint64` in one slot, with no
+  per-row lock cost. With the day marker gone, activation writes one `uint256` slot (same width as
+  `block.number`, no SafeCast), with no
   manual bit math and no second field to merge; the activation fixture is 47,580 gas, down from
   48,328 with the daily budget. Guarded user calls do pay
   one permanent cold read: in the `mocSwaps`/`sovryn`/`DOC` lane the sentinel `withdrawToken` fixture

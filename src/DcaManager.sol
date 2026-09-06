@@ -36,7 +36,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
     /// @dev Five block heights including the activation block; fixed because this is an execution
     ///      buffer, not a confirmation or finality period.
-    uint64 private constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
+    uint256 private constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
 
     /// @dev Constructor-pinned registry. There is no setter: swapping this address
     ///      would redirect every live schedule and bypass add-only route assignment.
@@ -65,10 +65,10 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     mapping(address user => mapping(address token => uint64[] scheduleIds)) private s_scheduleIds;
 
     ProtocolSettings private s_protocolSettings;
+    mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Custom minimum purchase amounts per token
     /// @dev Zero means never activated: every real block number is at least zero, so mutations start
     ///      unlocked. While live this holds the first block at which the seven guarded calls resume.
-    uint64 private s_userMutationsAllowedFromBlock;
-    mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Custom minimum purchase amounts per token
+    uint256 private s_userMutationsAllowedFromBlock;
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -297,12 +297,12 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
      * @inheritdoc IDcaManager
      */
     function activateProtectedPurchaseWindow() external override onlySwapper {
-        uint64 userMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
+        uint256 userMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
         if (block.number < userMutationsAllowedFromBlock) {
             revert DcaManager__ProtectedPurchaseWindowStillActive(userMutationsAllowedFromBlock);
         }
 
-        userMutationsAllowedFromBlock = (block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS).toUint64();
+        userMutationsAllowedFromBlock = block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS;
         s_userMutationsAllowedFromBlock = userMutationsAllowedFromBlock;
         emit DcaManager__ProtectedPurchaseWindowActivated(msg.sender, userMutationsAllowedFromBlock);
     }
