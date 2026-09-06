@@ -26,6 +26,12 @@ contract MockLayerBankAToken is ERC20 {
     uint256 private s_payoutCap;
     bool private s_useIncomeOverride;
     uint256 private s_incomeOverride;
+    /// @notice Burn only this many BPS of the scaled amount Aave would burn. 10_000 = full.
+    uint256 private s_partialBurnBps = 10_000;
+    bool private s_revertOnBurn;
+    bool private s_overBurn;
+    bool private s_increaseBalanceOnBurn;
+    uint256 private constant BPS_DIVISOR = 10_000;
 
     error MockLayerBankAToken__OnlyPool();
     error MockLayerBankAToken__PoolAlreadySet();
@@ -66,8 +72,8 @@ contract MockLayerBankAToken is ERC20 {
 
     /// @notice Cap the underlying paid on withdraw so tests can assert the handler pays the measured delta.
     /// @dev Live Aave `withdraw` transfers underlying from the aToken and reverts on insufficient
-    ///      cash rather than under-paying. This hook is deliberately more permissive so
-    ///      AGENTS.md invariant 1 has coverage. Do not "fix" the mock to match live behavior.
+    ///      cash rather than under-paying. This hook burns the complete scaled amount then caps cash,
+    ///      so it models a fee/loss (exact share consumption) rather than a liquidity partial fill.
     function setPayoutCap(uint256 cap, bool enabled) external {
         s_payoutCap = cap;
         s_usePayoutCap = enabled;
@@ -77,6 +83,24 @@ contract MockLayerBankAToken is ERC20 {
     function setNormalizedIncome(uint256 income, bool enabled) external {
         s_incomeOverride = income;
         s_useIncomeOverride = enabled;
+    }
+
+    /// @notice After computing Aave's scaled burn, consume only this fraction and still pay cash.
+    function setPartialBurnBps(uint256 partialBurnBps) external {
+        require(partialBurnBps <= BPS_DIVISOR, "Bps above 100%");
+        s_partialBurnBps = partialBurnBps;
+    }
+
+    function setRevertOnBurn(bool revertOnBurn) external {
+        s_revertOnBurn = revertOnBurn;
+    }
+
+    function setOverBurn(bool overBurn) external {
+        s_overBurn = overBurn;
+    }
+
+    function setIncreaseBalanceOnBurn(bool increaseBalanceOnBurn) external {
+        s_increaseBalanceOnBurn = increaseBalanceOnBurn;
     }
 
     function POOL() external view returns (address) {
@@ -116,11 +140,30 @@ contract MockLayerBankAToken is ERC20 {
     }
 
     function burnScaled(address from, address to, uint256 underlyingAmount) external onlyPool returns (uint256 paid) {
+        if (s_revertOnBurn) revert("MockLayerBankAToken: insufficient liquidity");
         uint256 rate = getNormalizedIncome();
         uint256 scaled = _rayDiv(underlyingAmount, rate);
-        _burn(from, scaled);
+
+        if (s_increaseBalanceOnBurn) {
+            _mint(from, 1);
+            scaled = 0;
+        } else if (s_overBurn) {
+            scaled = scaled + 1;
+        } else if (s_partialBurnBps < BPS_DIVISOR) {
+            scaled = scaled * s_partialBurnBps / BPS_DIVISOR;
+        }
+
+        if (scaled > 0) {
+            _burn(from, scaled);
+        }
         if (s_silentZeroPayout) return 0;
-        return _payout(to, underlyingAmount);
+        // Cash: on partial share burn, pay for the burned slice; otherwise the requested underlying
+        // (payout-cap may still haircut — that is fee/loss with a full burn when bps == 10_000).
+        uint256 cashOut = underlyingAmount;
+        if (s_partialBurnBps < BPS_DIVISOR && !s_overBurn && !s_increaseBalanceOnBurn) {
+            cashOut = scaled * rate / RAY;
+        }
+        return _payout(to, cashOut);
     }
 
     /// @dev Aave WadRayMath.rayDiv: round nearest. Used for both mint and burn.

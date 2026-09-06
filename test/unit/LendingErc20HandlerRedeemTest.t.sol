@@ -344,6 +344,190 @@ contract LendingErc20HandlerRedeemTest is Test {
         assertEq(harness.getUserShares(userA), expectedShares);
         assertEq(harness.getAccruedInterest(userA, USER_A_DEPOSIT), 0);
     }
+
+    function test_redeemShares_exactShareConsumptionMatchesExternalDelta() public {
+        harness.depositToken(userA, USER_A_DEPOSIT);
+        uint256 bookBefore = harness.getUserShares(userA);
+        uint256 protocolBefore = harness.protocolShares();
+        uint256 redeemAmount = 40 ether;
+        uint256 expectedDebit = _stablecoinToSharesUp(redeemAmount, RATE_SCALE);
+
+        uint256 received = harness.redeemShares(userA, redeemAmount);
+
+        assertEq(received, redeemAmount);
+        assertEq(bookBefore - harness.getUserShares(userA), expectedDebit);
+        assertEq(protocolBefore - harness.protocolShares(), expectedDebit);
+    }
+
+    function test_redeemShares_partialShareBurnWithPositiveCashRevertsAndRollsBack() public {
+        harness.depositToken(userA, USER_A_DEPOSIT);
+        harness.setBurnBps(5_000);
+
+        uint256 bookBefore = harness.getUserShares(userA);
+        uint256 protocolBefore = harness.protocolShares();
+        uint256 stableBefore = stablecoin.balanceOf(address(harness));
+        uint256 redeemAmount = 40 ether;
+        uint256 intended = _stablecoinToSharesUp(redeemAmount, RATE_SCALE);
+        uint256 afterPartial = protocolBefore - intended / 2;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITokenLending.TokenLending__ShareConsumptionMismatch.selector,
+                intended,
+                protocolBefore,
+                afterPartial
+            )
+        );
+        harness.redeemShares(userA, redeemAmount);
+
+        assertEq(harness.getUserShares(userA), bookBefore);
+        assertEq(harness.protocolShares(), protocolBefore);
+        assertEq(stablecoin.balanceOf(address(harness)), stableBefore);
+    }
+
+    function test_batchRetrieve_partialShareBurnRevertsAndRollsBack() public {
+        harness.depositToken(userA, USER_A_DEPOSIT);
+        harness.depositToken(userB, USER_B_DEPOSIT);
+        harness.setBurnBps(5_000);
+
+        uint256 sharesA = harness.getUserShares(userA);
+        uint256 sharesB = harness.getUserShares(userB);
+        uint256 protocolBefore = harness.protocolShares();
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 10 ether;
+        amounts[1] = 15 ether;
+
+        uint256 intended =
+            _stablecoinToSharesUp(amounts[0], RATE_SCALE) + _stablecoinToSharesUp(amounts[1], RATE_SCALE);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITokenLending.TokenLending__ShareConsumptionMismatch.selector,
+                intended,
+                protocolBefore,
+                protocolBefore - intended / 2
+            )
+        );
+        harness.batchRetrieveStablecoin(users, amounts);
+
+        assertEq(harness.getUserShares(userA), sharesA);
+        assertEq(harness.getUserShares(userB), sharesB);
+        assertEq(harness.protocolShares(), protocolBefore);
+    }
+
+    function test_redeemShares_liquidityShortageRevertsUnchanged() public {
+        harness.depositToken(userA, USER_A_DEPOSIT);
+        harness.setRevertOnRedeem(true);
+
+        uint256 bookBefore = harness.getUserShares(userA);
+        uint256 protocolBefore = harness.protocolShares();
+
+        vm.expectRevert(bytes("Harness: insufficient liquidity"));
+        harness.redeemShares(userA, 40 ether);
+
+        assertEq(harness.getUserShares(userA), bookBefore);
+        assertEq(harness.protocolShares(), protocolBefore);
+        assertEq(harness.protocolRedeemCalls(), 0);
+    }
+
+    function test_redeemShares_overBurnHitsNamedMismatch() public {
+        harness.depositToken(userA, USER_A_DEPOSIT);
+        harness.setOverBurn(true);
+
+        uint256 protocolBefore = harness.protocolShares();
+        uint256 redeemAmount = 40 ether;
+        uint256 intended = _stablecoinToSharesUp(redeemAmount, RATE_SCALE);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITokenLending.TokenLending__ShareConsumptionMismatch.selector,
+                intended,
+                protocolBefore,
+                protocolBefore - (intended + 1)
+            )
+        );
+        harness.redeemShares(userA, redeemAmount);
+
+        assertEq(harness.protocolShares(), protocolBefore);
+    }
+
+    function test_redeemShares_increasingReceiptBalanceHitsNamedMismatch() public {
+        harness.depositToken(userA, USER_A_DEPOSIT);
+        harness.setIncreaseBalanceOnRedeem(true);
+
+        uint256 protocolBefore = harness.protocolShares();
+        uint256 redeemAmount = 40 ether;
+        uint256 intended = _stablecoinToSharesUp(redeemAmount, RATE_SCALE);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITokenLending.TokenLending__ShareConsumptionMismatch.selector,
+                intended,
+                protocolBefore,
+                protocolBefore + 1
+            )
+        );
+        harness.redeemShares(userA, redeemAmount);
+
+        assertEq(harness.protocolShares(), protocolBefore);
+    }
+
+    function test_withdrawInterest_partialShareBurnRevertsAndRollsBack() public {
+        harness.depositToken(userA, USER_A_DEPOSIT);
+        // Accrue interest by raising the rate so share-backed value exceeds locked principal.
+        harness.setExchangeRate(2e18);
+        harness.setBurnBps(5_000);
+
+        uint256 bookBefore = harness.getUserShares(userA);
+        uint256 protocolBefore = harness.protocolShares();
+        uint256 userStableBefore = stablecoin.balanceOf(userA);
+
+        vm.expectRevert();
+        harness.withdrawInterest(userA, USER_A_DEPOSIT);
+
+        assertEq(harness.getUserShares(userA), bookBefore);
+        assertEq(harness.protocolShares(), protocolBefore);
+        assertEq(stablecoin.balanceOf(userA), userStableBefore);
+    }
+
+    /// @dev Gas snapshot for the PR body: 1 / 10 / 200 row batchRetrieve under the harness.
+    function test_gas_batchRetrieve_rowCounts() public {
+        _fundAndDeposit(userA, 10_000 ether);
+        uint256 rowAmount = 1 ether;
+
+        uint256 g1 = gasleft();
+        _batchRows(1, rowAmount);
+        uint256 gas1 = g1 - gasleft();
+
+        uint256 g10 = gasleft();
+        _batchRows(10, rowAmount);
+        uint256 gas10 = g10 - gasleft();
+
+        uint256 g200 = gasleft();
+        _batchRows(200, rowAmount);
+        uint256 gas200 = g200 - gasleft();
+
+        // Keep the snapshot observable in `-vv` without asserting absolute numbers (profile-sensitive).
+        emit log_named_uint("batchRetrieve gas rows=1", gas1);
+        emit log_named_uint("batchRetrieve gas rows=10", gas10);
+        emit log_named_uint("batchRetrieve gas rows=200", gas200);
+        assertGt(gas10, gas1);
+        assertGt(gas200, gas10);
+    }
+
+    function _batchRows(uint256 n, uint256 rowAmount) private {
+        address[] memory users = new address[](n);
+        uint256[] memory amounts = new uint256[](n);
+        for (uint256 i; i < n; ++i) {
+            users[i] = userA;
+            amounts[i] = rowAmount;
+        }
+        harness.batchRetrieveStablecoin(users, amounts);
+    }
 }
 
 /**
@@ -358,6 +542,11 @@ contract LendingErc20HandlerHarness is LendingErc20Handler {
     bool public payOut = true;
     uint256 public protocolRedeemCalls;
     uint256 public protocolShares;
+    /// @notice BPS of `sharesAmount` actually burned. 10_000 = full. Positive cash still paid for the fraction.
+    uint256 public burnBps = 10_000;
+    bool public overBurn;
+    bool public increaseBalanceOnRedeem;
+    bool public revertOnRedeem;
 
     constructor(
         address dcaManagerAddress,
@@ -373,6 +562,22 @@ contract LendingErc20HandlerHarness is LendingErc20Handler {
 
     function setPayOut(bool shouldPay) external {
         payOut = shouldPay;
+    }
+
+    function setBurnBps(uint256 bps) external {
+        burnBps = bps;
+    }
+
+    function setOverBurn(bool enabled) external {
+        overBurn = enabled;
+    }
+
+    function setIncreaseBalanceOnRedeem(bool enabled) external {
+        increaseBalanceOnRedeem = enabled;
+    }
+
+    function setRevertOnRedeem(bool enabled) external {
+        revertOnRedeem = enabled;
     }
 
     function creditShares(address user, uint256 shares) external {
@@ -399,6 +604,10 @@ contract LendingErc20HandlerHarness is LendingErc20Handler {
         return address(this);
     }
 
+    function _receiptSharesBalance() internal override returns (uint256) {
+        return protocolShares;
+    }
+
     function _protocolDeposit(uint256 stablecoinAmount) internal override returns (uint256 mintedShares) {
         mintedShares = _stablecoinToShares(stablecoinAmount, exchangeRate);
         protocolShares += mintedShares;
@@ -406,10 +615,26 @@ contract LendingErc20HandlerHarness is LendingErc20Handler {
     }
 
     function _protocolRedeem(uint256 sharesAmount, uint256 rate) internal override {
+        if (revertOnRedeem) revert("Harness: insufficient liquidity");
         protocolRedeemCalls++;
-        protocolShares -= sharesAmount;
+
+        uint256 toBurn = sharesAmount;
+        if (increaseBalanceOnRedeem) {
+            protocolShares += 1;
+            toBurn = 0;
+        } else if (overBurn) {
+            toBurn = sharesAmount + 1;
+        } else if (burnBps < 10_000) {
+            toBurn = sharesAmount * burnBps / 10_000;
+        }
+        if (toBurn > 0) {
+            protocolShares -= toBurn;
+        }
+
         if (!payOut) return;
-        uint256 amount = _sharesToStablecoin(sharesAmount, rate);
+        uint256 amount = toBurn > 0
+            ? _sharesToStablecoin(toBurn, rate)
+            : _sharesToStablecoin(sharesAmount, rate);
         if (amount > 0) {
             MockStablecoin(address(i_stableToken)).mint(address(this), amount);
         }

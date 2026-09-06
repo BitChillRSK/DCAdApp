@@ -72,9 +72,13 @@ abstract contract SovrynErc20Handler is LendingErc20Handler {
 
     /**
      * @dev Redeem iSUSD onto this contract. `burn()` can return GROSS while paying NET once an
-     *      exit fee is on; the return is ignored and the base measures the token delta.
+     *      exit fee is on; the return is ignored and the base measures cash and iToken deltas.
      */
     function _protocolRedeem(uint256 sharesAmount, uint256) internal override {
         i_iSusdToken.burn(address(this), sharesAmount);
+    }
+
+    function _receiptSharesBalance() internal override returns (uint256) {
+        return i_iSusdToken.balanceOf(address(this));
     }
 }

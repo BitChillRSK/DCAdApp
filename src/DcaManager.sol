@@ -810,7 +810,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         uint256 newTokenBalance = tokenBalance - withdrawalAmount;
         routeIndex = dcaSchedule.routeIndex;
         dcaSchedule.tokenBalance = newTokenBalance.toUint128();
-        // `withdrawToken()`'s return value (what the handler actually paid out) is deliberately unused
+        // Lending success means the external share claim was fully consumed; cash may still be net of
+        // a fee. The measured return is deliberately unused for the principal debit.
         _handler(token, routeIndex).withdrawToken(msg.sender, withdrawalAmount);
         emit DcaManager__TokenBalanceUpdated(token, scheduleId, newTokenBalance);
     }

@@ -93,13 +93,42 @@ abstract contract LayerBankErc20Handler is LendingErc20Handler, ILayerBankErc20H
     }
 
     /**
-     * @dev Convert booked shares to underlying and withdraw onto this contract.
-     *      Aave has no share-sized withdraw. Skip a zero amount: live Pool.withdraw reverts.
+     * @dev Withdraw the underlying amount whose Aave half-up `rayDiv` maps back to exactly
+     *      `sharesAmount` scaled shares. The Pool has no share-sized withdraw; BitChill sizes
+     *      shares with a ceiling while Aave burns with nearest-RAY division, so the floored
+     *      conversion can undershoot by one wei of underlying. Try floor, then floor + 1, and
+     *      leave the shared base to prove the measured `scaledBalanceOf` delta.
      */
     function _protocolRedeem(uint256 sharesAmount, uint256 exchangeRate) internal override {
-        uint256 amountOut = _sharesToStablecoin(sharesAmount, exchangeRate);
+        uint256 amountOut = _underlyingForExactScaledBurn(sharesAmount, exchangeRate);
         if (amountOut == 0) return;
 
         i_pool.withdraw(address(i_stableToken), amountOut, address(this));
+    }
+
+    function _receiptSharesBalance() internal override returns (uint256) {
+        return i_aToken.scaledBalanceOf(address(this));
+    }
+
+    /**
+     * @dev Underlying `a` such that Aave's `(a * RAY + index/2) / index` equals `sharesAmount`.
+     *      Floor never rayDivs above the target; when it undershoots, one more wei is enough.
+     */
+    function _underlyingForExactScaledBurn(uint256 sharesAmount, uint256 index)
+        private
+        view
+        returns (uint256 amount)
+    {
+        amount = _sharesToStablecoin(sharesAmount, index);
+        if (_rayDiv(amount, index) < sharesAmount) {
+            unchecked {
+                ++amount;
+            }
+        }
+    }
+
+    /// @dev Aave WadRayMath.rayDiv (round nearest).
+    function _rayDiv(uint256 a, uint256 index) private pure returns (uint256) {
+        return (a * EXCHANGE_RATE_DECIMALS + index / 2) / index;
     }
 }

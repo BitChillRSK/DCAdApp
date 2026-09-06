@@ -45,8 +45,10 @@ interface ITokenHandler {
      *        position, the idle handler to its own per-user ledger.
      * @return withdrawnAmount The amount that left this contract, measured as a `balanceOf(address(this))`
      *         delta around `safeTransfer`. This measures handler cash, not the user's balance, and it is
-     *         not what a schedule's principal is debited by: principal is reduced by the amount requested,
-     *         because a handler that pays out less than it was asked for may not still hold the difference.
+     *         not what a schedule's principal is debited by: principal is reduced by the amount requested.
+     *         On a lending route a successful call guarantees the external receipt-share claim for that
+     *         request was fully consumed, so a cash shortfall is a fee or realized loss with no unpaid
+     *         claim left withdrawable — not a reason to re-credit principal.
      */
     function withdrawToken(address user, uint256 amount) external returns (uint256 withdrawnAmount);
 }

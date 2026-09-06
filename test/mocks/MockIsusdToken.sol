@@ -31,6 +31,20 @@ contract MockIsusdToken is ERC20, ERC20Burnable, Ownable, ERC20Permit {
      *      trust the return value lose the burnt shares; the handler must revert on a zero DOC delta.
      */
     bool private s_silentZeroPayout;
+    /**
+     * @notice When set, burn only this many BPS of the requested iSUSD and pay cash for that fraction.
+     * @dev Models a partial-liquidity fill that leaves the unpaid claim withdrawable. 10_000 = full.
+     */
+    uint256 private s_partialBurnBps = 10_000;
+    /**
+     * @notice When set, burn fails before any transfer or share movement (atomic liquidity shortage).
+     */
+    bool private s_revertOnBurn;
+    /**
+     * @notice When set, burn consumes more iSUSD than requested (or mints if negative via separate flag).
+     */
+    bool private s_overBurn;
+    bool private s_increaseBalanceOnBurn;
 
     constructor(address docTokenAddress) ERC20("Tropykus iSUSD", "iSUSD") Ownable(msg.sender) ERC20Permit("Tropykus iSUSD") {
         i_docToken = IStablecoin(docTokenAddress);
@@ -54,23 +68,45 @@ contract MockIsusdToken is ERC20, ERC20Burnable, Ownable, ERC20Permit {
      * @param burnAmount The amount of iSUSD to burn.
      */
     function burn(address receiver, uint256 burnAmount) external returns (uint256 loanAmountPaid) {
+        if (s_revertOnBurn) revert("MockIsusdToken: insufficient liquidity");
         require(balanceOf(msg.sender) >= burnAmount, "Insufficient balance");
-        loanAmountPaid = Math.ceilDiv(burnAmount * tokenPrice(), DECIMALS); // GROSS
-        uint256 exitFee = loanAmountPaid * s_exitFeeBps / BPS_DIVISOR;
-        uint256 netPayout = loanAmountPaid - exitFee;
+
+        // Default: burn exactly `burnAmount`. Partial / over / increase modes override for R68 tests.
+        uint256 sharesToBurn = burnAmount;
+        if (s_increaseBalanceOnBurn) {
+            _mint(msg.sender, 1);
+            sharesToBurn = 0;
+        } else if (s_overBurn) {
+            sharesToBurn = burnAmount + 1;
+            require(balanceOf(msg.sender) >= sharesToBurn, "Insufficient balance for over-burn");
+        } else if (s_partialBurnBps < BPS_DIVISOR) {
+            sharesToBurn = burnAmount * s_partialBurnBps / BPS_DIVISOR;
+        }
+
+        // Cash follows the burned slice on partial fill; otherwise the full requested gross (SIP-0094).
+        uint256 cashGross = sharesToBurn > 0
+            ? Math.ceilDiv(sharesToBurn * tokenPrice(), DECIMALS)
+            : Math.ceilDiv(burnAmount * tokenPrice(), DECIMALS);
+        loanAmountPaid = Math.ceilDiv(burnAmount * tokenPrice(), DECIMALS); // return stays GROSS of the request
+        uint256 exitFee = cashGross * s_exitFeeBps / BPS_DIVISOR;
+        uint256 netPayout = cashGross - exitFee;
+
         if (s_silentZeroPayout) {
-            _burn(msg.sender, burnAmount);
+            if (sharesToBurn > 0) _burn(msg.sender, sharesToBurn);
             return loanAmountPaid;
         }
-        // Yield (tokenPrice grows with time) can exceed the DOC this mock was deposited with.
-        // Mint the shortfall the same way MockKdocToken.redeemUnderlying does.
+
         uint256 currentBalance = i_docToken.balanceOf(address(this));
-        if (currentBalance < netPayout) {
+        if (netPayout > 0 && currentBalance < netPayout) {
             IStablecoin(address(i_docToken)).mint(address(this), netPayout - currentBalance);
         }
-        i_docToken.transfer(receiver, netPayout); // NET: the fee stays behind, as Sovryn's goes to the ExitFeeVault
-        _burn(msg.sender, burnAmount);
-        return loanAmountPaid; // the return value stays GROSS even when the payout was NET
+        if (netPayout > 0) {
+            i_docToken.transfer(receiver, netPayout); // NET: fee stays behind, as Sovryn's ExitFeeVault
+        }
+        if (sharesToBurn > 0) {
+            _burn(msg.sender, sharesToBurn);
+        }
+        return loanAmountPaid;
     }
 
     /**
@@ -84,6 +120,24 @@ contract MockIsusdToken is ERC20, ERC20Burnable, Ownable, ERC20Permit {
 
     function setSilentZeroPayout(bool silentZeroPayout) external {
         s_silentZeroPayout = silentZeroPayout;
+    }
+
+    /// @notice Burn only `partialBurnBps / 10_000` of the requested iSUSD and pay cash for that slice.
+    function setPartialBurnBps(uint256 partialBurnBps) external {
+        require(partialBurnBps <= BPS_DIVISOR, "Bps above 100%");
+        s_partialBurnBps = partialBurnBps;
+    }
+
+    function setRevertOnBurn(bool revertOnBurn) external {
+        s_revertOnBurn = revertOnBurn;
+    }
+
+    function setOverBurn(bool overBurn) external {
+        s_overBurn = overBurn;
+    }
+
+    function setIncreaseBalanceOnBurn(bool increaseBalanceOnBurn) external {
+        s_increaseBalanceOnBurn = increaseBalanceOnBurn;
     }
 
     /**

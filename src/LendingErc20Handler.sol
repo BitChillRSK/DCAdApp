@@ -75,7 +75,8 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
 
     /**
      * @inheritdoc ITokenHandler
-     * @dev Pays out what the redemption actually produced, which may be less than requested.
+     * @dev Pays out what the redemption actually produced. Cash may be less than requested when
+     *      the complete share claim was consumed (fee / realized loss); a partial share burn reverts.
      */
     function withdrawToken(address user, uint256 withdrawalAmount)
         public
@@ -267,9 +268,16 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
 
     /**
      * @dev Burn `sharesAmount` at the lending protocol onto this contract.
-     *      Adapters move funds only. Measurement and the zero-payout revert live in the base.
+     *      Adapters move funds only. Cash and receipt-share measurement live in the base.
      */
     function _protocolRedeem(uint256 sharesAmount, uint256 exchangeRate) internal virtual;
+
+    /**
+     * @dev This handler's external receipt-share balance: iToken/kToken `balanceOf`, or aToken
+     *      `scaledBalanceOf`. Never a protocol return value. Not `view`: the iToken/kToken ABIs
+     *      declare `balanceOf` without that mutability.
+     */
+    function _receiptSharesBalance() internal virtual returns (uint256);
 
     /*//////////////////////////////////////////////////////////////
                             PRIVATE FUNCTIONS
@@ -304,14 +312,22 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
     }
 
     /**
-     * @dev Measure the stablecoin this contract gained from a protocol redeem.
+     * @dev Measure cash received and require the external receipt-share balance to fall by exactly
+     *      `sharesAmount`. Cash and shares are independent facts: a fee haircut with a full burn
+     *      succeeds; positive cash with a partial burn reverts. Compare before/after without
+     *      subtracting when the balance did not decrease, so a flat or rising balance cannot panic.
      */
     function _measuredProtocolRedeem(uint256 sharesAmount, uint256 exchangeRate)
         private
         returns (uint256 received)
     {
+        uint256 sharesBefore = _receiptSharesBalance();
         uint256 stablecoinBalanceBefore = i_stableToken.balanceOf(address(this));
         _protocolRedeem(sharesAmount, exchangeRate);
+        uint256 sharesAfter = _receiptSharesBalance();
+        if (sharesAfter >= sharesBefore || sharesBefore - sharesAfter != sharesAmount) {
+            revert TokenLending__ShareConsumptionMismatch(sharesAmount, sharesBefore, sharesAfter);
+        }
         received = i_stableToken.balanceOf(address(this)) - stablecoinBalanceBefore;
     }
 }

@@ -5,6 +5,7 @@ pragma solidity 0.8.36;
 import {DcaDappTest} from "./DcaDappTest.t.sol";
 import {Vm} from "forge-std/Test.sol";
 import {IPurchaseRbtc} from "../../src/interfaces/IPurchaseRbtc.sol";
+import {ITokenLending} from "../../src/interfaces/ITokenLending.sol";
 import {MockIsusdToken} from "../mocks/MockIsusdToken.sol";
 import {toBatch} from "../utils/BatchBuyOne.sol";
 import "../Constants.sol";
@@ -377,5 +378,68 @@ contract NetRedemptionTest is DcaDappTest {
             }
         }
         assertTrue(found, "no TokenLending__InterestWithdrawn log recorded");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                     EXACT SHARE CONSUMPTION (R68)
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Positive cash with a partial iToken burn must revert; schedule and shares roll back.
+     */
+    function test_sovryn_partialShareBurnOnWithdrawRevertsAndRollsBack() public onlySovrynMocMocks {
+        uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        uint256 scheduleBefore = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).tokenBalance;
+        uint256 userSharesBefore = ITokenLending(address(stablecoinHandler)).getUserShares(USER);
+        uint256 iTokenBefore = shareToken.balanceOf(address(stablecoinHandler));
+        uint256 userDocBefore = stablecoin.balanceOf(USER);
+
+        MockIsusdToken(address(shareToken)).setPartialBurnBps(5_000);
+
+        vm.expectRevert();
+        vm.prank(USER);
+        dcaManager.withdrawToken(address(stablecoin), scheduleId, WITHDRAWAL_AMOUNT);
+
+        assertEq(scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).tokenBalance, scheduleBefore);
+        assertEq(ITokenLending(address(stablecoinHandler)).getUserShares(USER), userSharesBefore);
+        assertEq(shareToken.balanceOf(address(stablecoinHandler)), iTokenBefore);
+        assertEq(stablecoin.balanceOf(USER), userDocBefore);
+    }
+
+    /**
+     * @notice A batch purchase with a partial iToken burn reverts the whole tick.
+     */
+    function test_sovryn_partialShareBurnOnBatchRevertsAndRollsBack() public onlySovrynMocMocks {
+        createSeveralDcaSchedules();
+        MockIsusdToken(address(shareToken)).setPartialBurnBps(5_000);
+
+        (,, uint64[] memory scheduleIds,) = _batchArrays();
+        uint256 iTokenBefore = shareToken.balanceOf(address(stablecoinHandler));
+        uint256 rbtcBefore = _accumulatedRbtc();
+
+        vm.expectRevert();
+        vm.prank(SWAPPER);
+        dcaManager.batchBuyRbtc(toBatch(scheduleIds, address(stablecoin), s_routeIndex));
+
+        assertEq(shareToken.balanceOf(address(stablecoinHandler)), iTokenBefore);
+        assertEq(_accumulatedRbtc(), rbtcBefore);
+    }
+
+    /**
+     * @notice Exit-fee net cash with a full iToken burn still succeeds and debits requested principal.
+     */
+    function test_sovryn_exitFeeFullBurnStillSucceeds() public onlySovrynMocMocks {
+        _enableExitFee();
+
+        uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        uint256 iTokenBefore = shareToken.balanceOf(address(stablecoinHandler));
+        uint256 userSharesBefore = ITokenLending(address(stablecoinHandler)).getUserShares(USER);
+
+        vm.prank(USER);
+        dcaManager.withdrawToken(address(stablecoin), scheduleId, WITHDRAWAL_AMOUNT);
+
+        uint256 sharesDebited = userSharesBefore - ITokenLending(address(stablecoinHandler)).getUserShares(USER);
+        assertEq(iTokenBefore - shareToken.balanceOf(address(stablecoinHandler)), sharesDebited);
+        assertGt(sharesDebited, 0);
     }
 }
