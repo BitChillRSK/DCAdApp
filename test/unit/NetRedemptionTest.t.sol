@@ -6,6 +6,8 @@ import {DcaDappTest} from "./DcaDappTest.t.sol";
 import {Vm} from "forge-std/Test.sol";
 import {IPurchaseRbtc} from "../../src/interfaces/IPurchaseRbtc.sol";
 import {ITokenLending} from "../../src/interfaces/ITokenLending.sol";
+import {IFeeHandler} from "../../src/interfaces/IFeeHandler.sol";
+import {IDcaManager} from "../../src/interfaces/IDcaManager.sol";
 import {MockIsusdToken} from "../mocks/MockIsusdToken.sol";
 import {toBatch} from "../utils/BatchBuyOne.sol";
 import "../Constants.sol";
@@ -407,21 +409,49 @@ contract NetRedemptionTest is DcaDappTest {
     }
 
     /**
-     * @notice A batch purchase with a partial iToken burn reverts the whole tick.
+     * @notice A batch purchase with a partial iToken burn reverts the whole tick and rolls back
+     *         schedule balances/timestamps, fee transfer, share books, stablecoin, and rBTC credits.
+     * @dev The EVM already undoes everything on revert; these assertions document the fields the
+     *      R68 spec named so a weaker helper cannot silently leave one of them unchecked.
      */
     function test_sovryn_partialShareBurnOnBatchRevertsAndRollsBack() public onlySovrynMocMocks {
         createSeveralDcaSchedules();
         MockIsusdToken(address(shareToken)).setPartialBurnBps(5_000);
 
         (,, uint64[] memory scheduleIds,) = _batchArrays();
+        uint256 n = scheduleIds.length;
+        uint256[] memory balancesBefore = new uint256[](n);
+        uint256[] memory timestampsBefore = new uint256[](n);
+        for (uint256 i; i < n; ++i) {
+            IDcaManager.DcaSchedule memory schedule =
+                scheduleAt(dcaManager, USER, address(stablecoin), i);
+            balancesBefore[i] = schedule.tokenBalance;
+            timestampsBefore[i] = schedule.lastPurchaseTimestamp;
+        }
+
+        address feeCollector = IFeeHandler(address(stablecoinHandler)).getFeeCollectorAddress();
+        uint256 feeCollectorBefore = stablecoin.balanceOf(feeCollector);
+        uint256 userSharesBefore = ITokenLending(address(stablecoinHandler)).getUserShares(USER);
         uint256 iTokenBefore = shareToken.balanceOf(address(stablecoinHandler));
+        uint256 handlerDocBefore = stablecoin.balanceOf(address(stablecoinHandler));
+        uint256 userDocBefore = stablecoin.balanceOf(USER);
         uint256 rbtcBefore = _accumulatedRbtc();
 
         vm.expectRevert();
         vm.prank(SWAPPER);
         dcaManager.batchBuyRbtc(toBatch(scheduleIds, address(stablecoin), s_routeIndex));
 
+        for (uint256 i; i < n; ++i) {
+            IDcaManager.DcaSchedule memory schedule =
+                scheduleAt(dcaManager, USER, address(stablecoin), i);
+            assertEq(schedule.tokenBalance, balancesBefore[i], "schedule balance rolled back");
+            assertEq(schedule.lastPurchaseTimestamp, timestampsBefore[i], "schedule timestamp rolled back");
+        }
+        assertEq(stablecoin.balanceOf(feeCollector), feeCollectorBefore, "fee collector rolled back");
+        assertEq(ITokenLending(address(stablecoinHandler)).getUserShares(USER), userSharesBefore);
         assertEq(shareToken.balanceOf(address(stablecoinHandler)), iTokenBefore);
+        assertEq(stablecoin.balanceOf(address(stablecoinHandler)), handlerDocBefore);
+        assertEq(stablecoin.balanceOf(USER), userDocBefore);
         assertEq(_accumulatedRbtc(), rbtcBefore);
     }
 

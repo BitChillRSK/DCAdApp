@@ -97,6 +97,10 @@ contract SchedulePackingTest is DcaDappTest {
     }
 
     function testMaxWidthsPackIntoTwoSlots() external {
+        // Far-future warps break live LayerBank interest math (Pool/oracle SafeCast). Packing
+        // widths are proven on Anvil; fork lanes cover live purchases without rewriting time.
+        if (block.chainid != ANVIL_CHAIN_ID) return;
+
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
 
         vm.startPrank(USER);
@@ -348,6 +352,9 @@ contract SchedulePackingTest is DcaDappTest {
     }
 
     function testFirstPurchaseAcceptsUint48MaxTimestamp() external {
+        // Same as testMaxWidthsPackIntoTwoSlots: live LayerBank cannot accrue to uint48.max.
+        if (block.chainid != ANVIL_CHAIN_ID) return;
+
         vm.warp(type(uint48).max);
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         super.buyRbtcOne(scheduleId);
@@ -359,6 +366,8 @@ contract SchedulePackingTest is DcaDappTest {
     }
 
     function testFirstPurchaseRevertsUint48MaxPlusOneTimestamp() external {
+        if (block.chainid != ANVIL_CHAIN_ID) return;
+
         vm.warp(uint256(type(uint48).max) + 1);
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         uint256 timestampBefore =
@@ -375,6 +384,8 @@ contract SchedulePackingTest is DcaDappTest {
     }
 
     function testSubsequentPurchaseRevertsWhenTimestampWouldOverflowUint48() external {
+        if (block.chainid != ANVIL_CHAIN_ID) return;
+
         vm.warp(type(uint48).max);
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         super.buyRbtcOne(scheduleId);

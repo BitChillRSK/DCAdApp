@@ -236,7 +236,7 @@ failure cases. If `RSK_MAINNET_RPC_URL` is unset, stop before push as required b
 - [ ] Exact external consumption is checked in the shared path used by withdrawal, interest, and
       purchase, with no adapter-specific fail-open bypass.
 - [ ] LayerBank compares `scaledBalanceOf` and does not hide Aave rounding behind a tolerance.
-- [ ] The partial-burn regression pays positive cash and proves complete transaction rollback.
+- [x] The partial-burn regression pays positive cash and proves complete transaction rollback.
 - [ ] The SIP-0094 regression still succeeds with net cash and a full share burn.
 - [ ] Tests in the PR match **Required tests**, including the live adapter checks.
 - [ ] Gas and deployed-size deltas are recorded against the named base commit.
