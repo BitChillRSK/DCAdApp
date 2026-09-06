@@ -1,6 +1,6 @@
 # R68 — Enforce complete lending-share consumption
 
-Status: **not started** · Assigned: no · Optional/further-review: no · Order: after R67, before relaunch
+Status: **not started** · Assigned: no · Optional/further-review: no · Planning PR: [#123](https://github.com/BitChillRSK/dca-contracts/pull/123) · Order: after R67, before relaunch
 
 ## Objective
 

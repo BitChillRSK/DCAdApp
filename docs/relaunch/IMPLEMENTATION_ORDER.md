@@ -946,7 +946,7 @@ as a single redeem and burn exactly that sum, so virtual books never orphan shar
 protocol did not redeem. Preserves the insufficient-share revert; does not revive R66's
 discarded row-skipping or handler-return redesign.
 
-### R68 - enforce complete lending-share consumption ([spec](./R68-lending-redeem-exact-consumption.md), planned PR 68)
+### R68 - enforce complete lending-share consumption ([spec](./R68-lending-redeem-exact-consumption.md), planning [#123](https://github.com/BitChillRSK/dca-contracts/pull/123), planned implementation PR 68)
 
 Pre-cutover accounting follow-up discovered while reviewing `ITokenHandler.withdrawToken` after
 R67. A successful lending redemption must consume exactly the external receipt shares removed from
