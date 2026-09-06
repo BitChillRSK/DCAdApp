@@ -1,163 +1,151 @@
-# R66 — A batch row can be reverted or definanced from under it before the tick lands
+# R66 — Protected purchase window for batch-row front-running
 
-Status: **not started** · Assigned: no · Optional/further-review: no
+Status: **assigned** · Assigned: yes · Optional/further-review: no
 
 ## Objective
 
-A batch row is checked against a schedule's *current* on-chain state, but the swapper composed the
-batch against a snapshot that can be one block stale. Close the gap so that one row's owner — acting
-either by accident or adversarially, in a transaction that lands after the bot's query and before the
-bot's transaction — can neither revert every other row in the same batch nor silently weaken the
-slippage bound every row in the batch relies on.
+Give the swapper a narrowly bounded incident-response mechanism for a malicious schedule owner who
+repeatedly changes their own row after the bot has prepared a batch, causing the shared purchase to
+revert or to execute against a stale absolute minimum. The mechanism is dormant by default: an
+authorized swapper may open one five-block protected purchase window per UTC day, during which only
+the user mutations that can invalidate an already prepared batch are refused.
+
+This is an explicit proportionality decision. Normal batches keep their existing all-or-nothing
+semantics and gas cost. Benign same-block edits may still revert a batch when no protected window was
+opened; the protocol accepts that availability risk rather than permanently redesigning the manager,
+handler funding hooks, calldata, and purchase ABI around a low-incentive denial-of-service scenario.
 
 ## Background
 
 Found during review of [R64](./R64-batch-calldata-and-schedule-keying.md) (PR
-[#119](https://github.com/BitChillRSK/dca-contracts/pull/119)), while checking whether removing the
-per-row staleness guard changed anything about slippage. It did — see the second finding below — but
-the underlying front-runnable-batch-row hazard is older than R64 and older than this relaunch plan. It
-is documented here as its own item rather than folded into #119, so that PR stays scoped to the
-calldata/keying redesign it was opened to test.
+[#119](https://github.com/BitChillRSK/dca-contracts/pull/119)). A batch is composed off-chain, then
+`DcaManager` reads current storage when the purchase lands. In between, a schedule owner can pause,
+delete, withdraw from, or edit a quoted schedule. The resulting row revert unwinds every other row in
+the batch. Raising `purchaseAmount` is different: the purchase may proceed with an absolute
+`minRbtcOut` that was quoted for a smaller input and therefore no longer expresses the intended price
+tolerance.
 
-`_batchBuyRbtc` ([`DcaManager.sol:513`](../../src/DcaManager.sol#L513)) validates and debits every row
-of one handler's batch before calling the handler once. Any revert inside
-`_rBtcPurchaseChecksEffects` ([`DcaManager.sol:661`](../../src/DcaManager.sol#L661)) unwinds every
-prior row's debit in the same batch, and `batchBuyRbtcAcrossHandlers`
-([`DcaManager.sol:272`](../../src/DcaManager.sol#L272)) loops `_batchBuyRbtc` with no per-handler
-isolation, so one handler's revert also unwinds every earlier handler's batch in the same call. A
-schedule's owner controls several state transitions that flip that function from success to revert,
-and can fire one in the block before the swapper's transaction lands:
+The chosen response is an opt-in cross-transaction execution window:
 
-| Owner action, front-run into the tick | Reverts via |
-|---|---|
-| `setSchedulePaused(token, id, true)` | `DcaManager__SchedulePaused` |
-| `withdrawToken` below the row's `purchaseAmount` | `DcaManager__ScheduleBalanceNotEnoughForPurchase` |
-| `deleteDcaSchedule` | `DcaManager__InexistentSchedule` |
-| `updatePurchasePeriod` pushing the next-due date forward | `DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed` |
-| `updatePurchaseAmount` down, shrinking the batch's total input | `PurchaseRbtc__BelowSwapperMinimum` (aggregate `minRbtcOut` no longer clears) |
+1. An authorized swapper calls `activateProtectedPurchaseWindow` and waits for inclusion.
+2. Once the lock is onchain, the bot refreshes the relevant state and rebuilds or simulates the batch.
+3. The bot submits the purchase before the five-block window ends. Prefer the same swapper signer and
+   consecutive nonces so the purchase cannot be included without the activation first.
 
-A sixth transition does not revert, and is the sharper problem:
+The repository's indexer treats 12 Rootstock confirmations as finalized, but the protected flow acts
+on inclusion rather than waiting for that threshold. Five blocks therefore provide an execution
+buffer, not finality: at Rootstock's roughly 30-second average block interval, about 2.5 minutes. If
+operations later require waiting 12 confirmations after activation, this fixed window is no longer
+long enough and must be revisited before adopting that workflow.
 
-| Owner action | Consequence |
-|---|---|
-| `updatePurchaseAmount` **up** | The row spends more than the swapper quoted, but `batch.minRbtcOut` is forwarded unchanged (`DcaManager.sol:535`) as an **absolute** rBTC figure. It was sized against the old, smaller input, so it no longer represents the tolerance the swapper intended for the new, larger one. The purchase can complete inside a materially worse execution price than quoted and still clear the stale absolute minimum. |
+### Why the absolute minimum stays
 
-The first five rows are not novel to this batch design: they exist in the pre-relaunch live protocol
-today, and none of them requires an adversary — any user pausing, withdrawing, or editing a schedule
-in the same block as a scheduled tick reverts every other user's purchase in that batch by accident.
-That is a liveness bug on its own. The sixth is a genuine slippage-protection gap: R64 replaced a
-staleness guard that reverted a stale row (`PurchaseAmountMismatch`, pre-R64) with nothing that
-constrains a purchase-amount increase, and the PR's claim that "nothing about slippage depended on
-the removed guard" is too strong given this case.
+A rate applied to measured spend is useful when a lending redemption returns less stablecoin than
+planned: it preserves the quoted *price* floor while scaling the required rBTC down with the actual
+input. The current absolute minimum is stricter in amount terms and may revert instead. That is a
+liveness improvement, not additional protection against the owner front-run once the protected
+window prevents `purchaseAmount` and the funding book from changing after the refreshed snapshot.
 
-Confirmed by reproduction during the R64 review (not committed to this branch): doubling a schedule's
-purchase amount before the tick let the purchase complete at a materially worse rate than the fresh
-quote while still clearing a `minRbtcOut` sized for the smaller, pre-edit amount; halving it reverted
-the whole batch under the same pending minimum.
+Changing to a rate would also alter bot semantics and thread new arithmetic through `DcaManager`,
+`PurchaseRbtc`, `PurchaseUniswap`, and their interfaces. R66 therefore keeps `minRbtcOut` absolute.
+A future item may reconsider rate semantics on their independent merits, but they are not part of
+this denial-of-service response.
 
 ## Open product decisions
 
-**Yes — the human should confirm the direction before implementation, not just the existence of the
-bug.** Three candidate mechanisms, not mutually exclusive:
+**none** — decided 2026-09-06:
 
-1. **Skip a bad row instead of reverting the batch.** Restructure `_rBtcPurchaseChecksEffects` (checks
-   already precede effects, so this is a return-a-reason-code refactor, not a reordering) so
-   `_batchBuyRbtc` can drop one un-purchasable row, compact the survivors, and emit a
-   `DcaManager__PurchaseRowSkipped(token, scheduleId, reason)` event, reverting only when nothing in
-   the batch survives. This removes the accidental-liveness failure (rows 1–4 above) entirely: a
-   stranger's edit can no longer cost every other user their purchase that day.
-2. **Bind the slippage floor to the amount actually spent, not an absolute quoted figure.**
-   Change `minRbtcOut` semantics from an absolute rBTC amount to a minimum rate (rBTC wei per
-   stablecoin unit, 18-decimal-scaled), applied by the handler to whatever it actually spends:
-   `rate * totalStablecoinAmountToSpend / 1e18`. This is structurally identical to the existing oracle
-   floor in `_getAmountOutLowerBound` ([`PurchaseUniswap.sol:365`](../../src/PurchaseUniswap.sol#L365)),
-   which is already rate-shaped and already composes with the caller value as `max(...)`
-   ([`PurchaseUniswap.sol:311`](../../src/PurchaseUniswap.sol#L311)) — so the two bounds continue to
-   compose exactly as they do today. Do not scale the current absolute value by
-   `actualInput / plannedInput` instead: `FeeHandler`'s fee rate is interpolated between
-   `s_minFeeRate` and `s_maxFeeRate` across purchase-amount bounds
-   ([`FeeHandler.sol:29`](../../src/FeeHandler.sol#L29)), so net spend is not proportional to gross
-   input and a gross-proportional scale would be quietly inexact. A rate applied to the handler's own
-   measured net spend has no such error.
-3. **Pack the swapper's expected amount into the batch row and drop a row that no longer matches.**
-   Even with (1) and (2), an inflated row is not a slippage problem anymore, but it is still a *size*
-   problem: it can push the batch's aggregate input through a pool's depth and fail the *oracle* floor
-   for the whole batch, which happens after row selection and so cannot be caught by skipping alone.
-   Change `Batch.scheduleIds` (`uint64[]`) to something like `bytes32[] rows` packing
-   `(uint64 scheduleId, uint96 expectedPurchaseAmount)`, and drop (skip, per (1)) a row whose expected
-   amount no longer matches the schedule's stored one. A `uint64` array element already occupies a
-   full 32-byte ABI word, so packing a `uint96` alongside it costs only the zero→non-zero calldata
-   bytes — roughly 110 gas/row on Rootstock pricing, not a second word. This is an ABI change to
-   `Batch` and to the off-chain swapper bot that builds it.
-
-Also open: whether `batchBuyRbtcAcrossHandlers` should isolate one handler's revert from the others
-(a genuine venue failure on route A currently blocks route B too). This is a separate question from
-the per-row hazard above, needs a try/catch around an external call, and the current all-or-nothing
-behavior is documented as deliberate at
-[`IDcaManager.sol:327`](../../src/interfaces/IDcaManager.sol#L327) — raise it to the human rather than
-deciding it silently inside this item.
+- Five-block global window, fixed in code.
+- At most one activation per UTC day, enforced onchain. An authorized swapper cannot extend an active
+  window or renew it after expiry on the same UTC day.
+- The lock is dormant until a swapper activates it. Purchases never require activation.
+- Only mutations that can invalidate an already prepared row are blocked. Reads, deposits, schedule
+  creation, interest top-ups, accumulated-rBTC withdrawals, purchases, and governance setters remain
+  available.
+- Keep the existing absolute `minRbtcOut`, batch calldata, handler ABI, funding behavior, and
+  all-or-nothing batch semantics.
 
 ## Scope
 
-- [ ] Whatever subset of (1)/(2)/(3) above the human approves.
-- [ ] Update `Batch` NatSpec and any invariant list in `AGENTS.md` that describes today's
-      all-or-nothing row behavior.
-- [ ] Consumer follow-up: swapper-bot (batch composition and any new skipped-row event), monitoring
-      (alert shape if `DcaManager__PurchaseRowSkipped` is added), and any repo that encodes `Batch` if
-      its shape changes under (3).
+- [x] Add `activateProtectedPurchaseWindow`, callable only by an address currently authorized as a
+      swapper by the constructor-pinned `OperationsAdmin`.
+- [x] Store the block at which user mutations resume and the UTC day of the latest activation in one
+      packed storage slot.
+- [x] Lock exactly five block heights including the activation block: activation in block `N` allows
+      the guarded functions again in block `N + 5`.
+- [x] Reject a second activation in the same UTC day, including after the first window expired.
+- [x] During the window reject `updatePurchaseAmount`, `updatePurchasePeriod`, `setSchedulePaused`,
+      `deleteDcaSchedule`, `withdrawToken`, `withdrawTokenAndInterest`, and
+      `withdrawAllAccumulatedInterest`.
+- [x] Keep `depositToken`, `createDcaSchedule`, `topUpFromInterest`, accumulated-rBTC withdrawals,
+      getters, owner setters, and both purchase entry points available.
+- [x] Add a public getter, activation event, and custom errors for the window and its once-per-day
+      limit. Index only the activating swapper address.
+- [x] Update the durable invariant and consumer follow-ups for the new public surface.
 
 ## Out of scope
 
-- [ ] Cross-handler isolation in `batchBuyRbtcAcrossHandlers` — raise as a separate open question to
-      the human; do not fold a try/catch redesign into this item without an explicit decision.
-- [ ] Any change to the MoC route (no pool, no rate-based floor to apply — see
-      [`IDcaManager.sol:53`](../../src/interfaces/IDcaManager.sol#L53)) beyond what (1) already gives
-      it for free.
-- [ ] Re-opening R64's keying/calldata decision. This item assumes R64's shipped shape
-      (`mapping(address token => mapping(uint64 scheduleId => DcaSchedule))`) as its baseline.
+- [ ] Skipping stale or underfunded rows.
+- [ ] Packed expected purchase amounts or a batch sorting requirement.
+- [ ] Changing `minRbtcOut` from an absolute amount to a rate.
+- [ ] Moving schedule effects after the handler call or adding handler-to-manager funding results.
+- [ ] Cross-handler isolation in `batchBuyRbtcAcrossHandlers`.
+- [ ] Exact equality between user shares debited and protocol shares redeemed; deferred to
+      [R67](./R67-exact-batch-share-accounting.md).
+- [ ] Changes to handlers, purchase routes, or deploy scripts.
 
 ## Files likely touched
 
-- `src/DcaManager.sol`, `src/interfaces/IDcaManager.sol`
-- `src/PurchaseRbtc.sol`, `src/interfaces/IPurchaseRbtc.sol`
-- `src/PurchaseUniswap.sol` (if the rate-based floor composition changes), `src/PurchaseMoc.sol`
-- Every test/fuzz caller that constructs `IDcaManager.Batch` or calls the handler ABI directly
+- `src/DcaManager.sol`
+- `src/interfaces/IDcaManager.sol`
+- `test/unit/ProtectedPurchaseWindowTest.t.sol`
+- `AGENTS.md`
+- `docs/relaunch/README.md`
+- `docs/relaunch/IMPLEMENTATION_ORDER.md`
+- `docs/relaunch/R67-exact-batch-share-accounting.md`
 
 ## Required tests
 
-- A schedule paused, withdrawn-from, deleted, or amount-decreased in the block before the tick no
-  longer reverts any other row in the same batch (once (1) ships).
-- A schedule's purchase amount increased in the block before the tick either drops that row (once (3)
-  ships) or is bound by a floor that reflects the amount actually spent, not the stale quoted one
-  (once (2) ships) — reproduce the doubling scenario from this item's Background and assert the
-  post-fix behavior.
-- The oracle floor and the caller-supplied floor continue to compose as `max(...)` and remain
-  independently testable, per R51's existing test shape.
-- `batchBuyRbtcAcrossHandlers` behavior for a skipped-to-empty single-handler batch (does it skip that
-  handler or revert the whole call — decide and test).
+- `forge test --match-path test/unit/ProtectedPurchaseWindowTest.t.sol`
+- A swapper can activate a window; an unauthorized account cannot.
+- Activation at block `N` blocks every listed mutation in blocks `N` through `N + 4`, and each is
+  available again at `N + 5`.
+- A second activation on the same UTC day reverts both while the first window is live and after it
+  expires; activation succeeds on the next UTC day.
+- Deposits, creation, top-ups, accumulated-rBTC withdrawals, owner setters, and purchases do not take
+  the lock modifier. Structural assertions should make additions or removals from the guarded set
+  visible in review.
+- A batch prepared after activation succeeds while an attempted owner mutation is locked.
+- Existing absolute-minimum behavior and batch ABI remain unchanged.
+- Fork tests add no R66-specific assertions, but `make fork-sovryn` and `make fork-tropykus` remain the
+  before-push gate.
 
 ## Success criteria
 
-- [ ] No schedule owner's own state change — benign or adversarial — can prevent any other schedule's
-      purchase in the same tick.
-- [ ] The slippage bound applied to a purchase reflects the amount actually spent on that purchase,
-      not a snapshot taken before an intervening edit.
-- [ ] No open product decisions remain unresolved in this file once implementation starts.
+- [ ] Once activation is included and the bot refreshes its snapshot, no guarded owner mutation can
+      invalidate the refreshed batch during the five-block window.
+- [ ] No authorized swapper can block guarded user mutations for more than five blocks in one UTC day.
+- [ ] The mechanism adds no storage write and no new branch to an ordinary purchase transaction.
+- [ ] No handler or purchase-route implementation changes.
+- [ ] The existing `Batch` and `IPurchaseRbtc` ABIs and absolute-minimum semantics are unchanged.
+- [ ] `make check`, `make fork-sovryn`, and `make fork-tropykus` pass.
 
 ## Reviewer checklist
 
 - [ ] Matches **Scope**; nothing from **Out of scope**.
-- [ ] `AGENTS.md` invariants updated if this changes documented all-or-nothing batch behavior.
-- [ ] Consumer issues opened/updated for every affected repo in the same turn as the PR.
+- [ ] The guarded function list is exact: every mutation that can invalidate a prepared row is
+      covered, and unrelated exits are not.
+- [ ] The once-per-UTC-day rule prevents indefinite lock renewal by a swapper.
+- [ ] Protocol invariants in `AGENTS.md` still hold.
+- [ ] Files beyond this list are limited to direct dependencies and are named in the PR.
 - [ ] No unrelated refactors; history is reviewable.
 
 ## ABI / deploy / cutover impact
 
-- ABI: depends on which of (1)/(2)/(3) is approved. (1) adds an event. (2) changes `minRbtcOut`
-  semantics without changing its type (still `uint256`, still the final `Batch` field) but is a
-  behavior change every consumer computing it must know about. (3) changes `Batch.scheduleIds` from
-  `uint64[]` to a packed `bytes32[]`, which changes both DcaManager purchase selectors.
-- Scripts: none expected.
-- Cutover: the swapper bot must change how it composes a batch under (2) and, if approved, (3). Open
-  or update `swapper-bot#7` (already carries R64-era context) and any monitoring issue that decodes
-  `minRbtcOut` or the batch row shape.
+- ABI: adds `activateProtectedPurchaseWindow()`, a protected-window getter, one activation event, and
+  two custom errors. Existing selectors, structs, events, and parameter meanings are unchanged.
+- Scripts: none.
+- Cutover: the swapper bot gains an incident flow: activate, wait for inclusion, refresh/simulate, then
+  purchase within the window. The frontend should present the temporary retry block when a guarded
+  user mutation is refused. Monitoring should ingest the activation event and new errors. Update the
+  existing R64/R66 follow-up issues rather than opening duplicates.
