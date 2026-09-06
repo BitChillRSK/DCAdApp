@@ -120,7 +120,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R59 | 57 ([#112](https://github.com/BitChillRSK/dca-contracts/pull/112)) | none (fail closed on incomplete Uniswap input; gas and size ceilings are fixed) |
 | R55 | 58 ([#113](https://github.com/BitChillRSK/dca-contracts/pull/113)) | none (measured; recommendation is keep stock solc, no IR) |
 | R60 | 59 (planned) | none (`via_ir` deploy profile; whole suite runs against shipped bytecode) |
-| R68 | 68 (implementation) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
+| R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 
@@ -946,7 +946,7 @@ as a single redeem and burn exactly that sum, so virtual books never orphan shar
 protocol did not redeem. Preserves the insufficient-share revert; does not revive R66's
 discarded row-skipping or handler-return redesign.
 
-### R68 - enforce complete lending-share consumption ([spec](./R68-lending-redeem-exact-consumption.md), planning [#123](https://github.com/BitChillRSK/dca-contracts/pull/123), implementation PR pending)
+### R68 - enforce complete lending-share consumption ([spec](./R68-lending-redeem-exact-consumption.md), planning [#123](https://github.com/BitChillRSK/dca-contracts/pull/123), [#124](https://github.com/BitChillRSK/dca-contracts/pull/124))
 
 Pre-cutover accounting follow-up discovered while reviewing `ITokenHandler.withdrawToken` after
 R67. A successful lending redemption must consume exactly the external receipt shares removed from
