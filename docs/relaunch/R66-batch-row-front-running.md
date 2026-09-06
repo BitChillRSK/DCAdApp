@@ -29,8 +29,8 @@ The chosen response is an opt-in cross-transaction execution window:
 
 1. An authorized swapper calls `activateProtectedPurchaseWindow` and waits for inclusion.
 2. Once the lock is onchain, the bot refreshes the relevant state and rebuilds or simulates the batch.
-3. The bot submits the purchase before the five-block window ends. Prefer the same swapper signer and
-   consecutive nonces so the purchase cannot be included without the activation first.
+3. The bot broadcasts the purchase only after the activation receipt, and before the five-block window
+   ends.
 
 The repository's indexer treats 12 Rootstock confirmations as finalized, but the protected flow acts
 on inclusion rather than waiting for that threshold. Five blocks therefore provide four subsequent
@@ -38,7 +38,16 @@ inclusion opportunities, not finality. [Rootstock's block-time proposal](https:/
 describes a 14-second target and roughly 24-second observed main-block interval, so that is typically
 around one to two minutes rather than a guaranteed wall-clock duration. If operations later require waiting 12
 confirmations after activation, or cannot reliably refresh and submit inside those four following
-blocks, this fixed window is too short and must be revisited before adopting that workflow.
+blocks, this fixed window is too short and must be revisited before adopting that workflow. The same
+is true if one tick must be split beyond those four opportunities: R64 measured roughly 525 rows per
+transaction, so a tick materially above 2,000 rows could leave a tail outside the protected window.
+
+Activation is a once-per-day budget, not a purchase reservation. If the protected purchase fails for
+an unrelated reason, the activation remains consumed and a retry that day is unprotected. Nothing
+onchain requires a purchase to land before `N + 5`; the bot must enforce that deadline. UTC-day
+eligibility uses `block.timestamp / 1 days`, whose day-boundary attribution a block producer can
+influence slightly. In the colluding-producer edge case this can admit one additional bounded window,
+not an indefinite lock, because a live window still cannot be extended.
 
 ### Why the absolute minimum stays
 
@@ -81,8 +90,9 @@ this denial-of-service response.
       `withdrawAllAccumulatedInterest`.
 - [x] Keep `depositToken`, `createDcaSchedule`, `topUpFromInterest`, accumulated-rBTC withdrawals,
       getters, owner setters, and both purchase entry points available.
-- [x] Add a public getter, activation event, and custom errors for the window and its once-per-day
-      limit. Index only the activating swapper address.
+- [x] Add public getters for the unlock block and current activation eligibility, an activation event,
+      and distinct custom errors for the window and its once-per-day limit. Index only the activating
+      swapper address.
 - [x] Update the durable invariant and consumer follow-ups for the new public surface.
 
 ## Out of scope
@@ -139,13 +149,16 @@ this denial-of-service response.
   test/unit/ProtectedPurchaseWindowTest.t.sol`: 8 passed.
 - `make check`: all unit/fuzz lanes passed (839 tests in the final reported lane set), then all 11
   Sovryn invariants passed at 64 runs × 512 calls with zero reverts.
-- `make fork-sovryn`: 382 passed, 25 skipped.
-- `make fork-tropykus`: 375 passed, 29 skipped.
-- Default-profile `DcaManager` runtime is 14,086 B versus 13,487 B at the exact PR base: +599 B.
-- On the MoC/Sovryn test, `testSinglePurchase` is 248,755 gas versus 248,843 at base (−88), and the
-  five-row `testBatchPurchasesOneUser` is 1,790,707 versus 1,789,481 (+1,226, 0.069%). There is no
+- `make fork-sovryn`: 381 passed, 26 skipped.
+- `make fork-tropykus`: 374 passed, 30 skipped.
+- Default-profile `DcaManager` runtime is 14,200 B versus 13,487 B at the exact PR base: +713 B.
+- On the MoC/Sovryn test, `testSinglePurchase` is 248,667 gas versus 248,843 at base (−176), and the
+  five-row `testBatchPurchasesOneUser` is 1,789,828 versus 1,789,481 (+347, 0.019%). There is no
   window read in either purchase entry; this tiny movement is compiler/dispatcher layout, not a
-  per-row lock cost. Activation writes its explicitly packed `uint96` window word once.
+  per-row lock cost. Activation writes its explicitly packed `uint96` window word once. Guarded user
+  calls do pay one permanent cold read: the MoC/Sovryn sentinel `withdrawToken` fixture is 108,608
+  gas versus 106,888 at base (+1,720, 1.61%), and `withdrawTokenAndInterest` is 176,615 versus
+  174,575 (+2,040, 1.17%).
 
 ## Reviewer checklist
 
@@ -159,12 +172,14 @@ this denial-of-service response.
 
 ## ABI / deploy / cutover impact
 
-- ABI: adds `activateProtectedPurchaseWindow()`, a protected-window getter, one activation event, and
-  two custom errors. Existing selectors, structs, events, and parameter meanings are unchanged.
+- ABI: adds `activateProtectedPurchaseWindow()`, protected-window unlock and eligibility getters, one
+  activation event, and three custom errors. Existing selectors, structs, events, and parameter
+  meanings are unchanged.
 - Scripts: none.
 - Cutover: the swapper bot gains an incident flow: activate, wait for inclusion, refresh/simulate, then
-  purchase within the window. The frontend should present the temporary retry block when a guarded
-  user mutation is refused. Monitoring should ingest the activation event and new errors. Update the
+  purchase within the window. The bot can preflight today's activation eligibility. The frontend
+  should present the temporary retry block when a guarded user mutation is refused. Monitoring should
+  ingest the activation event and new errors. Update the
   existing R64/R66 follow-up issues rather than opening duplicates. Final corrections:
   [swapper-bot#7](https://github.com/BitChillRSK/swapper-bot/issues/7#issuecomment-5558180376),
   [bitchill-monitoring#10](https://github.com/BitChillRSK/bitchill-monitoring/issues/10#issuecomment-5558180478),

@@ -18,6 +18,7 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
 
     function testSwapperActivatesFiveBlockWindowAndEventIndexesOnlySwapper() external {
         assertEq(dcaManager.getUserMutationsAllowedFromBlock(), 0);
+        assertTrue(dcaManager.canActivateProtectedPurchaseWindow());
         uint256 expectedAllowedFromBlock = block.number + 5;
 
         vm.recordLogs();
@@ -25,6 +26,7 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
         dcaManager.activateProtectedPurchaseWindow();
 
         assertEq(dcaManager.getUserMutationsAllowedFromBlock(), expectedAllowedFromBlock);
+        assertFalse(dcaManager.canActivateProtectedPurchaseWindow());
         bytes32 sig = DcaManager__ProtectedPurchaseWindowActivated.selector;
         Vm.Log[] memory logs = vm.getRecordedLogs();
         bool found;
@@ -108,12 +110,15 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
 
         vm.warp(100 days);
         vm.expectRevert(
-            abi.encodeWithSelector(IDcaManager.DcaManager__UserMutationsLocked.selector, allowedFromBlock)
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__ProtectedPurchaseWindowStillActive.selector, allowedFromBlock
+            )
         );
         vm.prank(SWAPPER);
         dcaManager.activateProtectedPurchaseWindow();
 
         vm.roll(allowedFromBlock);
+        assertTrue(dcaManager.canActivateProtectedPurchaseWindow());
         vm.prank(SWAPPER);
         dcaManager.activateProtectedPurchaseWindow();
         assertEq(dcaManager.getUserMutationsAllowedFromBlock(), allowedFromBlock + 5);
@@ -125,6 +130,7 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
         vm.roll(allowedFromBlock);
 
         uint256 utcDay = block.timestamp / 1 days;
+        assertFalse(dcaManager.canActivateProtectedPurchaseWindow());
         vm.expectRevert(
             abi.encodeWithSelector(IDcaManager.DcaManager__ProtectedPurchaseWindowAlreadyActivated.selector, utcDay)
         );
@@ -148,7 +154,10 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
     }
 
     function testUnrelatedUserActionsAndGovernanceStayOpen() external {
-        if (block.chainid != ANVIL_CHAIN_ID) return;
+        if (block.chainid != ANVIL_CHAIN_ID) {
+            vm.skip(true);
+            return;
+        }
 
         uint64 scheduleId = _scheduleId();
         _activateWindow();
@@ -161,13 +170,44 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
         );
         vm.stopPrank();
         assertEq(scheduleCount(dcaManager, USER, address(stablecoin)), 2);
+        uint64 secondScheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), 1);
 
         vm.prank(OWNER);
         dcaManager.modifyMinPurchasePeriod(2 days);
         assertEq(dcaManager.getMinPurchasePeriod(), 2 days);
+        vm.startPrank(OWNER);
+        dcaManager.modifyMaxSchedulesPerToken(3);
+        dcaManager.modifyDefaultMinPurchaseAmount(1);
+        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), 1);
+        vm.stopPrank();
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(stablecoin);
+        uint256[] memory routeIndexes = new uint256[](1);
+        routeIndexes[0] = s_routeIndex;
+        vm.prank(USER);
+        dcaManager.withdrawAllAccumulatedRbtc(tokens, routeIndexes);
 
         buyRbtcOne(scheduleId);
+
+        IDcaManager.Batch[] memory batches = new IDcaManager.Batch[](1);
+        uint64[] memory scheduleIds = new uint64[](1);
+        scheduleIds[0] = secondScheduleId;
+        batches[0] = IDcaManager.Batch({
+            scheduleIds: scheduleIds,
+            token: address(stablecoin),
+            routeIndex: s_routeIndex,
+            minRbtcOut: 0
+        });
+        vm.prank(SWAPPER);
+        dcaManager.batchBuyRbtcAcrossHandlers(batches);
+
         assertGt(IPurchaseRbtc(address(stablecoinHandler)).getAccumulatedRbtcBalance(USER), 0);
+        vm.prank(USER);
+        dcaManager.withdrawAllAccumulatedRbtc(tokens, routeIndexes);
+
+        vm.warp(block.timestamp + MIN_PURCHASE_PERIOD);
+        buyRbtcOne(scheduleId);
         vm.prank(USER);
         dcaManager.withdrawRbtcFromTokenHandler(address(stablecoin), s_routeIndex);
     }

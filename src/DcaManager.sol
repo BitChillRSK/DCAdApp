@@ -30,6 +30,10 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Five block heights including the activation block; fixed because this is an execution
+    ///      buffer, not a confirmation or finality period.
+    uint64 private constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
+
     /// @dev Constructor-pinned registry. There is no setter: swapping this address
     ///      would redirect every live schedule and bypass add-only route assignment.
     OperationsAdmin private immutable i_operationsAdmin;
@@ -57,9 +61,6 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     mapping(address user => mapping(address token => uint64[] scheduleIds)) private s_scheduleIds;
 
     ProtocolSettings private s_protocolSettings;
-    /// @dev Five block heights including the activation block; fixed because this is an execution
-    ///      buffer, not a confirmation or finality period.
-    uint64 private constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
     /// @dev One-write layout: low 64 bits are the block at which mutations resume; high 32 bits are
     ///      the latest UTC day plus one, leaving zero as the never-activated sentinel on day zero.
     uint96 private s_protectedPurchaseWindow;
@@ -301,7 +302,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
         uint256 currentUserMutationsAllowedFromBlock = uint64(protectedPurchaseWindow);
         if (block.number < currentUserMutationsAllowedFromBlock) {
-            revert DcaManager__UserMutationsLocked(currentUserMutationsAllowedFromBlock);
+            revert DcaManager__ProtectedPurchaseWindowStillActive(currentUserMutationsAllowedFromBlock);
         }
 
         uint64 userMutationsAllowedFromBlock = (block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS).toUint64();
@@ -497,6 +498,15 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
      */
     function getUserMutationsAllowedFromBlock() external view override returns (uint256) {
         return uint64(s_protectedPurchaseWindow);
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
+    function canActivateProtectedPurchaseWindow() external view override returns (bool) {
+        uint96 protectedPurchaseWindow = s_protectedPurchaseWindow;
+        return block.number >= uint64(protectedPurchaseWindow)
+            && uint256(uint32(protectedPurchaseWindow >> 64)) != block.timestamp / 1 days + 1;
     }
 
     /**

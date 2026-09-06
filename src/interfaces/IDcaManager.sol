@@ -183,6 +183,8 @@ interface IDcaManager {
     error DcaManager__UnauthorizedSwapper(address sender);
     /// @notice A protected purchase window was already activated during this UTC day.
     error DcaManager__ProtectedPurchaseWindowAlreadyActivated(uint256 utcDay);
+    /// @notice A new protected purchase window cannot start until the current one ends.
+    error DcaManager__ProtectedPurchaseWindowStillActive(uint256 userMutationsAllowedFromBlock);
     /// @notice This user mutation is unavailable until the protected purchase window ends.
     error DcaManager__UserMutationsLocked(uint256 userMutationsAllowedFromBlock);
     /// @notice A batch row's schedule is on a different route than this batch's `routeIndex`.
@@ -489,6 +491,12 @@ interface IDcaManager {
      * @dev Compare with `block.number`: mutations are locked while the current block is lower.
      */
     function getUserMutationsAllowedFromBlock() external view returns (uint256);
+
+    /**
+     * @notice Whether an authorized swapper could activate a protected purchase window now.
+     * @return True only when no window is active and today's activation has not already been used.
+     */
+    function canActivateProtectedPurchaseWindow() external view returns (bool);
 
     /**
      * @notice Lending interest a user has accrued on one token and route, above locked principal.
