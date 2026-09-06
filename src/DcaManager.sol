@@ -297,12 +297,12 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
      * @inheritdoc IDcaManager
      */
     function activateProtectedPurchaseWindow() external override onlySwapper {
-        uint256 currentUserMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
-        if (block.number < currentUserMutationsAllowedFromBlock) {
-            revert DcaManager__ProtectedPurchaseWindowStillActive(currentUserMutationsAllowedFromBlock);
+        uint64 userMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
+        if (block.number < userMutationsAllowedFromBlock) {
+            revert DcaManager__ProtectedPurchaseWindowStillActive(userMutationsAllowedFromBlock);
         }
 
-        uint64 userMutationsAllowedFromBlock = (block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS).toUint64();
+        userMutationsAllowedFromBlock = (block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS).toUint64();
         s_userMutationsAllowedFromBlock = userMutationsAllowedFromBlock;
         emit DcaManager__ProtectedPurchaseWindowActivated(msg.sender, userMutationsAllowedFromBlock);
     }
