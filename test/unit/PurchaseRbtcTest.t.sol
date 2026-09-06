@@ -178,8 +178,8 @@ contract PurchaseRbtcTest is Test {
         uint256 actualSpent = retrieved - aggregatedFee;
         harness.setRetrieveOverride(retrieved);
 
-        (uint256 rbtc0, uint256 rbtc1) = _rbtcShares(RBTC_OUT, net0, net1);
-        (uint256 spent0, uint256 spent1) = _spentShares(actualSpent, net0, net1);
+        (uint256 rbtc0, uint256 rbtc1) = _flooredShares(RBTC_OUT, net0, net1);
+        (uint256 spent0, uint256 spent1) = _flooredShares(actualSpent, net0, net1);
 
         _expectBatchEvents(buyerA, buyerB, rbtc0, rbtc1, spent0, spent1, actualSpent, scheduleA, scheduleB);
         harness.batchBuyRbtc(buyers, scheduleIds, amounts, NO_MIN_RBTC_OUT);
@@ -188,44 +188,38 @@ contract PurchaseRbtcTest is Test {
         assertEq(harness.feeCollectorBalanceOnPurchase(), aggregatedFee);
         assertEq(harness.getAccumulatedRbtcBalance(buyerA), rbtc0);
         assertEq(harness.getAccumulatedRbtcBalance(buyerB), rbtc1);
-        _assertCreditsSumToMeasuredRbtc();
+        _assertCreditsWithinFloorBound(2);
     }
 
-    /// @dev Reads both books back out of the contract: the floors alone sum a wei short here, so this
-    ///      fails without the last-row remainder rather than restating the test's own arithmetic.
-    function _assertCreditsSumToMeasuredRbtc() private {
-        assertEq(
-            harness.getAccumulatedRbtcBalance(buyerA) + harness.getAccumulatedRbtcBalance(buyerB),
-            RBTC_OUT,
-            "every measured rBTC wei is credited"
-        );
+    /// @dev Reads both books back out of the contract. Floor shares may sum below the measured total,
+    ///      never above it: the books staying under the rBTC held is what keeps withdrawals solvent.
+    function _assertCreditsWithinFloorBound(uint256 rows) private {
+        uint256 credited = harness.getAccumulatedRbtcBalance(buyerA) + harness.getAccumulatedRbtcBalance(buyerB);
+        assertLe(credited, RBTC_OUT, "credits exceed the measured rBTC");
+        assertGe(credited, RBTC_OUT - (rows - 1), "credits fall further than one wei per row short");
     }
 
-    /// @dev The one case the remainder exists to cover: floors that do not divide out.
-    function test_batchPurchase_flooredSharesLeaveNoUncreditedWei() public {
+    /// @dev The accepted residue, pinned: floors that do not divide out leave measured rBTC credited to
+    ///      nobody. Under one wei per row, no owner sweep, and always in the direction that keeps the
+    ///      books under the balance. Also guards against reintroducing a last-row remainder.
+    function test_batchPurchase_flooredSharesLeaveResidueUncredited() public {
         (address[] memory buyers, uint64[] memory scheduleIds, uint256[] memory amounts) = _twoBuyerBatch();
         uint256 net0 = amounts[0] - _fee(amounts[0]);
         uint256 net1 = amounts[1] - _fee(amounts[1]);
+        (uint256 rbtc0, uint256 rbtc1) = _flooredShares(RBTC_OUT, net0, net1);
 
-        assertLt(
-            RBTC_OUT * net0 / (net0 + net1) + RBTC_OUT * net1 / (net0 + net1),
-            RBTC_OUT,
-            "fixture must actually truncate, or the remainder is untested"
-        );
+        assertLt(rbtc0 + rbtc1, RBTC_OUT, "fixture must actually truncate, or the residue is untested");
 
         harness.batchBuyRbtc(buyers, scheduleIds, amounts, NO_MIN_RBTC_OUT);
 
-        _assertCreditsSumToMeasuredRbtc();
-        assertEq(
-            harness.getAccumulatedRbtcBalance(buyerB),
-            RBTC_OUT - RBTC_OUT * net0 / (net0 + net1),
-            "the last row carries the remainder"
-        );
+        assertEq(harness.getAccumulatedRbtcBalance(buyerA), rbtc0, "row 0 takes its floor");
+        assertEq(harness.getAccumulatedRbtcBalance(buyerB), rbtc1, "the last row takes its floor, not a remainder");
+        _assertCreditsWithinFloorBound(2);
     }
 
-    /// @dev `amountSpent` is a report on stablecoin already gone, so it floors on every row and the
-    ///      per-row figures may sum below the batch total. Pinned so nobody "fixes" it into custody.
-    function test_batchPurchase_reportedSpendFloorsOnEveryRow() public {
+    /// @dev Both reported figures floor on every row, so both can sum below the batch total. Pinned
+    ///      alongside the batch event, which carries the true totals for anyone who needs them.
+    function test_batchPurchase_bothSidesFloorOnEveryRow() public {
         address[] memory buyers = new address[](2);
         buyers[0] = buyerA;
         buyers[1] = buyerB;
@@ -244,14 +238,14 @@ contract PurchaseRbtcTest is Test {
         uint256 actualSpent = retrieved - aggregatedFee;
         harness.setRetrieveOverride(retrieved);
 
-        (uint256 spent0, uint256 spent1) = _spentShares(actualSpent, net0, net1);
+        (uint256 spent0, uint256 spent1) = _flooredShares(actualSpent, net0, net1);
         assertLt(spent0 + spent1, actualSpent, "fixture must truncate the reported spend");
 
-        (uint256 rbtc0, uint256 rbtc1) = _rbtcShares(RBTC_OUT, net0, net1);
+        (uint256 rbtc0, uint256 rbtc1) = _flooredShares(RBTC_OUT, net0, net1);
         _expectBatchEvents(buyerA, buyerB, rbtc0, rbtc1, spent0, spent1, actualSpent, scheduleA, scheduleB);
         harness.batchBuyRbtc(buyers, scheduleIds, amounts, NO_MIN_RBTC_OUT);
 
-        _assertCreditsSumToMeasuredRbtc();
+        _assertCreditsWithinFloorBound(2);
     }
 
     function test_batchPurchase_repeatedBuyersAccumulateAndEmitInOrder() public {
@@ -269,27 +263,18 @@ contract PurchaseRbtcTest is Test {
         uint256 net1 = amounts[1] - _fee(amounts[1]);
         uint256 actualSpent = amounts[0] + amounts[1] - _fee(amounts[0]) - _fee(amounts[1]);
 
-        (uint256 rbtc0, uint256 rbtc1) = _rbtcShares(RBTC_OUT, net0, net1);
-        (uint256 spent0, uint256 spent1) = _spentShares(actualSpent, net0, net1);
+        (uint256 rbtc0, uint256 rbtc1) = _flooredShares(RBTC_OUT, net0, net1);
+        (uint256 spent0, uint256 spent1) = _flooredShares(actualSpent, net0, net1);
 
         _expectBatchEvents(buyerA, buyerA, rbtc0, rbtc1, spent0, spent1, actualSpent, scheduleA, scheduleB);
         harness.batchBuyRbtc(buyers, scheduleIds, amounts, NO_MIN_RBTC_OUT);
 
-        assertEq(harness.getAccumulatedRbtcBalance(buyerA), RBTC_OUT);
+        assertEq(harness.getAccumulatedRbtcBalance(buyerA), rbtc0 + rbtc1);
     }
 
-    /// @dev rBTC: row 0 floors, row 1 takes the measured total minus that floor.
-    function _rbtcShares(uint256 total, uint256 net0, uint256 net1)
-        private
-        pure
-        returns (uint256 share0, uint256 share1)
-    {
-        share0 = total * net0 / (net0 + net1);
-        share1 = total - share0;
-    }
-
-    /// @dev Stablecoin is event-only and floors on every row, so these can sum below `total`.
-    function _spentShares(uint256 total, uint256 net0, uint256 net1)
+    /// @dev Both sides floor on every row, so these can sum below `total`. Computed independently of
+    ///      the contract rather than as `total - share0`, which would assert nothing.
+    function _flooredShares(uint256 total, uint256 net0, uint256 net1)
         private
         pure
         returns (uint256 share0, uint256 share1)
@@ -341,14 +326,14 @@ contract PurchaseRbtcTest is Test {
 
         uint256 net0 = amounts[0] - _fee(amounts[0]);
         uint256 net1 = amounts[1] - _fee(amounts[1]);
-        (uint256 rbtc0, uint256 rbtc1) = _rbtcShares(RBTC_OUT, net0, net1);
+        (uint256 rbtc0, uint256 rbtc1) = _flooredShares(RBTC_OUT, net0, net1);
 
         harness.batchBuyRbtc(buyers, scheduleIds, amounts, NO_MIN_RBTC_OUT);
 
         assertEq(harness.purchaseCalls(), 1);
         assertEq(harness.getAccumulatedRbtcBalance(buyerA), rbtc0);
         assertEq(harness.getAccumulatedRbtcBalance(buyerB), rbtc1);
-        _assertCreditsSumToMeasuredRbtc();
+        _assertCreditsWithinFloorBound(2);
     }
 
     function test_minRbtcOut_equalToMeasuredOutputSucceeds() public {
@@ -358,10 +343,10 @@ contract PurchaseRbtcTest is Test {
 
         uint256 net0 = amounts[0] - _fee(amounts[0]);
         uint256 net1 = amounts[1] - _fee(amounts[1]);
-        (uint256 rbtc0, uint256 rbtc1) = _rbtcShares(RBTC_OUT, net0, net1);
+        (uint256 rbtc0, uint256 rbtc1) = _flooredShares(RBTC_OUT, net0, net1);
         assertEq(harness.getAccumulatedRbtcBalance(buyerA), rbtc0);
         assertEq(harness.getAccumulatedRbtcBalance(buyerB), rbtc1);
-        _assertCreditsSumToMeasuredRbtc();
+        _assertCreditsWithinFloorBound(2);
     }
 
     function test_minRbtcOut_oneWeiAboveMeasuredOutputReverts() public {

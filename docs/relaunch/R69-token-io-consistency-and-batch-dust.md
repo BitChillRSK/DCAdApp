@@ -4,9 +4,9 @@ Status: **implemented** · Assigned: yes · Optional/further-review: no · Plann
 
 ## Objective
 
-Make first-party token I/O and override seams use one house style, and stop batch purchases from
-leaving uncredited native rBTC on the handler. None of these are product features: they close small
-consistency and custody gaps that the relaunch should not ship with.
+Make first-party token I/O and override seams use one house style, and give the pro-rata dust that
+batch purchases leave on the handler a stated, tested bound. None of these are product features: they
+close small consistency gaps that the relaunch should not ship with.
 
 ## Background
 
@@ -47,34 +47,46 @@ The sum of those floors is at most `totalPurchasedRbtc`, and can be up to `n −
 `n`-buyer batch. The shortfall stays as native balance on the handler but is never written into any
 `s_usersAccumulatedRbtc` entry. After R8 removed the owner rescue, that wei is not withdrawable by
 anyone: `withdrawAccumulatedRbtc` pays only the books, and there is no other exit. The existing
-`PurchaseRbtcTest` already asserts the truncated shares (`sum a wei short of the measured total`)
-and treats the truncation as load-bearing for R51 — so the behavior is known, not accidental, but it
-has no NatSpec statement of where the dust goes, and "known stranded wei" is the wrong relaunch
-posture when a one-line last-buyer remainder closes it.
+`PurchaseRbtcTest` already asserts the truncated shares and treats the truncation as load-bearing
+for R51 — so the behavior is known, not accidental. What it lacks is a NatSpec statement of where the
+dust goes and a test that states the bound rather than restating the arithmetic.
 
 Stablecoin attribution in the same loop has the same floor shape, but that figure is event-only: the
-stablecoin was already spent into the venue. Only the rBTC side creates an un-attributable custody
-residue.
+stablecoin was already spent into the venue.
 
-**Cost of closing it (measured after review, not assumed).** The remainder is not free: it adds a
-loop-carried accumulator to a body that is already at the stack budget, so the marginal cost is
-memory traffic rather than the arithmetic. Measured on the real `PurchaseRbtc` with a stub venue,
-`FOUNDRY_PROFILE=deploy` (via-IR, the profile that ships), against the tip before this change:
+**Why this is documented rather than corrected.** The first implementation credited the residue to
+the last row. It was reverted after review. Two things decided it, and the gas was the weaker one:
 
-| rows | before | in-loop branch, both sides | shipped: rBTC-only, tail unrolled |
+| rows | floor-only (shipped) | in-loop branch, both sides | rBTC-only, tail unrolled |
 |---:|---:|---:|---:|
 | 5 | 101,943 | 102,788 | 102,529 |
 | 50 | 1,128,908 | 1,139,788 | 1,136,067 |
 | 200 | 4,262,954 | 4,307,284 | 4,292,021 |
 
-The first implementation branched on `i == n - 1` inside the loop and carried a second accumulator
-for the stablecoin side: **+222 gas/row**. Keeping only the rBTC accumulator and writing the tail row
-out after the loop costs **+146 gas/row** for the same custody property — the stablecoin figure has no
-custody effect, and this spec already made that side optional.
+Measured on the real `PurchaseRbtc` with a stub venue, `FOUNDRY_PROFILE=deploy` (via-IR, the profile
+that ships): **+222 gas/row** for the first shape, **+146 gas/row** after moving the tail row out of
+the loop and dropping the stablecoin accumulator. At the repo's own conversion (~2,300 gas ≈ 1.4¢)
+that is roughly half a cent per five-row tick to conserve four wei. But both sides of that trade are
+rounding errors — the dust is ~1e-13 dollars — so gas alone does not decide it.
 
-Nobody should read this as an economic trade: at the repo's own conversion (~2,300 gas ≈ 1.4¢), a
-five-row tick pays roughly half a cent to credit four wei. The reason to do it is that the residue
-has *no exit at all* after R8 — not that the residue is worth anything.
+What decides it is the failure mode. `totalPurchasedRbtc - rbtcCredited` cannot underflow only
+because `FeeHandler._calculateFeeAndNetAmounts` builds `totalAmountToSpend` as exactly
+`sum(netAmountsToSpend)`, making the floors provably sum to at most the total. That is a cross-file
+invariant with no assertion behind it, holding up a subtraction on the swapper's daily hot path. If a
+later change to the fee math ever breaks it — a per-row minimum, a mid-batch skip, a partial fill —
+the remainder shape reverts the entire batch for every user in it, while the floor-only shape
+degrades to a few more wei of dust.
+
+The residue also has no second-order effect to amplify it. `s_usersAccumulatedRbtc` is a 1:1 ledger
+against native balance, not a share price or a redemption ratio, so flooring cannot produce the
+last-withdrawer-cannot-exit or inflation-attack failures that make dust load-bearing in vault and
+lending accounting. Flooring leaves the books *under* the rBTC held, which is the direction that
+keeps every withdrawal — including the last one — solvent. The tell that the property was never
+load-bearing is that nobody proposed correcting `amountSpent`, which floors on every row too.
+
+So: keep the floors, state the bound in NatSpec, and pin it from both sides in tests. R8 stands and
+the residue has no exit; that makes it a documented accepted loss of ~1e-18-order value, not a
+custody gap worth touching the hot path for.
 
 ### 4. Override seams that are `public` only so `super` works
 
@@ -121,9 +133,8 @@ immutables to private-without-getter or invent parallel `getStableToken` wrapper
 
 ## Open product decisions
 
-**none.** House-style I/O and override seams are not product questions. Dust policy is: credit every
-measured wei of rBTC to some buyer's books, with the remainder on the last row. Do not ask;
-implement.
+**none.** House-style I/O and override seams are not product questions. Dust policy is: floor on
+every row, accept the under-one-wei-per-row residue, and state it in NatSpec. Do not ask; implement.
 
 ## Scope
 
@@ -145,35 +156,35 @@ implement.
 - [ ] Change `PurchaseUniswap.setPurchasePath` from `public` to `external` (helper already exists).
 - [ ] Leave `supportsInterface` and `BitChillOwnable.renounceOwnership` `public` (OZ / ERC-165 require
       it). Leave all `public immutable` / `public constant` construction wiring unchanged.
-- [ ] In `PurchaseRbtc.batchBuyRbtc`, after the per-buyer floor loop (or as a final-row adjustment),
-      credit any remaining `totalPurchasedRbtc - sum(floors)` to the last buyer so the sum of
-      `s_usersAccumulatedRbtc` increments equals the measured rBTC for that batch. Keep planned nets as
-      allocation weights for every row before the remainder. Write the tail row out after the loop
-      rather than branching on `i == n - 1` inside it, and carry only the rBTC accumulator — see the
-      measurement above. The event's reported `usersStablecoinSpent` stays a plain floor on every row
-      including the last: that stablecoin has already left for the venue, so it is event-only dust with
-      no custody effect, and NatSpec saying so is the whole fix.
+- [ ] Leave `PurchaseRbtc.batchBuyRbtc`'s allocation as a single uniform floor loop over every row.
+      Do not add a last-row remainder, a loop-carried accumulator, or an `i == n - 1` branch; the
+      reasoning is above. The inline comment should say the shares floor and point at `IPurchaseRbtc`
+      for where the residue goes, and nothing more.
 - [ ] Add NatSpec on `batchBuyRbtc` (implementation and, if the surface owns the claim,
-      `IPurchaseRbtc`) stating the durable rule: floor division allocates by planned-net weight; any
-      leftover measured rBTC wei is credited to the last row so a batch's credits sum to exactly the
-      rBTC its venue leg measured; there is no owner sweep of that residue. Scope the claim to the
-      measured purchase output, **not** to the handler's balance — `receive()` accepts native rBTC from
-      anyone, and on the Dex leaves the purchase output is WRBTC, so "no uncredited native balance on
-      the handler" would be wrong on both counts. Say that the last row is the caller's batch order and
-      carries no entitlement, so it is not read as a fairness rule.
-- [ ] Update `PurchaseRbtcTest` (and any sibling that asserts truncated shares) so the last buyer's
-      credit includes the remainder and the sum of credits equals `RBTC_OUT` / the measured total. Sum
-      the balances **read back out of the contract**: a helper that computes `share1 = total - share0`
-      and then asserts `share0 + share1 == total` restates the test's own arithmetic and holds whatever
-      the contract does. Pin the truncating fixture with an `assertLt`, so the case the remainder exists
-      to cover cannot quietly stop truncating.
-- [ ] Add a stateful invariant that credits plus payouts equal every measured wei, targeting the real
-      `PurchaseRbtc`. It cannot go in `test/ai-generated/fuzz/Invariants.t.sol`: the handlers that suite
-      targets are wrappers that reimplement `batchBuyRbtc`, so the allocation loop never runs there.
-      Name the new contract `*InvariantTest` so `make invariants` (`--match-contract InvariantTest`)
-      picks it up with no Makefile change. While there, replace that suite's
+      `IPurchaseRbtc`) stating the durable rule: floor division allocates by planned-net weight on both
+      the credited rBTC and the reported `amountSpent`, so a batch's per-row figures can sum up to one
+      wei per row below its total; that residue stays uncredited and there is no owner sweep for it;
+      it only ever leaves the books below the rBTC actually held, which is the safe direction for
+      withdrawals. Scope the claim to the measured purchase output, **not** to the handler's balance —
+      `receive()` accepts native rBTC from anyone, and on the Dex leaves the purchase output is WRBTC.
+      Keep it to a few lines: this is a deployed interface, not an essay.
+- [ ] Update `PurchaseRbtcTest` so the residue is asserted as a two-sided bound rather than as exact
+      conservation. Compute each row's expected floor independently and compare it to the balance
+      **read back out of the contract**: a helper that computes `share1 = total - share0` and then
+      asserts `share0 + share1 == total` restates the test's own arithmetic and holds whatever the
+      contract does. Pin the truncating fixture with an `assertLt` so the case cannot quietly stop
+      truncating, and assert the last row takes its plain floor, which is what fails if a remainder is
+      ever reintroduced.
+- [ ] Add a stateful invariant over the real `PurchaseRbtc` asserting credits plus payouts land inside
+      the band the floor allocation is allowed: at most the measured total, and at least that total
+      minus one wei per row summed over batches. A bare `<=` is not enough — it holds even if the
+      allocation credits nobody. It cannot go in `test/ai-generated/fuzz/Invariants.t.sol`: the handlers
+      that suite targets are wrappers that reimplement `batchBuyRbtc`, so the allocation loop never runs
+      there. Name the new contract `*InvariantTest` so `make invariants` (`--match-contract
+      InvariantTest`) picks it up with no Makefile change. While there, remove that suite's
       `invariant_rbtcBalancesConsistent` — `assertGe(address(handler).balance, 0)` on a `uint256`, which
-      no execution can fail — with the solvency check it was reaching for.
+      no execution can fail. It cannot be repaired in place: that fixture credits books without moving
+      matching cash, so not even solvency holds there.
 - [ ] Confirm `forge build --sizes` on the Dex leaves after dropping `TransferHelper` and the
       visibility refactor; record the runtime delta in the implementation PR.
 
@@ -204,8 +215,8 @@ implement.
 - `src/PurchaseRbtc.sol`
 - `src/interfaces/IPurchaseRbtc.sol` (NatSpec only, if the surface owns the dust rule)
 - `test/unit/PurchaseRbtcTest.t.sol`
-- `test/ai-generated/fuzz/PurchaseRbtcConservationInvariant.t.sol` (new: stateful conservation)
-- `test/ai-generated/fuzz/Invariants.t.sol` (replace the vacuous rBTC invariant)
+- `test/ai-generated/fuzz/PurchaseRbtcConservationInvariant.t.sol` (new: banded attribution)
+- `test/ai-generated/fuzz/Invariants.t.sol` (remove the vacuous rBTC invariant)
 - Possibly other batch allocation assertions under `test/unit/` that hard-code truncated shares
 - Handler unit tests / harness subclasses that override `depositToken` / `withdrawToken` as `public`
   (follow compiler errors; name extras in the PR)
@@ -226,9 +237,9 @@ SWAP_TYPE=mocSwaps LENDING_PROTOCOL=idle STABLECOIN_TYPE=DOC forge test --match-
 
 Behaviors to assert:
 
-- A multi-buyer batch credits every measured wei of rBTC: `sum(getAccumulatedRbtcBalance(buyer_i))`
-  increases by exactly the measured batch output (no stranded native wei from floor division).
-- Single-buyer batches are unchanged (remainder is zero or the sole buyer receives it).
+- A multi-buyer batch credits each row its independently computed floor share, and the sum of credits
+  lands in `[measured - (rows - 1), measured]` — never above the measured batch output.
+- Single-buyer batches credit the sole buyer the full measured output (the floor is exact at one row).
 - Deposit and withdraw through DcaManager still pull/push the full requested amount (or the existing
   lending/idle clamps); `onlyDcaManager` still rejects a direct EOA call on the handler.
 - `OperationsAdmin.assignTokenHandler` still accepts `ITokenHandler` / `ITokenLending` via ERC-165
@@ -254,11 +265,11 @@ is material enough to want the shipping profile in the PR record.
       helpers; no `super.depositToken` / `super.withdrawToken` remains.
 - [ ] `setPurchasePath` is `external`.
 - [ ] Public immutables / constants used for construction wiring are unchanged.
-- [ ] After every successful `batchBuyRbtc`, the sum of per-buyer accumulated-rBTC credits equals the
-      measured rBTC that batch received.
-- [ ] NatSpec states the last-buyer remainder rule without R-ids.
-- [ ] Tests that previously expected truncated shares now expect full conservation; suite green on
-      `make check` and both forks.
+- [ ] `batchBuyRbtc` still allocates in one uniform floor loop; no remainder, accumulator, or last-row
+      branch was added to the batch hot path.
+- [ ] NatSpec states the floor rule and the residue's fate without R-ids, in a few lines.
+- [ ] The stateful invariant fails against both an under-crediting and an over-crediting mutation;
+      suite green on `make check` and both forks.
 - [ ] Implementation PR records Dex/handler runtime size delta and any consumer note (expect none: no
       ABI change).
 
@@ -266,7 +277,7 @@ is material enough to want the shipping profile in the PR record.
 
 - [ ] Matches **Scope**; nothing from **Out of scope**.
 - [ ] Protocol invariants in `AGENTS.md` still hold (invariant 3 especially: rBTC still pays the
-      signer; dust goes to a buyer's books, not an owner sweep).
+      signer, and no owner sweep was added for the residue).
 - [ ] Tests in the PR match **Required tests**.
 - [ ] Files beyond this list are limited to direct dependencies and are named in the PR.
 - [ ] No unrelated refactors; history is reviewable.

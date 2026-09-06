@@ -320,7 +320,7 @@ contract InvariantTest is StdInvariant, Test {
     
     // No rBTC invariant lives here, deliberately. The handlers this suite targets are the wrappers at
     // the bottom of this file: they reimplement `batchBuyRbtc` to credit each row directly, so
-    // `PurchaseRbtc`'s allocation never executes and its conservation cannot be observed. They also
+    // `PurchaseRbtc`'s allocation never executes and its attribution cannot be observed. They also
     // credit books without the fixture moving matching cash — `buyRbtcOneSchedule` provisions from its
     // own 0.03-rBTC-per-token estimate, not from what the wrapper credits — so even plain solvency is
     // false here by construction, at roughly 2x books to balance. Both properties are pinned against

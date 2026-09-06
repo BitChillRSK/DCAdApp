@@ -32,11 +32,8 @@ abstract contract PurchaseRbtc is IPurchaseRbtc, FeeHandler, DcaManagerAccessCon
      * @inheritdoc IPurchaseRbtc
      * @dev Spends the stablecoin the retrieval actually delivered, never the gross amount it was asked
      *      for: a lending handler can come back short when it redeems its shares, while the idle handler
-     *      reverts rather than under-deliver. Planned net amounts are only allocation weights for every
-     *      row before the last; the last row is credited the measured total minus the floors already
-     *      handed out, so the sum of this batch's credits equals the rBTC the venue leg measured rather
-     *      than falling up to one wei short per row. There is no owner sweep of that residue, which is
-     *      why it is credited here instead of accepted.
+     *      reverts rather than under-deliver. Planned net amounts are only allocation weights: both the
+     *      rBTC credited and the stablecoin reported as spent are shares of what actually moved.
      */
     function batchBuyRbtc(
         address[] memory buyers,
@@ -79,34 +76,18 @@ abstract contract PurchaseRbtc is IPurchaseRbtc, FeeHandler, DcaManagerAccessCon
             revert PurchaseRbtc__BelowSwapperMinimum(totalPurchasedRbtc, minRbtcOut);
         }
 
-        // Every row but the last takes a floor share of what actually moved, weighted by its planned
-        // net; the last row takes the measured total minus those floors. Only the rBTC side carries a
-        // running sum, because only the rBTC side is custody: the stablecoin has already left for the
-        // venue, so its per-row figure is a report and stays a floor. The tail is written out here
-        // rather than branched on inside the loop so the row body the swapper pays for stays straight
-        // line. Which row is last is the caller's batch order, not a claim about who deserves the
-        // remainder; at under one wei per row there is nothing to allocate fairly.
-        uint256 lastRow = buyers.length - 1;
-        uint256 rbtcCredited;
-        for (uint256 i; i < lastRow; ++i) {
+        uint256 numOfPurchases = buyers.length;
+        for (uint256 i; i < numOfPurchases; ++i) {
+            // Planned nets are allocation weights only: they sum to totalNetStablecoinPlanned, so each row
+            // takes its share of what actually moved even if the redemption paid less than planned. Both
+            // shares floor, which can leave under one wei of rBTC per row uncredited; see IPurchaseRbtc.
             uint256 plannedNet = netStablecoinAmountsToSpend[i];
             address buyer = buyers[i];
             uint256 usersPurchasedRbtc = totalPurchasedRbtc * plannedNet / totalNetStablecoinPlanned;
             uint256 usersStablecoinSpent = totalStablecoinAmountToSpend * plannedNet / totalNetStablecoinPlanned;
-            rbtcCredited += usersPurchasedRbtc;
             s_usersAccumulatedRbtc[buyer] += usersPurchasedRbtc;
             emit PurchaseRbtc__RbtcBought(
                 buyer, address(purchaseToken), usersPurchasedRbtc, scheduleIds[i], usersStablecoinSpent
-            );
-        }
-        {
-            uint256 plannedNet = netStablecoinAmountsToSpend[lastRow];
-            address lastBuyer = buyers[lastRow];
-            uint256 usersPurchasedRbtc = totalPurchasedRbtc - rbtcCredited;
-            uint256 usersStablecoinSpent = totalStablecoinAmountToSpend * plannedNet / totalNetStablecoinPlanned;
-            s_usersAccumulatedRbtc[lastBuyer] += usersPurchasedRbtc;
-            emit PurchaseRbtc__RbtcBought(
-                lastBuyer, address(purchaseToken), usersPurchasedRbtc, scheduleIds[lastRow], usersStablecoinSpent
             );
         }
         emit PurchaseRbtc__SuccessfulRbtcBatchPurchase(

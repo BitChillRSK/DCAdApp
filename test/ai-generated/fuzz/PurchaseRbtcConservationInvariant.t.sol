@@ -28,6 +28,8 @@ contract PurchaseRbtcConservationHandler is Test {
     ///      the ghost cannot become a second copy of the arithmetic under test.
     uint256 public s_rbtcBoughtGhost;
     uint256 public s_rbtcWithdrawnGhost;
+    /// @dev Total slack the floor allocation is allowed: under one wei per row, summed over batches.
+    uint256 public s_flooredSlackGhost;
     uint256 public s_batchSuccesses;
     uint256 public s_withdrawSuccesses;
 
@@ -66,6 +68,7 @@ contract PurchaseRbtcConservationHandler is Test {
 
         try i_harness.batchBuyRbtc(buyers, scheduleIds, amounts, 0) {
             s_rbtcBoughtGhost += rbtcOut;
+            s_flooredSlackGhost += rows - 1;
             ++s_batchSuccesses;
         } catch {
             // An unlucky draw (retrieval at or below the aggregated fee) is not a finding.
@@ -88,7 +91,7 @@ contract PurchaseRbtcConservationHandler is Test {
 
 /**
  * @title PurchaseRbtcConservationInvariantTest
- * @notice Every wei a batch measures itself buying ends up on somebody's books.
+ * @notice Measured rBTC is attributed to buyers up to the floor allocation's stated slack, never past it.
  * @dev Targets the real `PurchaseRbtc` through `PurchaseRbtcHarness`, which overrides only the venue
  *      and retrieval legs. The main fuzz suite in `Invariants.t.sol` cannot cover this: the handlers
  *      it targets reimplement `batchBuyRbtc`, so the allocation loop never runs there.
@@ -145,22 +148,27 @@ contract PurchaseRbtcConservationInvariantTest is StdInvariant, Test {
     }
 
     /**
-     * @notice Credits plus payouts equal every wei the venue leg reported.
-     * @dev This is what the last-row remainder buys. With plain floor shares on every row the credits
-     *      fall up to one wei short per row, that shortfall is credited to nobody, and — since
-     *      `withdrawAccumulatedRbtc` pays only from these books and no owner sweep exists — it is
-     *      stranded for the life of the deployment.
+     * @notice Credits plus payouts land inside the band the floor allocation is allowed.
+     * @dev The upper bound is the safety property: the books must never claim more rBTC than the venue
+     *      leg delivered, or a withdrawal eventually finds nothing behind it. The lower bound is the
+     *      accuracy property, and it is what a plain `<=` would miss — that one holds even if the
+     *      allocation credited nobody. Together they still catch a wrong denominator, a skipped row or
+     *      a double credit, while allowing the under-one-wei-per-row residue that is accepted by design.
      */
-    function invariant_everyMeasuredWeiIsCredited() public {
+    function invariant_creditsStayWithinTheFlooredBand() public {
         uint256 totalOnBooks;
         for (uint256 i; i < s_buyers.length; ++i) {
             totalOnBooks += harness.getAccumulatedRbtcBalance(s_buyers[i]);
         }
 
-        assertEq(
-            totalOnBooks + fuzzHandler.s_rbtcWithdrawnGhost(),
-            fuzzHandler.s_rbtcBoughtGhost(),
-            "measured rBTC is not fully attributed to buyers' books"
+        uint256 attributed = totalOnBooks + fuzzHandler.s_rbtcWithdrawnGhost();
+        uint256 bought = fuzzHandler.s_rbtcBoughtGhost();
+
+        assertLe(attributed, bought, "books claim more rBTC than the venue leg delivered");
+        assertGe(
+            attributed + fuzzHandler.s_flooredSlackGhost(),
+            bought,
+            "measured rBTC went missing beyond the floor allocation's slack"
         );
     }
 
