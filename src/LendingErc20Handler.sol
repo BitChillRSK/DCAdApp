@@ -12,7 +12,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /**
  * @title LendingErc20Handler
  * @author BitChill team: Antonio Rodríguez-Ynyesto
- * @notice Shared per-user share accounting, withdraw clamp, interest, and batch pro-rata
+ * @notice Shared per-user share accounting, withdraw clamp, interest, and exact-sum batch
  *         redeem for lending handlers. Protocol adapters implement the exchange-rate and
  *         mint/redeem hooks.
  */
