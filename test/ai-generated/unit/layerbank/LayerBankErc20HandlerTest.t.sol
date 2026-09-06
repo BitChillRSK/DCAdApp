@@ -138,15 +138,11 @@ contract LayerBankErc20HandlerTest is HandlerTestHarness {
     }
 
     /**
-     * @notice LayerBank is the one adapter that cannot be share-exact: Aave has no share-sized
-     *         withdraw, so the count the base booked out is converted to underlying and Aave burns
-     *         `amount.rayDiv(index)` back out of it.
-     * @dev What keeps that burn at or below the book debit is that the withdraw amount is *derived*
-     *      from the debited count and floors on the way out, so the round trip can only shrink. This
-     *      pins that direction: it fails if LayerBank goes back to passing the caller's requested
-     *      underlying straight through, where Aave sizes the burn off its own index instead.
+     * @notice LayerBank must burn exactly the scaled shares the shared base debited.
+     * @dev The adapter picks floor or floor+1 underlying so Aave's half-up `rayDiv` maps back
+     *      to that count. Equality — not a one-share tolerance — is the postcondition.
      */
-    function test_layerbank_bookDebitNeverBelowScaledBurn() public {
+    function test_layerbank_bookDebitEqualsScaledBurn() public {
         vm.prank(address(dcaManager));
         handler.depositToken(USER, DEPOSIT_AMOUNT);
         vm.warp(block.timestamp + 365 days);
@@ -158,9 +154,10 @@ contract LayerBankErc20HandlerTest is HandlerTestHarness {
         handler.withdrawToken(USER, WITHDRAWAL_AMOUNT);
 
         uint256 bookDebit = bookBefore - layerbankHandler.getUserShares(USER);
+        uint256 scaledBurned = scaledBefore - aToken.scaledBalanceOf(address(handler));
         assertGt(bookDebit, 0);
-        assertGe(bookDebit, scaledBefore - aToken.scaledBalanceOf(address(handler)));
-        assertLe(layerbankHandler.getUserShares(USER), aToken.scaledBalanceOf(address(handler)));
+        assertEq(bookDebit, scaledBurned);
+        assertEq(layerbankHandler.getUserShares(USER), aToken.scaledBalanceOf(address(handler)));
     }
 
     function test_layerbank_exchangeRateEffect() public {
@@ -361,11 +358,11 @@ contract LayerBankErc20HandlerTest is HandlerTestHarness {
     }
 
     /**
-     * @notice Virtual scaled books must stay ≤ handler `scaledBalanceOf` after odd-amount
-     *         redeems against Aave-like round-nearest `rayDiv` burns.
-     * @dev `_stablecoinToShares` documents `Math.Rounding.Ceil` so the virtual debit is never
-     *      below what Aave may burn for the same DOC. Flipping that to `Rounding.Floor` lets
-     *      `sum(getUserShares)` drift above `aToken.scaledBalanceOf(handler)` and fails this test.
+     * @notice Virtual scaled books stay equal to handler `scaledBalanceOf` after odd-amount
+     *         redeems against Aave-like round-nearest `rayDiv` burns (exact consumption).
+     * @dev `_stablecoinToShares` ceilings the debit; the adapter then picks floor or floor+1
+     *      underlying so the measured scaled burn equals that debit. Flipping the one-wei
+     *      adjustment or the postcondition fails this test.
      */
     function test_layerbank_virtualSharesRoundUp_keepsBooksSolvent() public {
         uint256 awkwardIndex = 1_070_000_000_000_000_000_000_000_123;
@@ -396,21 +393,63 @@ contract LayerBankErc20HandlerTest is HandlerTestHarness {
         oddAmounts[11] = 100 ether + 13;
 
         for (uint256 i; i < oddAmounts.length; ++i) {
+            uint256 scaledBefore = aToken.scaledBalanceOf(address(handler));
+            uint256 bookUserBefore = layerbankHandler.getUserShares(USER);
+            uint256 bookUser2Before = layerbankHandler.getUserShares(user2);
+
             vm.prank(address(dcaManager));
             handler.withdrawToken(USER, oddAmounts[i]);
+            assertEq(
+                bookUserBefore - layerbankHandler.getUserShares(USER),
+                scaledBefore - aToken.scaledBalanceOf(address(handler))
+            );
+
+            scaledBefore = aToken.scaledBalanceOf(address(handler));
             vm.prank(address(dcaManager));
             handler.withdrawToken(user2, oddAmounts[i] + 2);
+            assertEq(
+                bookUser2Before - layerbankHandler.getUserShares(user2),
+                scaledBefore - aToken.scaledBalanceOf(address(handler))
+            );
         }
 
         uint256 virtualBooks =
             layerbankHandler.getUserShares(USER) + layerbankHandler.getUserShares(user2);
         uint256 actualScaled = aToken.scaledBalanceOf(address(handler));
-        assertLe(
-            virtualBooks,
-            actualScaled,
-            "round-up sizing must keep virtual scaled shares <= aToken.scaledBalanceOf(handler)"
-        );
+        assertEq(virtualBooks, actualScaled, "exact consumption must keep books == scaledBalanceOf");
         assertGt(virtualBooks, 0, "solvency test must leave a live position");
+    }
+
+    function test_layerbank_payoutCapWithFullBurnSucceeds() public {
+        vm.prank(address(dcaManager));
+        handler.depositToken(USER, DEPOSIT_AMOUNT);
+
+        uint256 bookBefore = layerbankHandler.getUserShares(USER);
+        uint256 scaledBefore = aToken.scaledBalanceOf(address(handler));
+        aToken.setPayoutCap(WITHDRAWAL_AMOUNT / 2, true);
+
+        uint256 userBefore = stablecoin.balanceOf(USER);
+        vm.prank(address(dcaManager));
+        handler.withdrawToken(USER, WITHDRAWAL_AMOUNT);
+
+        assertEq(bookBefore - layerbankHandler.getUserShares(USER), scaledBefore - aToken.scaledBalanceOf(address(handler)));
+        assertEq(stablecoin.balanceOf(USER) - userBefore, WITHDRAWAL_AMOUNT / 2);
+    }
+
+    function test_layerbank_partialScaledBurnReverts() public {
+        vm.prank(address(dcaManager));
+        handler.depositToken(USER, DEPOSIT_AMOUNT);
+
+        uint256 bookBefore = layerbankHandler.getUserShares(USER);
+        uint256 scaledBefore = aToken.scaledBalanceOf(address(handler));
+        aToken.setPartialBurnBps(5_000);
+
+        vm.expectRevert();
+        vm.prank(address(dcaManager));
+        handler.withdrawToken(USER, WITHDRAWAL_AMOUNT);
+
+        assertEq(layerbankHandler.getUserShares(USER), bookBefore);
+        assertEq(aToken.scaledBalanceOf(address(handler)), scaledBefore);
     }
 }
 

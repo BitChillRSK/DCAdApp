@@ -77,10 +77,14 @@ abstract contract TropykusErc20Handler is LendingErc20Handler {
 
     /**
      * @dev Redeem kTokens onto this contract. Burns the booked share count. Only the Compound
-     *      return code is raised here; the base measures the token delta.
+     *      return code is raised here; the base measures cash and kToken deltas.
      */
     function _protocolRedeem(uint256 sharesAmount, uint256) internal override {
         uint256 result = i_kToken.redeem(sharesAmount);
         if (result != 0) revert TokenLending__LendingProtocolRedeemFailed(result);
+    }
+
+    function _receiptSharesBalance() internal override returns (uint256) {
+        return i_kToken.balanceOf(address(this));
     }
 }

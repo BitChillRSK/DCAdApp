@@ -162,11 +162,7 @@ contract LayerBankErc20HandlerDexTest is HandlerTestHarness {
         uint256 virtualBooks =
             layerbankDexHandler.getUserShares(USER) + layerbankDexHandler.getUserShares(user2);
         uint256 actualScaled = aToken.scaledBalanceOf(address(handler));
-        assertLe(
-            virtualBooks,
-            actualScaled,
-            "round-up sizing must keep virtual scaled shares <= aToken.scaledBalanceOf(handler)"
-        );
+        assertEq(virtualBooks, actualScaled, "exact consumption must keep books == scaledBalanceOf");
         assertGt(virtualBooks, 0, "solvency test must leave a live position");
     }
 }

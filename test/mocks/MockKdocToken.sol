@@ -43,6 +43,12 @@ contract MockKdocToken is ERC20, ERC20Burnable, Ownable, ERC20Permit {
      * share clamp exists for. Hop 1 is fee-free, so `TokenHandler` never sees a mismatch.
      */
     uint256 private s_mintShortfallBps;
+    uint256 private constant BPS_DIVISOR = 10_000;
+    /// @notice Burn only this many BPS of the requested kDOC and pay cash for that slice. 10_000 = full.
+    uint256 private s_partialBurnBps = 10_000;
+    bool private s_revertOnRedeem;
+    bool private s_overBurn;
+    bool private s_increaseBalanceOnRedeem;
 
     function setSilentZeroPayout(bool silentZeroPayout) external {
         s_silentZeroPayout = silentZeroPayout;
@@ -55,6 +61,23 @@ contract MockKdocToken is ERC20, ERC20Burnable, Ownable, ERC20Permit {
     function setMintShortfallBps(uint256 mintShortfallBps) external {
         require(mintShortfallBps <= 10_000, "Shortfall above 100%");
         s_mintShortfallBps = mintShortfallBps;
+    }
+
+    function setPartialBurnBps(uint256 partialBurnBps) external {
+        require(partialBurnBps <= BPS_DIVISOR, "Bps above 100%");
+        s_partialBurnBps = partialBurnBps;
+    }
+
+    function setRevertOnRedeem(bool revertOnRedeem) external {
+        s_revertOnRedeem = revertOnRedeem;
+    }
+
+    function setOverBurn(bool overBurn) external {
+        s_overBurn = overBurn;
+    }
+
+    function setIncreaseBalanceOnRedeem(bool increaseBalanceOnRedeem) external {
+        s_increaseBalanceOnRedeem = increaseBalanceOnRedeem;
     }
 
     function mint(uint256 amount) public returns (uint256) {
@@ -89,20 +112,38 @@ contract MockKdocToken is ERC20, ERC20Burnable, Ownable, ERC20Permit {
     }
 
     function redeem(uint256 kDocToBurn) public returns (uint256) {
-        uint256 docToRedeem = kDocToBurn * exchangeRateCurrent() / DECIMALS;
+        if (s_revertOnRedeem) revert("MockKdocToken: insufficient liquidity");
         require(balanceOf(msg.sender) >= kDocToBurn, "Insufficient balance");
+
+        uint256 sharesToBurn = kDocToBurn;
+        if (s_increaseBalanceOnRedeem) {
+            _mint(msg.sender, 1);
+            sharesToBurn = 0;
+        } else if (s_overBurn) {
+            sharesToBurn = kDocToBurn + 1;
+            require(balanceOf(msg.sender) >= sharesToBurn, "Insufficient balance for over-burn");
+        } else if (s_partialBurnBps < BPS_DIVISOR) {
+            sharesToBurn = kDocToBurn * s_partialBurnBps / BPS_DIVISOR;
+        }
+
+        uint256 docToRedeem = sharesToBurn > 0
+            ? sharesToBurn * exchangeRateCurrent() / DECIMALS
+            : kDocToBurn * exchangeRateCurrent() / DECIMALS;
+
         if (s_silentZeroPayout) {
-            _burn(msg.sender, kDocToBurn);
+            if (sharesToBurn > 0) _burn(msg.sender, sharesToBurn);
             return 0;
         }
-        // Ensure we have enough stablecoin to transfer (mint if needed to simulate yield generation)
         uint256 currentBalance = i_docToken.balanceOf(address(this));
-        if (currentBalance < docToRedeem) {
-            // Mint the difference to simulate yield generation from the lending protocol
+        if (docToRedeem > 0 && currentBalance < docToRedeem) {
             IStablecoin(address(i_docToken)).mint(address(this), docToRedeem - currentBalance);
         }
-        i_docToken.transfer(msg.sender, docToRedeem);
-        _burn(msg.sender, kDocToBurn); // Burn an amount of kDOC equivalent to the amount of DOC divided by the exchange rate (e.g.: 1 DOC redeemed => 1 / 0.02 = 50 kDOC burnt)
+        if (docToRedeem > 0) {
+            i_docToken.transfer(msg.sender, docToRedeem);
+        }
+        if (sharesToBurn > 0) {
+            _burn(msg.sender, sharesToBurn);
+        }
         return 0;
     }
 

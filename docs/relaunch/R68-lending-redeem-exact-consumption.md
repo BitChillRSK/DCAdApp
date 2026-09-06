@@ -1,6 +1,6 @@
 # R68 — Enforce complete lending-share consumption
 
-Status: **not started** · Assigned: no · Optional/further-review: no · Planning PR: [#123](https://github.com/BitChillRSK/dca-contracts/pull/123) · Order: after R67, before relaunch
+Status: **implemented** · Assigned: yes · Optional/further-review: no · Planning PR: [#123](https://github.com/BitChillRSK/dca-contracts/pull/123) · Implementation: [#124](https://github.com/BitChillRSK/dca-contracts/pull/124) · Order: after R67, before relaunch
 
 ## Objective
 
@@ -66,39 +66,39 @@ principal to follow cash received: that would re-credit Sovryn's fee as withdraw
 
 ## Scope
 
-- [ ] Add a protocol invariant to `AGENTS.md`: after every successful lending redemption, the
+- [x] Add a protocol invariant to `AGENTS.md`: after every successful lending redemption, the
       handler's external receipt-share balance must decrease by exactly the amount debited from
       BitChill's virtual share books. A smaller cash delta is allowed only when no part of that share
       claim remains. Future partial/queued integrations require a separate explicit lifecycle.
-- [ ] Change the lending redemption seam so every adapter measures its own receipt-share balance
+- [x] Change the lending redemption seam so every adapter measures its own receipt-share balance
       before and after the protocol call and reports that delta. Use `balanceOf(handler)` for Sovryn
       iTokens and Tropykus kTokens, and `scaledBalanceOf(handler)` for LayerBank aTokens. Do not trust
       a protocol return value as evidence of either cash received or shares consumed.
-- [ ] In the shared lending base, require the measured external share decrease to equal the intended
+- [x] In the shared lending base, require the measured external share decrease to equal the intended
       virtual share debit. Revert with one diagnostic `ITokenLending` custom error carrying the
       intended decrease and enough before/after data to diagnose a zero, partial, excessive, or
       increasing balance. Avoid arithmetic panics when the post-call balance is not lower.
-- [ ] Apply the same postcondition to all three callers of the shared redeem path: principal
+- [x] Apply the same postcondition to all three callers of the shared redeem path: principal
       withdrawals, interest withdrawals, and batch purchases. Any mismatch must roll back protocol
       movement, virtual-share updates, schedule/fee effects, transfers, and events.
-- [ ] Preserve balance-delta stablecoin accounting and `TokenLending__ZeroStablecoinReceived`.
+- [x] Preserve balance-delta stablecoin accounting and `TokenLending__ZeroStablecoinReceived`.
       Positive cash plus an incomplete share burn now reverts; positive cash plus an exact share burn
       still succeeds even when cash is below the requested gross.
-- [ ] Make LayerBank consume the exact scaled-share amount passed by the shared base. Its Pool accepts
+- [x] Make LayerBank consume the exact scaled-share amount passed by the shared base. Its Pool accepts
       underlying rather than shares and Aave converts with half-up RAY division, while BitChill sizes
       shares with a ceiling. Select the floor or one-base-unit-higher underlying amount that maps back
       to the intended scaled shares, then verify the actual `scaledBalanceOf` delta. Do not weaken the
       postcondition to `virtual shares <= protocol shares`, a one-share tolerance, or an
       adapter-specific unchecked assumption.
-- [ ] Rewrite `ITokenHandler.withdrawToken`, `IDcaManager.withdrawToken`, and their implementation
+- [x] Rewrite `ITokenHandler.withdrawToken`, `IDcaManager.withdrawToken`, and their implementation
       comments around the enforceable rule: DcaManager may ignore measured cash only because a
       successful handler call guarantees no unpaid user-attributable claim remains withdrawable.
       Keep the measured `withdrawnAmount` return and the current requested-principal debit.
-- [ ] Extend the lending mocks to distinguish (a) exact share consumption with a cash haircut,
+- [x] Extend the lending mocks to distinguish (a) exact share consumption with a cash haircut,
       (b) positive-cash partial share consumption, and (c) an atomic insufficient-liquidity revert.
       Keep LayerBank's existing payout-cap mode as case (a); it models a fee/loss, not a liquidity
       partial fill, because it currently burns the complete share amount before capping cash.
-- [ ] Record the successful-path gas delta for one principal withdrawal and 1-, 10-, and 200-row
+- [x] Record the successful-path gas delta for one principal withdrawal and 1-, 10-, and 200-row
       lending purchases, plus every lending leaf's deployed runtime size, against R68's base commit.
 
 ### Required implementation shape
@@ -213,20 +213,20 @@ failure cases. If `RSK_MAINNET_RPC_URL` is unset, stop before push as required b
 
 ## Success criteria
 
-- [ ] Every successful lending redemption consumes exactly the external receipt shares removed from
+- [x] Every successful lending redemption consumes exactly the external receipt shares removed from
       BitChill's virtual books, across principal, interest, and batch purchase paths.
-- [ ] Positive cash cannot make a partial external share burn look successful.
-- [ ] A cash haircut remains valid when the complete claim was consumed; SIP-0094 net payout still
+- [x] Positive cash cannot make a partial external share burn look successful.
+- [x] A cash haircut remains valid when the complete claim was consumed; SIP-0094 net payout still
       debits requested principal and creates no phantom principal.
-- [ ] High-utilization/insufficient-cash behavior stays atomic: revert and rollback, never clamp to
+- [x] High-utilization/insufficient-cash behavior stays atomic: revert and rollback, never clamp to
       free liquidity.
-- [ ] LayerBank exactness is proven in scaled units across rounding boundaries and on a live fork.
-- [ ] The interface and `DcaManager` comments state the exact successful-call postcondition rather
+- [x] LayerBank exactness is proven in scaled units across rounding boundaries and on a live fork.
+- [x] The interface and `DcaManager` comments state the exact successful-call postcondition rather
       than the weaker “may not still hold the difference” rationale.
-- [ ] The new invariant tells future adapter authors to use a separate lifecycle for partial or
+- [x] The new invariant tells future adapter authors to use a separate lifecycle for partial or
       asynchronous withdrawals.
-- [ ] R67's per-row exact-sum accounting and all existing balance-delta cash rules remain intact.
-- [ ] Focused tests, `make check`, `make check-deploy`, and all three required fork lanes pass.
+- [x] R67's per-row exact-sum accounting and all existing balance-delta cash rules remain intact.
+- [x] Focused tests, `make check`, `make check-deploy`, and all three required fork lanes pass.
 
 ## Reviewer checklist
 
@@ -236,7 +236,7 @@ failure cases. If `RSK_MAINNET_RPC_URL` is unset, stop before push as required b
 - [ ] Exact external consumption is checked in the shared path used by withdrawal, interest, and
       purchase, with no adapter-specific fail-open bypass.
 - [ ] LayerBank compares `scaledBalanceOf` and does not hide Aave rounding behind a tolerance.
-- [ ] The partial-burn regression pays positive cash and proves complete transaction rollback.
+- [x] The partial-burn regression pays positive cash and proves complete transaction rollback.
 - [ ] The SIP-0094 regression still succeeds with net cash and a full share burn.
 - [ ] Tests in the PR match **Required tests**, including the live adapter checks.
 - [ ] Gas and deployed-size deltas are recorded against the named base commit.

@@ -56,6 +56,13 @@ interface ITokenLending is ITokenHandler {
     /// @notice Batch redeem asked for more of this user's shares than the handler tracks.
     /// @dev Same outcome as a 0.8 underflow on `s_shares[user] -=`; the named error is for the swapper.
     error TokenLending__InsufficientShares(address user, uint256 requested, uint256 available);
+    /// @notice The lending protocol did not consume exactly the receipt shares BitChill debited.
+    /// @dev `balanceBefore` / `balanceAfter` are the handler's external receipt-share balances
+    ///      around the protocol call (iToken/kToken `balanceOf`, or aToken `scaledBalanceOf`).
+    ///      Covers zero, partial, excessive, and increasing balances without an arithmetic panic.
+    error TokenLending__ShareConsumptionMismatch(
+        uint256 intendedDecrease, uint256 balanceBefore, uint256 balanceAfter
+    );
 
     /*//////////////////////////////////////////////////////////////
                            EXTERNAL FUNCTIONS

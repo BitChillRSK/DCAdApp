@@ -120,7 +120,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R59 | 57 ([#112](https://github.com/BitChillRSK/dca-contracts/pull/112)) | none (fail closed on incomplete Uniswap input; gas and size ceilings are fixed) |
 | R55 | 58 ([#113](https://github.com/BitChillRSK/dca-contracts/pull/113)) | none (measured; recommendation is keep stock solc, no IR) |
 | R60 | 59 (planned) | none (`via_ir` deploy profile; whole suite runs against shipped bytecode) |
-| R68 | 68 (planned) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
+| R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 
@@ -946,7 +946,7 @@ as a single redeem and burn exactly that sum, so virtual books never orphan shar
 protocol did not redeem. Preserves the insufficient-share revert; does not revive R66's
 discarded row-skipping or handler-return redesign.
 
-### R68 - enforce complete lending-share consumption ([spec](./R68-lending-redeem-exact-consumption.md), planning [#123](https://github.com/BitChillRSK/dca-contracts/pull/123), planned implementation PR 68)
+### R68 - enforce complete lending-share consumption ([spec](./R68-lending-redeem-exact-consumption.md), planning [#123](https://github.com/BitChillRSK/dca-contracts/pull/123), [#124](https://github.com/BitChillRSK/dca-contracts/pull/124))
 
 Pre-cutover accounting follow-up discovered while reviewing `ITokenHandler.withdrawToken` after
 R67. A successful lending redemption must consume exactly the external receipt shares removed from
@@ -954,6 +954,14 @@ BitChill's virtual books. Cash may be lower when that complete claim paid a prot
 a loss (Sovryn SIP-0094), but positive cash cannot make a partial share burn successful while the
 unpaid claim remains withdrawable. The rule covers principal, interest, and purchases; a future
 partial/queued protocol needs a separate explicit lifecycle. Lands after R67 and before relaunch.
+
+Shipped: shared `_measuredProtocolRedeem` reads `_receiptSharesBalance` before/after and reverts
+`TokenLending__ShareConsumptionMismatch` unless the decrease equals the virtual debit; adapters
+implement that balance (iToken/kToken `balanceOf`, aToken `scaledBalanceOf`); LayerBank selects
+floor or floor+1 underlying so Aave half-up maps back to the exact scaled burn. Measured at base
+`4ffecb1` → this PR under `#104` pin: lending leaves +194–258 B; once-per-redeem path
+`testSinglePurchase` / fee-free withdraw **+8,080** gas; 5-row `testBatchPurchasesOneUser`
+**+16,355**; harness `batchRetrieve` 1/10/200 rows 65,134 / 70,225 / 1,188,494.
 
 ## Closed non-implementation decisions
 
