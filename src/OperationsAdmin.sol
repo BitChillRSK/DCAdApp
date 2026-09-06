@@ -4,7 +4,7 @@ pragma solidity 0.8.36;
 import {IOperationsAdmin} from "./interfaces/IOperationsAdmin.sol";
 import {ITokenHandler} from "./interfaces/ITokenHandler.sol";
 import {ITokenLending} from "./interfaces/ITokenLending.sol";
-import {IERC165} from "lib/forge-std/src/interfaces/IERC165.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {BitChillOwnable} from "./BitChillOwnable.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 

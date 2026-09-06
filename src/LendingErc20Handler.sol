@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.36;
 
-import {ITokenHandler} from "src/interfaces/ITokenHandler.sol";
 import {ITokenLending} from "src/interfaces/ITokenLending.sol";
 import {TokenHandler} from "src/TokenHandler.sol";
 import {TokenLending} from "src/TokenLending.sol";
@@ -52,50 +51,6 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
     /*//////////////////////////////////////////////////////////////
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @inheritdoc ITokenHandler
-     * @dev TokenHandler reverts unless the pull matches `depositAmount`, so the mint always uses the full request.
-     */
-    function depositToken(address user, uint256 depositAmount)
-        public
-        override(TokenHandler, ITokenHandler)
-        onlyDcaManager
-    {
-        super.depositToken(user, depositAmount);
-        address spender = _lendingSpender();
-        if (i_stableToken.allowance(address(this), spender) < depositAmount) {
-            i_stableToken.forceApprove(spender, depositAmount);
-        }
-        uint256 mintedAmount = _protocolDeposit(depositAmount);
-        if (mintedAmount == 0) revert TokenLending__LendingProtocolDepositFailed();
-        uint256 previousShares = s_shares[user];
-        _setUserShares(user, previousShares, previousShares + mintedAmount);
-    }
-
-    /**
-     * @inheritdoc ITokenHandler
-     * @dev Pays out what the redemption actually produced. Cash may be less than requested when
-     *      the complete share claim was consumed (fee / realized loss); a partial share burn reverts.
-     */
-    function withdrawToken(address user, uint256 withdrawalAmount)
-        public
-        override(TokenHandler, ITokenHandler)
-        onlyDcaManager
-        returns (uint256)
-    {
-        uint256 exchangeRate = _exchangeRate();
-        uint256 totalStablecoinInLending = _sharesToStablecoin(s_shares[user], exchangeRate);
-
-        if (totalStablecoinInLending < withdrawalAmount) {
-            emit TokenLending__WithdrawalAmountAdjusted(user, withdrawalAmount, totalStablecoinInLending);
-            withdrawalAmount = totalStablecoinInLending;
-        }
-
-        // Pay out what the redemption actually produced, which may be less than requested
-        withdrawalAmount = _redeemShares(user, withdrawalAmount, exchangeRate);
-        return super.withdrawToken(user, withdrawalAmount);
-    }
 
     /**
      * @inheritdoc ITokenLending
@@ -160,6 +115,39 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev TokenHandler reverts unless the pull matches `depositAmount`, so the mint always uses the full request.
+     */
+    function _depositToken(address user, uint256 depositAmount) internal virtual override {
+        super._depositToken(user, depositAmount);
+        address spender = _lendingSpender();
+        if (i_stableToken.allowance(address(this), spender) < depositAmount) {
+            i_stableToken.forceApprove(spender, depositAmount);
+        }
+        uint256 mintedAmount = _protocolDeposit(depositAmount);
+        if (mintedAmount == 0) revert TokenLending__LendingProtocolDepositFailed();
+        uint256 previousShares = s_shares[user];
+        _setUserShares(user, previousShares, previousShares + mintedAmount);
+    }
+
+    /**
+     * @dev Pays out what the redemption actually produced. Cash may be less than requested when
+     *      the complete share claim was consumed (fee / realized loss); a partial share burn reverts.
+     */
+    function _withdrawToken(address user, uint256 withdrawalAmount) internal virtual override returns (uint256) {
+        uint256 exchangeRate = _exchangeRate();
+        uint256 totalStablecoinInLending = _sharesToStablecoin(s_shares[user], exchangeRate);
+
+        if (totalStablecoinInLending < withdrawalAmount) {
+            emit TokenLending__WithdrawalAmountAdjusted(user, withdrawalAmount, totalStablecoinInLending);
+            withdrawalAmount = totalStablecoinInLending;
+        }
+
+        // Pay out what the redemption actually produced, which may be less than requested
+        withdrawalAmount = _redeemShares(user, withdrawalAmount, exchangeRate);
+        return super._withdrawToken(user, withdrawalAmount);
+    }
 
     /**
      * @dev The stablecoin this handler lends out.

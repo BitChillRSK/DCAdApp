@@ -54,22 +54,20 @@ abstract contract TokenHandler is ITokenHandler, ERC165, FeeHandler, DcaManagerA
      * @dev A deposit cannot be negative: if `balanceOf` falls, the subtraction panics. That is an
      *      invariant break, not a mismatch amount. This function does not return the credited amount.
      */
-    function depositToken(address user, uint256 depositAmount) public virtual override onlyDcaManager {
-        uint256 balanceBefore = i_stableToken.balanceOf(address(this));
-        i_stableToken.safeTransferFrom(user, address(this), depositAmount);
-        uint256 depositedAmount = i_stableToken.balanceOf(address(this)) - balanceBefore;
-        if (depositedAmount != depositAmount) revert TokenHandler__DepositAmountMismatch(depositAmount, depositedAmount);
-        emit TokenHandler__TokenDeposited(address(i_stableToken), user, depositAmount);
+    function depositToken(address user, uint256 depositAmount) external override onlyDcaManager {
+        _depositToken(user, depositAmount);
     }
 
     /**
      * @inheritdoc ITokenHandler
      */
-    function withdrawToken(address user, uint256 withdrawalAmount) public virtual override onlyDcaManager returns (uint256 withdrawnAmount) {
-        uint256 balanceBefore = i_stableToken.balanceOf(address(this));
-        i_stableToken.safeTransfer(user, withdrawalAmount);
-        withdrawnAmount = balanceBefore - i_stableToken.balanceOf(address(this));
-        emit TokenHandler__TokenWithdrawn(address(i_stableToken), user, withdrawnAmount);
+    function withdrawToken(address user, uint256 withdrawalAmount)
+        external
+        override
+        onlyDcaManager
+        returns (uint256 withdrawnAmount)
+    {
+        return _withdrawToken(user, withdrawalAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -81,5 +79,30 @@ abstract contract TokenHandler is ITokenHandler, ERC165, FeeHandler, DcaManagerA
      */
     function supportsInterface(bytes4 interfaceID) public view virtual override returns (bool) {
         return interfaceID == type(ITokenHandler).interfaceId || super.supportsInterface(interfaceID);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Pull `depositAmount` from `user` and revert unless the measured balance delta matches.
+     */
+    function _depositToken(address user, uint256 depositAmount) internal virtual {
+        uint256 balanceBefore = i_stableToken.balanceOf(address(this));
+        i_stableToken.safeTransferFrom(user, address(this), depositAmount);
+        uint256 depositedAmount = i_stableToken.balanceOf(address(this)) - balanceBefore;
+        if (depositedAmount != depositAmount) revert TokenHandler__DepositAmountMismatch(depositAmount, depositedAmount);
+        emit TokenHandler__TokenDeposited(address(i_stableToken), user, depositAmount);
+    }
+
+    /**
+     * @dev Pay `withdrawalAmount` of the stablecoin to `user` and return the measured balance delta.
+     */
+    function _withdrawToken(address user, uint256 withdrawalAmount) internal virtual returns (uint256 withdrawnAmount) {
+        uint256 balanceBefore = i_stableToken.balanceOf(address(this));
+        i_stableToken.safeTransfer(user, withdrawalAmount);
+        withdrawnAmount = balanceBefore - i_stableToken.balanceOf(address(this));
+        emit TokenHandler__TokenWithdrawn(address(i_stableToken), user, withdrawnAmount);
     }
 }

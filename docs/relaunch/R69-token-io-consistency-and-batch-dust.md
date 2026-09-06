@@ -1,6 +1,6 @@
 # R69 — Unify token I/O helpers, visibility style, and batch rBTC dust
 
-Status: **not started** · Assigned: yes · Optional/further-review: no · Planning PR: [#125](https://github.com/BitChillRSK/dca-contracts/pull/125) · Order: after R68, before relaunch
+Status: **implemented** · Assigned: yes · Optional/further-review: no · Planning PR: [#125](https://github.com/BitChillRSK/dca-contracts/pull/125) · Order: after R68, before relaunch
 
 ## Objective
 

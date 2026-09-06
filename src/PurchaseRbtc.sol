@@ -32,8 +32,10 @@ abstract contract PurchaseRbtc is IPurchaseRbtc, FeeHandler, DcaManagerAccessCon
      * @inheritdoc IPurchaseRbtc
      * @dev Spends the stablecoin the retrieval actually delivered, never the gross amount it was asked
      *      for: a lending handler can come back short when it redeems its shares, while the idle handler
-     *      reverts rather than under-deliver. Planned net amounts are only allocation weights: both the
-     *      rBTC credited and the stablecoin reported as spent are shares of what actually moved.
+     *      reverts rather than under-deliver. Planned net amounts are only allocation weights for every
+     *      row before the last; the last buyer receives any leftover measured rBTC (and the matching
+     *      event-only stablecoin share) so floor division cannot leave uncredited native balance on the
+     *      handler. There is no owner sweep of that residue.
      */
     function batchBuyRbtc(
         address[] memory buyers,
@@ -77,14 +79,25 @@ abstract contract PurchaseRbtc is IPurchaseRbtc, FeeHandler, DcaManagerAccessCon
         }
 
         uint256 numOfPurchases = buyers.length;
+        uint256 rbtcCredited;
+        uint256 stablecoinAttributed;
         for (uint256 i; i < numOfPurchases; ++i) {
             // The planned net amounts are only allocation weights: they sum to totalNetStablecoinPlanned,
-            // so the shares below sum to exactly 1 even if the redemption paid less than expected. Both the
-            // rBTC credited and the stablecoin reported as spent are shares of what actually moved.
+            // so the floors below are shares of what actually moved. The last row takes the remainder so
+            // every measured rBTC wei is credited to some buyer's books.
             uint256 plannedNet = netStablecoinAmountsToSpend[i];
             address buyer = buyers[i];
-            uint256 usersPurchasedRbtc = totalPurchasedRbtc * plannedNet / totalNetStablecoinPlanned;
-            uint256 usersStablecoinSpent = totalStablecoinAmountToSpend * plannedNet / totalNetStablecoinPlanned;
+            uint256 usersPurchasedRbtc;
+            uint256 usersStablecoinSpent;
+            if (i == numOfPurchases - 1) {
+                usersPurchasedRbtc = totalPurchasedRbtc - rbtcCredited;
+                usersStablecoinSpent = totalStablecoinAmountToSpend - stablecoinAttributed;
+            } else {
+                usersPurchasedRbtc = totalPurchasedRbtc * plannedNet / totalNetStablecoinPlanned;
+                usersStablecoinSpent = totalStablecoinAmountToSpend * plannedNet / totalNetStablecoinPlanned;
+                rbtcCredited += usersPurchasedRbtc;
+                stablecoinAttributed += usersStablecoinSpent;
+            }
             s_usersAccumulatedRbtc[buyer] += usersPurchasedRbtc;
             emit PurchaseRbtc__RbtcBought(
                 buyer, address(purchaseToken), usersPurchasedRbtc, scheduleIds[i], usersStablecoinSpent
