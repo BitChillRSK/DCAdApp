@@ -70,6 +70,7 @@ contract WithdrawAllRoutePairsTest is BaseDeploymentTest {
         operationsAdmin.assignTokenHandler(address(tokenOne), ROUTE_ONE, address(handlerOneOne));
         operationsAdmin.assignTokenHandler(address(tokenTwo), ROUTE_TWO, address(handlerTwoTwo));
         operationsAdmin.assignTokenHandler(address(tokenOne), ROUTE_TWO, address(handlerOneTwo));
+        dcaManager.setTokenMinPurchaseAmount(address(tokenTwo), MIN_PURCHASE_AMOUNT);
         vm.stopPrank();
         // (tokenTwo, ROUTE_ONE) stays unassigned: the fourth cell of the grid.
 

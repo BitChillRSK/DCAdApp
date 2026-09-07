@@ -71,6 +71,7 @@ contract NewHandlerDeploymentTest is BaseDeploymentTest {
             operationsAdmin.registerRoute(LAYERBANK_INDEX, true);
         }
         operationsAdmin.assignTokenHandler(config.usdrifTokenAddress, LAYERBANK_INDEX, usdrifHandlerAddress);
+        dcaManager.setTokenMinPurchaseAmount(config.usdrifTokenAddress, MIN_PURCHASE_AMOUNT);
         vm.stopPrank();
     }
     
