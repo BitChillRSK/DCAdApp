@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.36;
 
 import {IdleErc20Handler} from "./IdleErc20Handler.sol";

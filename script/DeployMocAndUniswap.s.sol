@@ -12,7 +12,7 @@ import {DcaManager} from "../src/DcaManager.sol";
 import {IPurchaseUniswap} from "../src/interfaces/IPurchaseUniswap.sol";
 import {OperationsAdmin} from "../src/OperationsAdmin.sol";
 import {IWRBTC} from "../src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../src/interfaces/IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "../src/interfaces/ICoinPairPrice.sol";
 import {console} from "forge-std/Test.sol";
 import "./Constants.sol";
@@ -181,7 +181,7 @@ contract DeployMocAndUniswap is DeployBase {
         // Create Uniswap settings from the network config
         IPurchaseUniswap.UniswapSettings memory uniswapSettings = IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(networkConfig.wrbtcTokenAddress),
-            swapRouter02: ISwapRouter02(networkConfig.swapRouter02Address),
+            swapRouter02: IUniswapV3SwapRouter(networkConfig.swapRouter02Address),
             swapIntermediateTokens: networkConfig.swapIntermediateTokens,
             swapPoolFeeRates: networkConfig.swapPoolFeeRates,
             mocOracle: ICoinPairPrice(networkConfig.mocOracleAddress)

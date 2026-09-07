@@ -16,7 +16,7 @@ import {IPurchaseUniswap} from "src/interfaces/IPurchaseUniswap.sol";
 import {IFeeHandler} from "src/interfaces/IFeeHandler.sol";
 import "test/Constants.sol";
 import {IWRBTC} from "src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "src/interfaces/ICoinPairPrice.sol";
 import {handlerBatchBuyOne, UNUSED_SCHEDULE_ID} from "../../utils/BatchBuyOne.sol";
 import {IPurchaseRbtc} from "../../../src/interfaces/IPurchaseRbtc.sol";
@@ -87,7 +87,7 @@ contract EdgeCasesTest is Test {
 
         IPurchaseUniswap.UniswapSettings memory uniSettings = IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(address(wrbtc)),
-            swapRouter02: ISwapRouter02(address(router)),
+            swapRouter02: IUniswapV3SwapRouter(address(router)),
             swapIntermediateTokens: new address[](0),
             swapPoolFeeRates: new uint24[](1), // will be ignored for empty path
             mocOracle: ICoinPairPrice(address(oracle))

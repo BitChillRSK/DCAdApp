@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.36;
 
 import {IWRBTC} from "./IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "./IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "./ICoinPairPrice.sol";
 
 /**
@@ -25,7 +25,7 @@ interface IPurchaseUniswap {
     /// @notice Constructor bundle for the Uniswap router, wrapped rBTC, path, and MoC BTC/USD oracle.
     struct UniswapSettings {
         IWRBTC wrBtcToken;
-        ISwapRouter02 swapRouter02;
+        IUniswapV3SwapRouter swapRouter02;
         address[] swapIntermediateTokens;
         uint24[] swapPoolFeeRates;
         ICoinPairPrice mocOracle;

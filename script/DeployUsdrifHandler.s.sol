@@ -11,7 +11,7 @@ import {IOperationsAdmin} from "../src/interfaces/IOperationsAdmin.sol";
 import {IPurchaseUniswap} from "../src/interfaces/IPurchaseUniswap.sol";
 import {IFeeHandler} from "../src/interfaces/IFeeHandler.sol";
 import {IWRBTC} from "../src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../src/interfaces/IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "../src/interfaces/ICoinPairPrice.sol";
 import {MockLayerBankAToken, MockLayerBankPool} from "../test/mocks/MockLayerBank.sol";
 import {console} from "forge-std/Test.sol";
@@ -156,7 +156,7 @@ contract DeployUsdrifHandler is DeployBase {
         }
         return IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(networkConfig.wrbtcTokenAddress),
-            swapRouter02: ISwapRouter02(networkConfig.swapRouter02Address),
+            swapRouter02: IUniswapV3SwapRouter(networkConfig.swapRouter02Address),
             swapIntermediateTokens: intermediates,
             swapPoolFeeRates: fees,
             mocOracle: ICoinPairPrice(networkConfig.mocOracleAddress)

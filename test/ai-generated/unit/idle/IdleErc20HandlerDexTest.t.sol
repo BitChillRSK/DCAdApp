@@ -8,7 +8,7 @@ import {IPurchaseUniswap} from "src/interfaces/IPurchaseUniswap.sol";
 import {IPurchaseRbtc} from "src/interfaces/IPurchaseRbtc.sol";
 import {IIdleErc20Handler} from "src/idle/IIdleErc20Handler.sol";
 import {IWRBTC} from "src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../../../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "src/interfaces/ICoinPairPrice.sol";
 import {IdleErc20HandlerDex} from "src/idle/IdleErc20HandlerDex.sol";
 import {MockWrbtcToken} from "test/mocks/MockWrbtcToken.sol";
@@ -42,7 +42,7 @@ contract IdleErc20HandlerDexTest is HandlerTestHarness {
 
         IPurchaseUniswap.UniswapSettings memory uniswapSettings = IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(address(wrbtcToken)),
-            swapRouter02: ISwapRouter02(address(mockRouter)),
+            swapRouter02: IUniswapV3SwapRouter(address(mockRouter)),
             swapIntermediateTokens: intermediateTokens,
             swapPoolFeeRates: poolFeeRates,
             mocOracle: ICoinPairPrice(address(mocOracle))
