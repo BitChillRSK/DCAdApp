@@ -72,10 +72,8 @@ contract Usdt0DexDeploymentTest is Test {
         vm.prank(address(deployer));
         deployer.maybeAssign(operationsAdmin, dcaManager, usdt0, handler, true);
 
-        (uint256 minPurchase, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(usdt0);
-        assertTrue(minAmountSet, "add-on _maybeAssign must set the 6-decimal min when the broadcaster is owner");
-        assertEq(minPurchase, 25e6);
-        assertTrue(minPurchase != 25 ether);
+        assertEq(dcaManager.getTokenMinPurchaseAmount(usdt0), 25e6);
+        assertTrue(dcaManager.getTokenMinPurchaseAmount(usdt0) != 25 ether);
         assertEq(operationsAdmin.getTokenHandler(usdt0, LAYERBANK_INDEX), handler);
         assertTrue(
             IPurchaseUniswap(handler).isPurchasePathAllowed(keccak256(IPurchaseUniswap(handler).getSwapPath()))
@@ -90,9 +88,7 @@ contract Usdt0DexDeploymentTest is Test {
 
         deployer.maybeAssign(operationsAdmin, dcaManager, usdt0, handler, true);
 
-        (uint256 minPurchase, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(usdt0);
-        assertFalse(minAmountSet, "non-owner add-on must not set the min; Safe runbook has to");
-        assertEq(minPurchase, 0);
+        assertEq(dcaManager.getTokenMinPurchaseAmount(usdt0), 0, "non-owner add-on must not set the min; Safe runbook has to");
         assertEq(operationsAdmin.getTokenHandler(usdt0, LAYERBANK_INDEX), address(0));
     }
 

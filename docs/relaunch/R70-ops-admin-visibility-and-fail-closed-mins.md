@@ -50,19 +50,11 @@ already a known ops footgun in the README. Implement without asking.
 
 - [ ] Change `OperationsAdmin private immutable i_operationsAdmin` to `public immutable`.
 - [ ] Remove `getOperationsAdminAddress` from `DcaManager` and `IDcaManager`.
-- [ ] Declare `function i_operationsAdmin() external view returns (OperationsAdmin)` on
-      `IDcaManager` (import the concrete type; match the auto-getter).
-- [ ] Update `PurchaseUniswap`, tests, and any docs that call `getOperationsAdminAddress`.
-- [ ] Remove `defaultMinPurchaseAmount` from `ProtocolSettings`, the `DcaManager` constructor
-      argument, `modifyDefaultMinPurchaseAmount`, `getDefaultMinPurchaseAmount`, and
-      `DcaManager__DefaultMinPurchaseAmountModified`.
-- [ ] In `_validatePurchaseAmount`, if `s_tokenMinPurchaseAmounts[token] == 0`, revert with a new
-      clear error (e.g. `DcaManager__TokenMinPurchaseAmountNotSet(address token)`). No default
-      fallback.
-- [ ] `setTokenMinPurchaseAmount`: revert when `minPurchaseAmount == 0` (zero no longer clears an
-      override). Update NatSpec on the setter and on `DcaManager__TokenMinPurchaseAmountSet`.
-- [ ] Keep `getTokenMinPurchaseAmount`'s `(uint256, bool)` shape: the bool means "a min is set",
-      not "custom vs default". When unset, return `(0, false)`.
+- [ ] Do **not** redeclare `i_operationsAdmin()` on `IDcaManager`. Public immutables live on the
+      implementation only (same as `i_stableToken`, `i_wrBtcToken`, …). `PurchaseUniswap` reads it
+      through the concrete `DcaManager` type.
+- [ ] `getTokenMinPurchaseAmount` returns a single `uint256` (zero means unset). Do not return a
+      redundant bool.
 - [ ] Deploy scripts + harness constructions: after `new DcaManager(...)`, call
       `setTokenMinPurchaseAmount` for every listed stable (DOC / USDRIF `25 ether`, USDT0 `25e6`).
       Do not rely on a constructor default. Update README / add-on runbook text that still describes
@@ -139,10 +131,11 @@ Done-gate: `make check`, then the forks above.
 
 ## Success criteria
 
-- [ ] `i_operationsAdmin` is `public immutable`; `getOperationsAdminAddress` is gone; interface
-      declares the auto-getter.
+- [ ] `i_operationsAdmin` is `public immutable`; `getOperationsAdminAddress` is gone; the
+      auto-getter is **not** redeclared on `IDcaManager`.
 - [ ] No `defaultMinPurchaseAmount` / `modifyDefaultMinPurchaseAmount` /
       `getDefaultMinPurchaseAmount` / `DcaManager__DefaultMinPurchaseAmountModified` remain.
+- [ ] `getTokenMinPurchaseAmount` returns a single `uint256` (zero = unset).
 - [ ] Unset token min reverts on purchase-amount validation; setter rejects zero.
 - [ ] Every production deploy / add-on path that lists a stable sets its min explicitly.
 - [ ] `_requireUserMutationsAllowed` `@dev` matches Background §3.
@@ -161,14 +154,14 @@ Done-gate: `make check`, then the forks above.
 ## ABI / deploy / cutover impact
 
 - ABI:
-  - Remove `getOperationsAdminAddress()`; add `i_operationsAdmin()` (returns address / contract).
+  - Remove `getOperationsAdminAddress()`. `i_operationsAdmin` is a public immutable on
+    `DcaManager` only (auto-getter; not redeclared on `IDcaManager`).
   - Remove constructor arg `defaultMinPurchaseAmount`.
   - Remove `modifyDefaultMinPurchaseAmount`, `getDefaultMinPurchaseAmount`, and
     `DcaManager__DefaultMinPurchaseAmountModified`.
   - `setTokenMinPurchaseAmount(0)` now reverts (was: clear override).
   - New error `DcaManager__TokenMinPurchaseAmountNotSet(address token)`.
-  - `getTokenMinPurchaseAmount` keeps its selector and return shape; the bool no longer means
-    "custom vs default".
+  - `getTokenMinPurchaseAmount` returns a single `uint256` (zero = unset); the old bool is gone.
 - Scripts: every `new DcaManager` call site; explicit `setTokenMinPurchaseAmount` for listed
   stables in MoC and Dex deploys; USDT0 add-on runbook no longer describes an 18-decimal default.
 - Cutover: front-end / data-api / monitoring / swapper-bot if any still call the removed selectors

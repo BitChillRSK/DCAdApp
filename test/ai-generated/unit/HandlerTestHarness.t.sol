@@ -472,9 +472,7 @@ abstract contract HandlerTestHarness is Test {
         vm.prank(OWNER);
         dcaManager.setTokenMinPurchaseAmount(address(stablecoin), newAmount);
         
-        (uint256 returnedAmount, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(returnedAmount, newAmount);
-        assertTrue(minAmountSet);
+        assertEq(dcaManager.getTokenMinPurchaseAmount(address(stablecoin)), newAmount);
     }
     
     function test_dcaManager_setTokenMinPurchaseAmount_reverts_zero() public {

@@ -150,7 +150,7 @@ contract DcaConfigurationTest is DcaDappTest {
     }
 
     function testPurchaseAmountMustBeGreaterThanMin() external {
-        (uint256 minPurchaseAmount,) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
+        uint256 minPurchaseAmount = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
         vm.prank(USER);
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         bytes memory encodedRevert = abi.encodeWithSelector(
@@ -229,9 +229,7 @@ contract DcaConfigurationTest is DcaDappTest {
         emit DcaManager__TokenMinPurchaseAmountSet(address(stablecoin), customAmount);
         vm.startPrank(OWNER);
         dcaManager.setTokenMinPurchaseAmount(address(stablecoin), customAmount);
-        (uint256 returnedAmount, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(customAmount, returnedAmount);
-        assertTrue(minAmountSet);
+        assertEq(dcaManager.getTokenMinPurchaseAmount(address(stablecoin)), customAmount);
         vm.stopPrank();
     }
 
@@ -247,17 +245,13 @@ contract DcaConfigurationTest is DcaDappTest {
 
     function testUnsetTokenMinPurchaseAmountRevertsOnValidation() external {
         address newToken = makeAddr("newToken");
-        (uint256 returnedAmount, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(newToken);
-        assertEq(returnedAmount, 0);
-        assertFalse(minAmountSet);
+        assertEq(dcaManager.getTokenMinPurchaseAmount(newToken), 0);
 
         // Clear the harness stablecoin's min so the validation path fails closed without needing a
         // second handler assignment (each handler address is one-shot).
         uint256 tokenMinSlot = uint256(keccak256(abi.encode(address(stablecoin), uint256(5))));
         vm.store(address(dcaManager), bytes32(tokenMinSlot), bytes32(0));
-        (returnedAmount, minAmountSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(returnedAmount, 0);
-        assertFalse(minAmountSet);
+        assertEq(dcaManager.getTokenMinPurchaseAmount(address(stablecoin)), 0);
 
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         vm.expectRevert(

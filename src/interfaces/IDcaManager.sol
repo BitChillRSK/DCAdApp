@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.36;
 
-import {OperationsAdmin} from "../OperationsAdmin.sol";
-
 /**
  * @title IDcaManager
  * @author BitChill team: Antonio Rodríguez-Ynyesto
@@ -479,12 +477,6 @@ interface IDcaManager {
         returns (uint64[] memory scheduleIds, DcaSchedule[] memory schedules);
 
     /**
-     * @notice The OperationsAdmin this manager is permanently pinned to.
-     * @return The constructor-supplied OperationsAdmin.
-     */
-    function i_operationsAdmin() external view returns (OperationsAdmin);
-
-    /**
      * @notice Block from which guarded user mutations are allowed after the latest protected window.
      * @return The latest activation block plus five, or zero before the first activation.
      * @dev Compare with `block.number`: mutations are locked while the current block is lower.
@@ -547,11 +539,7 @@ interface IDcaManager {
     /**
      * @notice Minimum purchase amount configured for `token`.
      * @param token The stablecoin.
-     * @return minPurchaseAmount The configured minimum, or zero when none has been set.
-     * @return minAmountSet True when a per-token minimum is stored (nonzero).
+     * @return The configured minimum in that token's native units, or zero when none has been set.
      */
-    function getTokenMinPurchaseAmount(address token)
-        external
-        view
-        returns (uint256 minPurchaseAmount, bool minAmountSet);
+    function getTokenMinPurchaseAmount(address token) external view returns (uint256);
 }

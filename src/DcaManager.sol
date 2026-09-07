@@ -36,7 +36,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
     /// @dev Five block heights including the activation block; fixed because this is an execution
     ///      buffer, not a confirmation or finality period.
-    uint256 private constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
+    uint256 public constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
 
     /// @dev Constructor-pinned registry. There is no setter: swapping this address
     ///      would redirect every live schedule and bypass add-only route assignment.
@@ -513,14 +513,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function getTokenMinPurchaseAmount(address token)
-        external
-        view
-        override
-        returns (uint256 minPurchaseAmount, bool minAmountSet)
-    {
-        minPurchaseAmount = s_tokenMinPurchaseAmounts[token];
-        minAmountSet = minPurchaseAmount != 0;
+    function getTokenMinPurchaseAmount(address token) external view override returns (uint256) {
+        return s_tokenMinPurchaseAmounts[token];
     }
 
     /**
