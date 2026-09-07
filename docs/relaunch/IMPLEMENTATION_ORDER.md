@@ -1056,10 +1056,10 @@ license buys recourse, not prevention — and BUSL is still not OSI-approved and
 some integrators or grant programs (check before relying on any grant program that requires one). R72
 implements: 4-year term, `GPL-2.0-or-later` Change License (GPL-2.0-compatible, unlike Apache-2.0,
 and matches Uniswap's own choice), and an Additional Use Grant carving out non-production use
-(testing, security research, audits, academic use, public testnets). The `Licensor` legal entity name
-in `LICENSE` is a placeholder pending counsel confirmation. Every commit touching `src/` is one
-author, so relicensing itself has no third-party consent problem — see R72 for the full record,
-including the caveat that already-published (pre-relaunch) code stays MIT forever regardless.
+(testing, security research, audits, academic use, public testnets). `Licensor` is BitChill (see
+https://github.com/BitChillRSK). Every commit touching `src/` is one author, so relicensing itself
+has no third-party consent problem — see R72 for the full record, including the caveat that
+already-published (pre-relaunch) code stays MIT forever regardless.
 
 ## OpenZeppelin policy
 

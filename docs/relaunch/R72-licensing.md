@@ -32,10 +32,9 @@ decision actually made:
   forever — verified source on Rootstock explorers is immortal regardless of any header. BUSL protects
   the relaunch-forward diff, not the two years of code already public. Given the relaunch is close to
   a full rewrite, that is still most of the value, but it is not everything.
-- **Not resolved here, and not resolvable by an agent:** the `Licensor` legal entity name in `LICENSE`
-  is a placeholder (`BitChill`, matching the project's own branding) pending confirmation from counsel.
-  Whether Rootstock ecosystem grant programs BitChill may want require an OSI-approved license (BUSL
-  is not one) is also unconfirmed — check before committing to grant applications that assume it.
+- **Licensor.** `BitChill` (project brand; see https://github.com/BitChillRSK). Whether Rootstock
+  ecosystem grant programs BitChill may want require an OSI-approved license (BUSL is not one) is
+  unconfirmed — check before committing to grant applications that assume it.
 
 ### The compliance gap (independent of the license choice)
 
@@ -70,9 +69,9 @@ unnoticed.
 
 ## Scope
 
-- [x] `LICENSE` at repo root: BUSL-1.1, `Licensor` placeholder pending counsel, `Licensed Work`
-      "BitChill Smart Contracts", 4-year Change Date, `GPL-2.0-or-later` Change License, an
-      Additional Use Grant carving out non-production use.
+- [x] `LICENSE` at repo root: BUSL-1.1, `Licensor` BitChill, `Licensed Work` "BitChill Smart
+      Contracts", 4-year Change Date, `GPL-2.0-or-later` Change License, an Additional Use Grant
+      carving out non-production use.
 - [x] Every `src/**/*.sol` file: `SPDX-License-Identifier` `MIT` → `BUSL-1.1` (43 files, including
       the new interface below). `script/` and `test/` stay `MIT`.
 - [x] New `src/interfaces/IUniswapV3SwapRouter.sol`: first-party `exactInput`-only surface.
@@ -90,8 +89,8 @@ unnoticed.
 - [ ] `README.md` / `SECURITY.md` / `audits/README.md` prose describing the license — R73 owns making
       those documents describe the deployed code truthfully, once README/SECURITY/audits phase starts.
       Doing it here would mean writing it twice against a still-moving R73 scope.
-- [ ] Confirming the `Licensor` legal entity name, the exact Change Date if cutover slips past
-      2030-09-07, or grant-program OSI requirements — human/counsel, not a source change.
+- [ ] Confirming the exact Change Date if cutover slips past 2030-09-07, or grant-program OSI
+      requirements — human judgment, not a source change.
 - [ ] Re-licensing `script/` or `test/` — never deployed, no reason to restrict.
 
 ## Files likely touched
@@ -138,5 +137,5 @@ and `.github/workflows/test.yml` (`license-check`).
   Uniswap interface it replaces; this is a source-level (compile-time) change only.
 - Scripts: `script/DeployDexSwaps.s.sol`, `script/DeployUsdrifHandler.s.sol`,
   `script/DeployMocAndUniswap.s.sol` — type of a cast changed, target address unchanged.
-- Cutover: none. Counsel should confirm the `Licensor` legal name and the Change Date before the
-  license is treated as final; neither blocks deployment.
+- Cutover: none. Revisit the Change Date only if cutover slips past 2030-09-07; that does not block
+  deployment.
