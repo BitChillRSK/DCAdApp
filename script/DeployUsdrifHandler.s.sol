@@ -179,9 +179,9 @@ contract DeployUsdrifHandler is DeployBase {
             console.log("   (already-registered reverts RouteAlreadyRegistered; skip that call)");
             console.log("2. Read handler.getSwapPath() and verify it exactly matches the intended");
             console.log("   stablecoin / intermediate pools / WRBTC route (constructor already allowlisted it)");
-            console.log("3. assignTokenHandler(token, LAYERBANK_INDEX, handler)");
-            console.log("4. REQUIRED: dcaManager.setTokenMinPurchaseAmount(token, min)");
+            console.log("3. REQUIRED: dcaManager.setTokenMinPurchaseAmount(token, min)");
             console.log("   USDRIF: 25 ether; USDT0: 25e6. There is no protocol-wide default.");
+            console.log("4. assignTokenHandler(token, LAYERBANK_INDEX, handler)");
             console.log("tokenAddress:", tokenAddress);
             console.log("index:", LAYERBANK_INDEX);
             console.log("handlerAddress:", handler);
@@ -193,11 +193,10 @@ contract DeployUsdrifHandler is DeployBase {
         if (operationsAdmin.getRouteClass(LAYERBANK_INDEX) == IOperationsAdmin.RouteClass.Unregistered) {
             operationsAdmin.registerRoute(LAYERBANK_INDEX, true);
         }
-        operationsAdmin.assignTokenHandler(tokenAddress, LAYERBANK_INDEX, handler);
-        console.log("LayerBank dex handler registered with OperationsAdmin at index", LAYERBANK_INDEX);
-
         uint256 minPurchaseAmount = isUsdt0Live ? USDT0_MIN_PURCHASE_AMOUNT : MIN_PURCHASE_AMOUNT;
         dcaManager.setTokenMinPurchaseAmount(tokenAddress, minPurchaseAmount);
         console.log("Token min purchase amount set to", minPurchaseAmount);
+        operationsAdmin.assignTokenHandler(tokenAddress, LAYERBANK_INDEX, handler);
+        console.log("LayerBank dex handler registered with OperationsAdmin at index", LAYERBANK_INDEX);
     }
 }

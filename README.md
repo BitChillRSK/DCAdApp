@@ -319,8 +319,8 @@ Add-on scripts (`DeployIdleHandler`, `DeployLayerBankHandler`, `DeployUsdrifHand
 
 1. `operationsAdmin.registerRoute(1, true)` **only if** `getRouteClass(1)` is still `Unregistered`. A second `registerRoute` reverts `RouteAlreadyRegistered` (LayerBank is already on the dex map after the USDRIF add-on).
 2. Read `handler.getSwapPath()` and verify it exactly matches the intended stablecoin / intermediate pools / WRBTC route. The constructor already allowlisted that path; this is the human checkpoint before assignment.
-3. `operationsAdmin.assignTokenHandler(token, 1, handler)`.
-4. `dcaManager.setTokenMinPurchaseAmount(token, min)` — USDRIF `25 ether`, USDT0 `25000000` (`25e6`). Do not skip this step.
+3. `dcaManager.setTokenMinPurchaseAmount(token, min)` — USDRIF `25 ether`, USDT0 `25000000` (`25e6`). Do not skip this step.
+4. `operationsAdmin.assignTokenHandler(token, 1, handler)`. Set the min first so the token is never routable while create still reverts `TokenMinPurchaseAmountNotSet`.
 
 **Compromised swapper.** Revoke the swapper key **before** revoking any path. A still-allowlisted compromised key can front-run each `setPurchasePathAllowed(..., false)` by re-activating that path. Order is mandatory: `revokeSwapper` → handler owner or remaining swapper `setPurchasePath` to the preferred approved path if needed → then handler owner revokes obsolete paths. Swapper revocation alone is not a routing kill switch.
 

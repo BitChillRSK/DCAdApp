@@ -7,7 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {ITokenHandler} from "./interfaces/ITokenHandler.sol";
 import {ITokenLending} from "./interfaces/ITokenLending.sol";
-import {OperationsAdmin} from "./OperationsAdmin.sol";
+import {IOperationsAdmin} from "./interfaces/IOperationsAdmin.sol";
 import {IPurchaseRbtc} from "src/interfaces/IPurchaseRbtc.sol";
 
 /**
@@ -40,7 +40,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
     /// @dev Constructor-pinned registry. There is no setter: swapping this address
     ///      would redirect every live schedule and bypass add-only route assignment.
-    OperationsAdmin public immutable i_operationsAdmin;
+    IOperationsAdmin public immutable override i_operationsAdmin;
 
     /**
      * @notice The schedules that spend each stablecoin, addressed by the id each was created with.
@@ -65,7 +65,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     mapping(address user => mapping(address token => uint64[] scheduleIds)) private s_scheduleIds;
 
     ProtocolSettings private s_protocolSettings;
-    mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Custom minimum purchase amounts per token
+    mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Per-token minimum purchase amounts
     /// @dev Zero means never activated: every real block number is at least zero, so mutations start
     ///      unlocked. While live this holds the first block at which the seven guarded calls resume.
     uint256 private s_userMutationsAllowedFromBlock;
@@ -118,7 +118,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         if (operationsAdminAddress.code.length == 0) {
             revert DcaManager__OperationsAdminIsNotAContract(operationsAdminAddress);
         }
-        i_operationsAdmin = OperationsAdmin(operationsAdminAddress);
+        i_operationsAdmin = IOperationsAdmin(operationsAdminAddress);
         s_protocolSettings = ProtocolSettings({
             minPurchasePeriod: minPurchasePeriod.toUint32(),
             maxSchedulesPerToken: maxSchedulesPerToken.toUint16(),

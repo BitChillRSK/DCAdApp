@@ -70,8 +70,8 @@ contract NewHandlerDeploymentTest is BaseDeploymentTest {
         if (operationsAdmin.getRouteClass(LAYERBANK_INDEX) == IOperationsAdmin.RouteClass.Unregistered) {
             operationsAdmin.registerRoute(LAYERBANK_INDEX, true);
         }
-        operationsAdmin.assignTokenHandler(config.usdrifTokenAddress, LAYERBANK_INDEX, usdrifHandlerAddress);
         dcaManager.setTokenMinPurchaseAmount(config.usdrifTokenAddress, MIN_PURCHASE_AMOUNT);
+        operationsAdmin.assignTokenHandler(config.usdrifTokenAddress, LAYERBANK_INDEX, usdrifHandlerAddress);
         vm.stopPrank();
     }
     

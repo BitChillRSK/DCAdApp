@@ -136,8 +136,10 @@ contract DeployBase is Script {
     function _beginLiveAwareBroadcast(address broadcaster) internal {
         _assertLiveBroadcastSender(broadcaster);
         deployOwner = _isLiveEnvironment() ? broadcaster : adminAddresses[environment];
-        // Broadcast as the same address used as `initialOwner` so `onlyOwner` setup in the same
-        // script (handler assignment, per-token mins, …) succeeds in tests and `forge script`.
+        // Tests: broadcast as `initialOwner` (`makeAddr(OWNER_STRING)` on LOCAL/FORK) so
+        // `onlyOwner` setup in the same script succeeds. Live `forge script --broadcast`: broadcast
+        // as the keyed EOA that is also `initialOwner`. Do not use this LOCAL/FORK path for a real
+        // anvil `--broadcast` — `makeAddr` has no wallet key.
         vm.startBroadcast(deployOwner);
     }
 
