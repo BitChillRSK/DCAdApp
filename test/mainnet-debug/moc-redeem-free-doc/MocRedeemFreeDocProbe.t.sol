@@ -13,14 +13,17 @@ import {DOC_HOLDER} from "../../Constants.sol";
  *         settlement-queue hop.
  * @dev Excluded from `make check` / `make fork-*` / CI (`test/mainnet-debug/`).
  *      Run: `make probe-moc-redeem-free-doc` (needs `RSK_MAINNET_RPC_URL`).
- *      MoC rejects high tx gas prices; pin under the live max (~26 gwei observed 2026-09).
+ *      MoC rejects high tx gas prices; pin under its live `maxGasPrice()`
+ *      (30_300_000 wei = 0.0303 gwei on 2026-09-07; RSK network price was 0.026 gwei).
  */
 contract MocRedeemFreeDocProbe is Test {
     address constant DOC = 0xe700691dA7b9851F2F35f8b8182c69c53CcaD9Db;
     address constant MOC_PROXY = 0xf773B590aF754D597770937Fa8ea7AbDf2668370;
     uint256 constant REDEEM_AMOUNT = 10 ether;
-    /// @dev MoC `maxGasPrice` is low vs Ethereum norms; Anvil fork defaults can exceed it.
-    uint256 constant MOC_SAFE_TX_GAS_PRICE = 20_000_000; // 20 gwei
+    /// @dev RSK gas prices are ~1000x below Ethereum norms and MoC caps them; Anvil fork defaults
+    ///      can exceed the cap. 20_000_000 wei is 0.02 gwei, under the 0.0303 gwei observed on
+    ///      2026-09-07. Re-read `maxGasPrice()` on the MoC proxy if this ever reverts.
+    uint256 constant MOC_SAFE_TX_GAS_PRICE = 20_000_000; // 0.02 gwei
 
     function test_redeemFreeDocAlonePaysRbtcWithoutPriorRequest() external {
         vm.txGasPrice(MOC_SAFE_TX_GAS_PRICE);
