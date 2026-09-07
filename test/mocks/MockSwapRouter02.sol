@@ -4,21 +4,11 @@ pragma solidity 0.8.36;
 import {MockWrbtcToken} from "./MockWrbtcToken.sol";
 import {MockStablecoin} from "./MockStablecoin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IUniswapV3SwapRouter} from "../../src/interfaces/IUniswapV3SwapRouter.sol";
 
-// Minimal mock interface for Uniswap V3 SwapRouter
-interface IV3SwapRouter {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
-}
-
-// Mock implementation of SwapRouter02 (V3 Router)
-contract MockSwapRouter02 is IV3SwapRouter {
+// Mock implementation of SwapRouter02 (V3 Router). Implements the first-party
+// IUniswapV3SwapRouter surface so it can never silently drift from what PurchaseUniswap calls.
+contract MockSwapRouter02 is IUniswapV3SwapRouter {
     /// @dev 1e18-scaled fractions, so `FULL_FILL` is "the pools took everything and paid for all of it".
     uint256 private constant FULL_FILL = 1 ether;
 

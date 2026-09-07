@@ -21,7 +21,7 @@ PROBE_VERBOSITY ?= -vv
 PROBE_MATCH ?=
 
 # Targets
-.PHONY: all test moc dex help check ci check-deploy build build-deploy patch-deps slither moc-none moc-layerbank moc-tropykus moc-sovryn dex-none dex-tropykus dex-sovryn dex-layerbank invariants invariants-sovryn fork fork-none fork-tropykus fork-sovryn fork-layerbank fork-dex-path probe-sovryn-exit-fee probe-moc-redeem-free-doc probe-dex-quote-floor coverage
+.PHONY: all test moc dex help check ci check-deploy build build-deploy patch-deps slither moc-none moc-layerbank moc-tropykus moc-sovryn dex-none dex-tropykus dex-sovryn dex-layerbank invariants invariants-sovryn fork fork-none fork-tropykus fork-sovryn fork-layerbank fork-dex-path probe-sovryn-exit-fee probe-moc-redeem-free-doc probe-dex-quote-floor coverage license-check
 
 all: help
 
@@ -37,9 +37,21 @@ test:
 		exit 1; \
 	fi
 
+# R72: src/ is BUSL-1.1 (script/ and test/ stay MIT — never deployed). Nothing else enforces this;
+# a new src/ file copy-pasting an MIT header would compile fine and go unnoticed without this check.
+license-check:
+	@echo "Checking src/ SPDX headers are BUSL-1.1..."
+	@bad=$$(grep -rL "SPDX-License-Identifier: BUSL-1.1" src --include="*.sol"); \
+	if [ -n "$$bad" ]; then \
+		echo "error: the following src/ files are not BUSL-1.1:"; \
+		echo "$$bad"; \
+		exit 1; \
+	fi
+	@echo "OK: every src/**/*.sol is BUSL-1.1."
+
 # Local "am I done" gate. Mirrors required CI lanes and includes the local Tropykus mock lane.
 # Does not run forge fmt --check (src is not fmt-clean). Run `make slither` explicitly when needed.
-check: build
+check: build license-check
 	$(MAKE) moc-none
 	$(MAKE) moc-layerbank
 	$(MAKE) moc-sovryn

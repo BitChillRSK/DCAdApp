@@ -49,8 +49,20 @@ SwapRouter02, not a new or different contract. This closes the gap outright rath
 no GPL import remains anywhere under `src/`.
 
 `test/mocks/MockSwapRouter02.sol` already declared its own local minimal `IV3SwapRouter` and never
-imported the GPL package. `test/mainnet-debug/dex-quote-floor/DexQuoteFloorProbe.t.sol` likewise
-already declares its own local `IV3SwapRouterLike`. Neither needed a change.
+imported the GPL package; `test/mainnet-debug/dex-quote-floor/DexQuoteFloorProbe.t.sol` likewise
+already declared its own local `IV3SwapRouterLike`. Neither needed a change to close the GPL
+compliance gap, but both now import the new `IUniswapV3SwapRouter` instead of hand-rolling their own
+copy of the same ABI, so the mock and the probe cannot silently drift from what `PurchaseUniswap`
+actually calls — `MockSwapRouter02 is IUniswapV3SwapRouter` means a future change to the interface
+breaks the mock's compile, not its runtime behavior at some later, harder-to-attribute point.
+
+### Enforcement
+
+Nothing previously enforced `src/` staying `BUSL-1.1` beyond this PR getting it right once. Added
+`make license-check` (`grep -rL "SPDX-License-Identifier: BUSL-1.1" src --include="*.sol"`, fails
+non-empty), wired into `make check` and as a new fast, Foundry-free CI job (`.github/workflows/test.yml`
+`license-check`) so a future `src/` file with a copy-pasted `MIT` header fails CI rather than going
+unnoticed.
 
 ## Open product decisions
 
@@ -68,6 +80,10 @@ already declares its own local `IV3SwapRouterLike`. Neither needed a change.
       instead of the GPL package; no behavior change (identical selector, identical struct layout).
 - [x] Every `script/` and `test/` file that only used `ISwapRouter02` as a cast/type for
       `UniswapSettings.swapRouter02` (14 files): same mechanical swap, still `MIT`.
+- [x] `test/mocks/MockSwapRouter02.sol`, `test/mainnet-debug/dex-quote-floor/DexQuoteFloorProbe.t.sol`:
+      import the new first-party interface instead of hand-rolling their own copy of the same ABI.
+- [x] `make license-check` (Makefile) + a fast CI job (`.github/workflows/test.yml`) so `src/` staying
+      `BUSL-1.1` is enforced going forward, not just correct on this PR's diff.
 
 ## Out of scope
 
@@ -84,23 +100,29 @@ already declares its own local `IV3SwapRouterLike`. Neither needed a change.
 line only, except `PurchaseUniswap.sol` / `IPurchaseUniswap.sol` which also change an import and two
 type names); `script/DeployDexSwaps.s.sol`, `script/DeployUsdrifHandler.s.sol`,
 `script/DeployMocAndUniswap.s.sol`; the 13 test files listed in the PR that cast a mock/config address
-to `ISwapRouter02` for `UniswapSettings.swapRouter02`.
+to `ISwapRouter02` for `UniswapSettings.swapRouter02`; `test/mocks/MockSwapRouter02.sol` and
+`test/mainnet-debug/dex-quote-floor/DexQuoteFloorProbe.t.sol` (interface consolidation); `Makefile`
+and `.github/workflows/test.yml` (`license-check`).
 
 ## Required tests
 
 - `forge build`: clean compile, no `ISwapRouter02` / `IV3SwapRouter` import anywhere under `src/`,
-  `script/`, or `test/` outside `test/mainnet-debug/dex-quote-floor/` (which never imported them).
+  `script/`, or `test/`.
+- `make license-check`: passes standalone.
 - `make check`: unchanged pass/fail counts across every lane — this PR changes no runtime behavior,
   only license headers and an interface's declaring file.
-- `make fork-sovryn` / `make fork-tropykus`: unchanged counts, same reason.
+- `make fork-sovryn` / `make fork-tropykus` (needs `RSK_MAINNET_RPC_URL` in `.env`; `AGENTS.md`
+  requires both before any relaunch-PR push): unchanged counts, same reason.
 
 ## Success criteria
 
 - [x] `grep -rl "@uniswap/swap-router-contracts" src/ script/ test/` matches nothing outside the new
       interface file's own NatSpec comment.
-- [x] `grep -rL "SPDX-License-Identifier: BUSL-1.1" src/**/*.sol` is empty.
+- [x] `grep -rL "SPDX-License-Identifier: BUSL-1.1" src/**/*.sol` is empty; `make license-check` passes.
 - [x] `forge build` exits 0.
-- [ ] `make check` and `make fork-sovryn` exit 0 with unchanged counts (run before push).
+- [x] `make check` exits 0, unchanged counts (0 failed).
+- [x] `make fork-sovryn` exits 0: 398 passed, 0 failed, 30 skipped (unchanged from pre-PR).
+- [x] `make fork-tropykus` exits 0: 391 passed, 0 failed, 34 skipped (unchanged from pre-PR).
 
 ## Reviewer checklist
 
