@@ -9,7 +9,6 @@ import {IV3SwapRouter} from "@uniswap/swap-router-contracts/contracts/interfaces
 import {ICoinPairPrice} from "./interfaces/ICoinPairPrice.sol";
 import {IPurchaseUniswap} from "./interfaces/IPurchaseUniswap.sol";
 import {IDcaManager} from "./interfaces/IDcaManager.sol";
-import {IOperationsAdmin} from "./interfaces/IOperationsAdmin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -163,8 +162,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
             revert PurchaseUniswap__PurchasePathNotAllowed(pathHash);
         }
         if (msg.sender != owner()) {
-            address admin = IDcaManager(i_dcaManager).getOperationsAdminAddress();
-            if (!IOperationsAdmin(admin).isSwapper(msg.sender)) {
+            if (!IDcaManager(i_dcaManager).i_operationsAdmin().isSwapper(msg.sender)) {
                 revert PurchaseUniswap__UnauthorizedPurchasePathSetter(msg.sender);
             }
         }

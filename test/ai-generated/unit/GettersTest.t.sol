@@ -86,8 +86,8 @@ contract GettersTest is DcaDappTest {
         assertEq(enumerated[0].lastPurchaseTimestamp, asUser.lastPurchaseTimestamp);
     }
 
-    function test_dcaManager_getOperationsAdminAddress() public {
-        address adminAddress = dcaManager.getOperationsAdminAddress();
+    function test_dcaManager_i_operationsAdmin() public {
+        address adminAddress = address(dcaManager.i_operationsAdmin());
         assertEq(adminAddress, address(operationsAdmin));
         assertTrue(adminAddress.code.length > 0);
     }
@@ -383,7 +383,7 @@ contract GettersTest is DcaDappTest {
         // Test that getters return appropriate default values for empty states
         assertEq(dcaManager.getMinPurchasePeriod(), MIN_PURCHASE_PERIOD);
         assertEq(dcaManager.getMaxSchedulesPerToken(), MAX_SCHEDULES_PER_TOKEN);
-        assertNotEq(dcaManager.getOperationsAdminAddress(), address(0));
+        assertNotEq(address(dcaManager.i_operationsAdmin()), address(0));
         
         // Test empty arrays for new users
         address newUser = makeAddr("newUser");
@@ -394,7 +394,7 @@ contract GettersTest is DcaDappTest {
     function test_getters_accessControl() public {
         // Test that view functions don't have access control restrictions
         vm.prank(makeAddr("randomUser"));
-        assertNotEq(dcaManager.getOperationsAdminAddress(), address(0));
+        assertNotEq(address(dcaManager.i_operationsAdmin()), address(0));
         
         vm.prank(makeAddr("randomUser"));
         uint256 minPeriod = dcaManager.getMinPurchasePeriod();

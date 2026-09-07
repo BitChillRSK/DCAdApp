@@ -40,7 +40,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
     /// @dev Constructor-pinned registry. There is no setter: swapping this address
     ///      would redirect every live schedule and bypass add-only route assignment.
-    OperationsAdmin private immutable i_operationsAdmin;
+    OperationsAdmin public immutable i_operationsAdmin;
 
     /**
      * @notice The schedules that spend each stablecoin, addressed by the id each was created with.
@@ -481,13 +481,6 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         for (uint256 i; i < numOfSchedules; ++i) {
             schedules[i] = s_dcaSchedules[token][scheduleIds[i]];
         }
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function getOperationsAdminAddress() external view override returns (address) {
-        return address(i_operationsAdmin);
     }
 
     /**

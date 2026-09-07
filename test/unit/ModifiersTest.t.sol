@@ -41,11 +41,11 @@ contract ModifiersTest is DcaDappTest {
         assertFalse(ownerCallSucceeded);
         assertEq(ownerReturnData.length, 0);
 
-        assertEq(dcaManager.getOperationsAdminAddress(), address(operationsAdmin));
+        assertEq(address(dcaManager.i_operationsAdmin()), address(operationsAdmin));
     }
 
     function testOperationsAdminPinnedAtConstruction() external {
-        assertEq(dcaManager.getOperationsAdminAddress(), address(operationsAdmin));
+        assertEq(address(dcaManager.i_operationsAdmin()), address(operationsAdmin));
         assertTrue(address(operationsAdmin).code.length > 0);
     }
 
@@ -72,7 +72,7 @@ contract ModifiersTest is DcaDappTest {
         for (uint256 slot; slot < 9; ++slot) {
             assertTrue(uint256(vm.load(address(dcaManager), bytes32(slot))) != admin);
         }
-        assertEq(dcaManager.getOperationsAdminAddress(), address(operationsAdmin));
+        assertEq(address(dcaManager.i_operationsAdmin()), address(operationsAdmin));
     }
 
     function testonlyOwnerCanModifyMinPurchasePeriod() external {

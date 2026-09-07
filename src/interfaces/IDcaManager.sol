@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.36;
 
+import {OperationsAdmin} from "../OperationsAdmin.sol";
+
 /**
  * @title IDcaManager
  * @author BitChill team: Antonio Rodríguez-Ynyesto
@@ -482,9 +484,9 @@ interface IDcaManager {
 
     /**
      * @notice The OperationsAdmin this manager is permanently pinned to.
-     * @return The constructor-supplied OperationsAdmin address.
+     * @return The constructor-supplied OperationsAdmin.
      */
-    function getOperationsAdminAddress() external view returns (address);
+    function i_operationsAdmin() external view returns (OperationsAdmin);
 
     /**
      * @notice Block from which guarded user mutations are allowed after the latest protected window.
