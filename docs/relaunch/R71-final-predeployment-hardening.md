@@ -1,8 +1,8 @@
 # R71 — Final pre-deployment hardening and release truthfulness
 
-Status: **source phase in review** · Assigned: yes · Optional/further-review: no · Order: after R70, before any final deployment · Implementation PR: [#128](https://github.com/BitChillRSK/dca-contracts/pull/128)
+Status: **source phase in review; phases 3–5 split out** · Assigned: yes · Optional/further-review: no · Order: after R70, before any final deployment · Implementation PR: [#128](https://github.com/BitChillRSK/dca-contracts/pull/128)
 
-[#128](https://github.com/BitChillRSK/dca-contracts/pull/128) ships the **source phase only** (gates 1–4 answers + MoC / batch-event / Dex-keep `src/` work and tests). License stays deferred. Deploy script, Slither, and public-doc phases remain for a follow-up chat after this PR merges (same R71 spec).
+[#128](https://github.com/BitChillRSK/dca-contracts/pull/128) ships the **source phase only** (gates 1–4 answers + MoC / batch-event / Dex-keep `src/` work and tests). Licensing, deferred here, is answered and implemented in [R72](./R72-licensing.md). Phases 3–5 below (deploy script, Slither, public-doc truthfulness) are split into [R73](./R73-deploy-slither-release-docs.md) — not new work, the same phases this file already scoped, given their own spec so #128 could ship and be reviewed on its own.
 
 ## Objective
 
@@ -149,10 +149,11 @@ response as redeploy/new route plus user exit, and make no reward or license pro
 
 ## Open product decisions
 
-Answered 2026-09-07 (source phase). License remains deferred to a later prompt / cutover.
+Answered 2026-09-07 (source phase). License, deferred here, is answered 2026-09-07 and implemented in [R72](./R72-licensing.md) (BUSL-1.1, 4-year term, `GPL-2.0-or-later` change license).
 
-1. **License/SPDX — deferred.** Not in this PR. Human/counsel; free until cutover. A later
-   prompt owns the SPDX sweep if the project license changes.
+1. **License/SPDX — answered in [R72](./R72-licensing.md), not this PR.** Deferred here as planned;
+   the SPDX sweep and the GPL-import compliance gap this section originally flagged as a reason to
+   defer are both closed there.
 2. **Dex OperationsAdmin dependency — (a).** Keep
    `PurchaseUniswap -> immutable DcaManager -> immutable OperationsAdmin`. Path changes are rare;
    one authority root beats duplicated immutable admin state.
@@ -176,11 +177,15 @@ pause, and do not refactor the handler inheritance graph.
 
 ## Ops checks (not Solidity)
 
-- **Standing `redeemDocRequest` settlements from the live (pre-relaunch) handlers.** Old BitChill
-  MoC handlers called `redeemDocRequest` before every purchase. Confirm whether any of those
-  handler-address queue entries ever settled (or still can) against live MoC, and whether any DOC
-  is stranded waiting on settlement. Out of scope for the contracts PR; ownership is ops + a note
-  in the cutover runbook before mainnet drain/redeploy.
+- **Standing `redeemDocRequest` settlements from the live (pre-relaunch) handlers — closed, no
+  action (answered 2026-09-07).** Old BitChill MoC handlers called `redeemDocRequest` before every
+  purchase. The open question was whether any of those handler-address queue entries ever settled
+  (or still can) against live MoC, and whether any DOC is stranded waiting on settlement. Answered:
+  the protocol has run this exact call pattern for close to two years with no reported issue, which
+  is itself the evidence — a materially-sized standing request settling unexpectedly, or DOC going
+  stranded, would have surfaced by now. No further ops investigation is required before cutover.
+  This does not change gate 4 above: the *relaunch* contracts still should not make this call, for
+  the reasons gate 4 gives independent of this history.
 
 ## Mandatory implementation order
 

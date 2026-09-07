@@ -4,18 +4,8 @@ pragma solidity 0.8.36;
 import {Test, console2} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ICoinPairPrice} from "src/interfaces/ICoinPairPrice.sol";
+import {IUniswapV3SwapRouter} from "src/interfaces/IUniswapV3SwapRouter.sol";
 import "../../Constants.sol";
-
-interface IV3SwapRouterLike {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
-}
 
 /**
  * @title DexQuoteFloorProbe
@@ -203,8 +193,8 @@ contract SwapProbe {
 
         uint256 wrbtcBefore = IERC20(WRBTC).balanceOf(address(this));
         uint256 tokenInBefore = IERC20(tokenIn).balanceOf(address(this));
-        IV3SwapRouterLike(SWAP_ROUTER_02).exactInput(
-            IV3SwapRouterLike.ExactInputParams({
+        IUniswapV3SwapRouter(SWAP_ROUTER_02).exactInput(
+            IUniswapV3SwapRouter.ExactInputParams({
                 path: path,
                 recipient: address(this),
                 amountIn: amountIn,

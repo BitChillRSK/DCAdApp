@@ -1016,40 +1016,50 @@ There is no optional-late queue. Items either have an ordered spec above or are 
 - **Owner sweep — rejected.** A pooled balance cannot prove which tokens are harmless dust versus user liabilities. Governance must not gain a path around signer-only withdrawals.
 - **Handler per-user storage packing — rejected.** Each mapping value is already one slot and contains a financial amount. Narrowing it saves no slot across mapping entries.
 - **Address-keyed bool bitmaps — rejected.** `s_swappers` and `s_handlerAssigned` are sparse address keys; they never share a word, so a bitmap is extra math for the same SLOAD. R50 packs the `(token, routeIndex)` handler+pause pair instead.
-- **SPDX change — reopened 2026-08-31.** The earlier rejection argued that re-licensing "requires an explicit legal/product process outside the contract implementation stack" and then closed the decision on that basis, which is self-defeating: that is a reason to route the question to a human, not to answer it. See **Licensing — reopened**.
+- **SPDX change — reopened 2026-08-31, answered 2026-09-07.** The earlier rejection argued that re-licensing "requires an explicit legal/product process outside the contract implementation stack" and then closed the decision on that basis, which is self-defeating: that is a reason to route the question to a human, not to answer it. See **Licensing — decided**.
 
-## Licensing — reopened
+## Licensing — decided
 
-Reopened 2026-08-31. Not latent Solidity work, and not an agent decision: it needs a human and
-probably counsel. Recorded here so the question is not lost, with the findings that motivate it.
-Free to change until the relaunch cutover, since verified source is immortal on explorers.
+Reopened 2026-08-31, answered 2026-09-07. Was not latent Solidity work and was not an agent decision;
+it needed a human, which is what happened — this section is retained as the record, with the original
+findings below and the decision layered on top. Free to change again before the relaunch cutover,
+since verified source is immortal on explorers regardless.
 
-**1. A compliance gap exists today, independent of any relicensing choice.** All 42 files in `src/`
-declare `MIT`. But `src/PurchaseUniswap.sol` imports `TransferHelper`, `ISwapRouter02`, and
-`IV3SwapRouter`, and `src/interfaces/IPurchaseUniswap.sol` imports `ISwapRouter02` — all four carry
-`SPDX-License-Identifier: GPL-2.0-or-later`. `TransferHelper` is a library whose code compiles into
-the deployed Dex handlers, not merely an interface, so an MIT declaration over that derivative is at
+**1. A compliance gap existed, independent of the relicensing choice — now closed.** All 42 files in
+`src/` declared `MIT`. But `src/PurchaseUniswap.sol` imported `TransferHelper`, `ISwapRouter02`, and
+`IV3SwapRouter`, and `src/interfaces/IPurchaseUniswap.sol` imported `ISwapRouter02` — all four carried
+`SPDX-License-Identifier: GPL-2.0-or-later`. `TransferHelper` was a library whose code compiled into
+the deployed Dex handlers, not merely an interface, so an MIT declaration over that derivative was at
 best contested. Uniswap handle this on their own tree by shipping periphery as GPL-2.0-or-later and
-core as BUSL-1.1. `lib/v3-core` is BUSL-1.1 but nothing in `src/` imports it, so it is moot. The
-mechanism for a fix is per-file SPDX: the Uniswap-importing files take GPL-2.0-or-later, the rest
-take whatever question 2 settles. **R69** ([spec](./R69-token-io-consistency-and-batch-dust.md))
-removes the compiled `TransferHelper` dependency in favour of `SafeERC20.forceApprove`; after that
-lands, only the router *interfaces* remain as GPL imports, which narrows but does not close this
-gap — question 2 and the SPDX on `PurchaseUniswap` / `IPurchaseUniswap` stay a human decision.
+core as BUSL-1.1. `lib/v3-core` is BUSL-1.1 but nothing in `src/` imports it, so that half was moot.
+**R69** ([spec](./R69-token-io-consistency-and-batch-dust.md)) had already removed the compiled
+`TransferHelper` dependency in favour of `SafeERC20.forceApprove`, leaving only the router
+*interfaces* as GPL imports. **R72** ([spec](./R72-licensing.md)) closed the rest: `PurchaseUniswap`
+and `IPurchaseUniswap` now import a first-party `IUniswapV3SwapRouter` declaring only the one function
+(`exactInput`) BitChill calls, under BitChill's own license. No GPL import remains anywhere in `src/`.
 
-**2. Which license.** Four realistic options. MIT (today) is maximally permissive with no patent
-grant. Apache-2.0 is permissive with an explicit patent grant and a trademark clause, and is
-strictly better than MIT for a company that wants to stay permissive. BUSL-1.1 (Uniswap v3, Aave v3)
-is source-available with production use restricted for up to four years, then auto-converting to a
-nominated Change License; it needs Licensor, Change Date, Change License, and an Additional Use
-Grant. GPL-3.0/AGPL-3.0 (Uniswap v2) forces forks to stay open without preventing them.
+**2. Which license — decided: BUSL-1.1.** Four realistic options were considered. MIT (the prior
+state) is maximally permissive with no patent grant. Apache-2.0 is permissive with an explicit patent
+grant and a trademark clause, and is strictly better than MIT for a company that wants to stay
+permissive. BUSL-1.1 (Uniswap v3, Aave v3) is source-available with production use restricted for up
+to four years, then auto-converting to a nominated Change License; it needs Licensor, Change Date,
+Change License, and an Additional Use Grant. GPL-3.0/AGPL-3.0 (Uniswap v2) forces forks to stay open
+without preventing them.
 
-The deciding question is what is actually being protected. The moat is the Rootstock lending
-integrations, the swapper bot, and deployed liquidity rather than the Solidity, and verified source
-means anyone can copy it whatever the header says — a license buys recourse, not prevention. Against
-that, BUSL is not OSI-approved, is screened out by some integrators and grant programs, and
-complicates the GPL situation in question 1. Lean BUSL only if a specific plausible forker can be
-named; otherwise Apache-2.0.
+The deciding question was what is actually being protected. The original framing here — that the moat
+is the Rootstock lending integrations, the swapper bot, and deployed liquidity rather than the
+Solidity — argued for leaning Apache-2.0 "only if no specific plausible forker can be named." On
+reconsideration, BitChill is a self-contained product with a fee switch (schedules, purchases, a fee
+parameter), the SushiSwap-shaped case BUSL exists for, and a more concretely nameable forker than that
+original framing assumed. Verified source still means anyone can copy it whatever the header says — a
+license buys recourse, not prevention — and BUSL is still not OSI-approved and may be screened out by
+some integrators or grant programs (check before relying on any grant program that requires one). R72
+implements: 4-year term, `GPL-2.0-or-later` Change License (GPL-2.0-compatible, unlike Apache-2.0,
+and matches Uniswap's own choice), and an Additional Use Grant carving out non-production use
+(testing, security research, audits, academic use, public testnets). `Licensor` is BitChill (see
+https://github.com/BitChillRSK). Every commit touching `src/` is one author, so relicensing itself
+has no third-party consent problem — see R72 for the full record, including the caveat that
+already-published (pre-relaunch) code stays MIT forever regardless.
 
 ## OpenZeppelin policy
 

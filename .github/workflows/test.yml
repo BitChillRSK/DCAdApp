@@ -11,6 +11,16 @@ env:
   FOUNDRY_DISABLE_NIGHTLY_WARNING: 1
 
 jobs:
+  # R72: enforce src/ staying BUSL-1.1 (script/ and test/ stay MIT). Pure grep, no Foundry needed,
+  # so this stays fast and does not compete with the matrix below for toolchain-install time.
+  license-check:
+    name: license-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: src/ is BUSL-1.1
+        run: make license-check
+
   test:
     name: ${{ matrix.target }} (${{ matrix.stablecoin }})
     runs-on: ubuntu-latest

@@ -6,7 +6,7 @@ import {ITokenHandler} from "../../../../src/interfaces/ITokenHandler.sol";
 import {IFeeHandler} from "../../../../src/interfaces/IFeeHandler.sol";
 import {IPurchaseUniswap} from "../../../../src/interfaces/IPurchaseUniswap.sol";
 import {IWRBTC} from "../../../../src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../../../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "../../../../src/interfaces/ICoinPairPrice.sol";
 import {TropykusErc20HandlerDex} from "../../../../src/tropykus-legacy/TropykusErc20HandlerDex.sol";
 import {MockKToken} from "../../../mocks/MockKToken.sol";
@@ -53,7 +53,7 @@ contract TropykusErc20HandlerDexTest is HandlerTestHarness {
         
         IPurchaseUniswap.UniswapSettings memory uniswapSettings = IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(address(wrbtcToken)),
-            swapRouter02: ISwapRouter02(address(mockRouter)),
+            swapRouter02: IUniswapV3SwapRouter(address(mockRouter)),
             swapIntermediateTokens: intermediateTokens,
             swapPoolFeeRates: poolFeeRates,
             mocOracle: ICoinPairPrice(address(mocOracle))
@@ -501,7 +501,7 @@ contract TropykusErc20HandlerDexTest is HandlerTestHarness {
 
         IPurchaseUniswap.UniswapSettings memory uniswapSettings = IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(address(wrbtcToken)),
-            swapRouter02: ISwapRouter02(address(mockRouter)),
+            swapRouter02: IUniswapV3SwapRouter(address(mockRouter)),
             swapIntermediateTokens: intermediateTokens,
             swapPoolFeeRates: poolFeeRates,
             mocOracle: ICoinPairPrice(address(mocOracle))

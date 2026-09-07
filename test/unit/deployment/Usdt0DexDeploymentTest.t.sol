@@ -9,7 +9,7 @@ import {DeployUsdrifHandler} from "script/DeployUsdrifHandler.s.sol";
 import {IPurchaseUniswap} from "src/interfaces/IPurchaseUniswap.sol";
 import {IFeeHandler} from "src/interfaces/IFeeHandler.sol";
 import {IWRBTC} from "src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "src/interfaces/ICoinPairPrice.sol";
 import {MockStablecoinWithDecimals} from "test/mocks/MockStablecoinWithDecimals.sol";
 import {MockLayerBankAToken, MockLayerBankPool} from "test/mocks/MockLayerBank.sol";
@@ -128,7 +128,7 @@ contract Usdt0DexDeploymentTest is Test {
                 aTokenAddress: address(aToken),
                 uniswapSettings: IPurchaseUniswap.UniswapSettings({
                     wrBtcToken: IWRBTC(address(wrbtc)),
-                    swapRouter02: ISwapRouter02(address(new MockSwapRouter02(wrbtc, BTC_PRICE))),
+                    swapRouter02: IUniswapV3SwapRouter(address(new MockSwapRouter02(wrbtc, BTC_PRICE))),
                     swapIntermediateTokens: intermediates,
                     swapPoolFeeRates: fees,
                     mocOracle: ICoinPairPrice(address(new MockMocOracle()))

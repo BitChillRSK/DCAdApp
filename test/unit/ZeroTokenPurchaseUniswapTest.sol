@@ -9,7 +9,7 @@ import {IPurchaseUniswap} from "../../src/interfaces/IPurchaseUniswap.sol";
 import {IFeeHandler} from "../../src/interfaces/IFeeHandler.sol";
 import {ICoinPairPrice} from "../../src/interfaces/ICoinPairPrice.sol";
 import {IWRBTC} from "../../src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -69,7 +69,7 @@ contract PurchaseUniswapZeroTokenTest is Test {
         poolFeeRates[0] = 3000;
         IPurchaseUniswap.UniswapSettings memory uniswapSettings = IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(address(0x1)),
-            swapRouter02: ISwapRouter02(address(0x2)),
+            swapRouter02: IUniswapV3SwapRouter(address(0x2)),
             swapIntermediateTokens: intermediateTokens,
             swapPoolFeeRates: poolFeeRates,
             mocOracle: ICoinPairPrice(address(0x3))

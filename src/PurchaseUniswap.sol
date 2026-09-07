@@ -1,11 +1,10 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.36;
 
 import {PurchaseRbtc} from "./PurchaseRbtc.sol";
 import {IPurchaseRbtc} from "./interfaces/IPurchaseRbtc.sol";
 import {IWRBTC} from "./interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
-import {IV3SwapRouter} from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
+import {IUniswapV3SwapRouter} from "./interfaces/IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "./interfaces/ICoinPairPrice.sol";
 import {IPurchaseUniswap} from "./interfaces/IPurchaseUniswap.sol";
 import {IDcaManager} from "./interfaces/IDcaManager.sol";
@@ -32,7 +31,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
     IWRBTC public immutable i_wrBtcToken;
     /// @notice Uniswap V3 SwapRouter02 used to buy WRBTC.
     /// @return The constructor-supplied router.
-    ISwapRouter02 public immutable i_swapRouter02;
+    IUniswapV3SwapRouter public immutable i_swapRouter02;
     ICoinPairPrice internal s_mocOracle;
     uint256 internal constant HUNDRED_PERCENT = 1 ether;
     /// @notice decimals of the MoC BTC/USD price. Hardcoded because the oracle exposes no `decimals()`.
@@ -305,7 +304,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
         uint256 amountOutLowerBound = _getAmountOutLowerBound(stablecoinAmount);
         uint256 amountOutMinimum = minRbtcOut > amountOutLowerBound ? minRbtcOut : amountOutLowerBound;
 
-        IV3SwapRouter.ExactInputParams memory params = IV3SwapRouter.ExactInputParams({
+        IUniswapV3SwapRouter.ExactInputParams memory params = IUniswapV3SwapRouter.ExactInputParams({
             path: s_swapPath,
             recipient: address(this),
             amountIn: stablecoinAmount,

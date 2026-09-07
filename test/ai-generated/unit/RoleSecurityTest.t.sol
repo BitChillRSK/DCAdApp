@@ -12,7 +12,7 @@ import {ICoinPairPrice} from "../../../src/interfaces/ICoinPairPrice.sol";
 import {MockMocOracle} from "../../mocks/MockMocOracle.sol";
 import {MockWrbtcToken} from "../../mocks/MockWrbtcToken.sol";
 import {IWRBTC} from "../../../src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {IFeeHandler} from "../../../src/interfaces/IFeeHandler.sol";
 import {ITokenHandler} from "../../../src/interfaces/ITokenHandler.sol";
 import {IDcaManager} from "../../../src/interfaces/IDcaManager.sol";
@@ -89,7 +89,7 @@ contract RoleSecurityTest is Test {
         
         IPurchaseUniswap.UniswapSettings memory uniswapSettings = IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(address(wrbtcToken)),
-            swapRouter02: ISwapRouter02(address(0x777)),
+            swapRouter02: IUniswapV3SwapRouter(address(0x777)),
             swapIntermediateTokens: intermediateTokens,
             swapPoolFeeRates: poolFeeRates,
             mocOracle: ICoinPairPrice(address(mocOracle))
@@ -150,7 +150,7 @@ contract RoleSecurityTest is Test {
             address(kToken),
             IPurchaseUniswap.UniswapSettings({
                 wrBtcToken: IWRBTC(address(wrbtcToken)),
-                swapRouter02: ISwapRouter02(address(0x777)),
+                swapRouter02: IUniswapV3SwapRouter(address(0x777)),
                 swapIntermediateTokens: new address[](0),
                 swapPoolFeeRates: new uint24[](1),
                 mocOracle: ICoinPairPrice(address(mocOracle))

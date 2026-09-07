@@ -6,7 +6,7 @@ import {IPurchaseUniswap} from "src/interfaces/IPurchaseUniswap.sol";
 import {IFeeHandler} from "src/interfaces/IFeeHandler.sol";
 import {IWRBTC} from "src/interfaces/IWRBTC.sol";
 import {ICoinPairPrice} from "src/interfaces/ICoinPairPrice.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {DexHelperConfig} from "script/DexHelperConfig.s.sol";
 import {SovrynErc20HandlerDex} from "src/sovryn/SovrynErc20HandlerDex.sol";
 import {MockIsusdToken} from "test/mocks/MockIsusdToken.sol";
@@ -395,7 +395,7 @@ contract DexPathFailoverTest is DcaDappTest {
                     address(new MockIsusdToken(address(stablecoin))),
                     IPurchaseUniswap.UniswapSettings({
                         wrBtcToken: IWRBTC(address(wrBtcToken)),
-                        swapRouter02: ISwapRouter02(config.swapRouter02Address),
+                        swapRouter02: IUniswapV3SwapRouter(config.swapRouter02Address),
                         swapIntermediateTokens: config.swapIntermediateTokens,
                         swapPoolFeeRates: config.swapPoolFeeRates,
                         mocOracle: ICoinPairPrice(config.mocOracleAddress)

@@ -8,7 +8,7 @@ import {LayerBankErc20HandlerDex} from "../../../src/layerbank/LayerBankErc20Han
 import {IPurchaseUniswap} from "../../../src/interfaces/IPurchaseUniswap.sol";
 import {IFeeHandler} from "../../../src/interfaces/IFeeHandler.sol";
 import {IWRBTC} from "../../../src/interfaces/IWRBTC.sol";
-import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
+import {IUniswapV3SwapRouter} from "../../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {ICoinPairPrice} from "../../../src/interfaces/ICoinPairPrice.sol";
 import {IOperationsAdmin} from "../../../src/interfaces/IOperationsAdmin.sol";
 import {IPurchaseRbtc} from "../../../src/interfaces/IPurchaseRbtc.sol";
@@ -41,7 +41,7 @@ contract NewHandlerDeploymentTest is BaseDeploymentTest {
         UsdrifHelperConfig.NetworkConfig memory config = usdrifHelperConfig.getNetworkConfig();
         IPurchaseUniswap.UniswapSettings memory uniswapSettings = IPurchaseUniswap.UniswapSettings({
             wrBtcToken: IWRBTC(config.wrbtcTokenAddress),
-            swapRouter02: ISwapRouter02(config.swapRouter02Address),
+            swapRouter02: IUniswapV3SwapRouter(config.swapRouter02Address),
             swapIntermediateTokens: config.swapIntermediateTokens,
             swapPoolFeeRates: config.swapPoolFeeRates,
             mocOracle: ICoinPairPrice(config.mocOracleAddress)
