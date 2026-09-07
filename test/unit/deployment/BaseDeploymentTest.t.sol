@@ -71,7 +71,7 @@ contract BaseDeploymentTest is Test {
         assertEq(dcaManager.owner(), makeAddr(OWNER_STRING), "DcaManager owner not set correctly");
         assertEq(dcaManager.pendingOwner(), address(0), "DcaManager pending owner must be zero after deploy");
         assertEq(
-            dcaManager.getOperationsAdminAddress(),
+            address(dcaManager.i_operationsAdmin()),
             address(operationsAdmin),
             "DcaManager OperationsAdmin must be the constructor registry"
         );

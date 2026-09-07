@@ -89,7 +89,7 @@ contract SchedulePackingTest is DcaDappTest {
     function testProtocolScalarsAndNonceShareOneSlot() external {
         uint256 packed = _load(PROTOCOL_SETTINGS_SLOT);
         uint256 expected = dcaManager.getMinPurchasePeriod() | (dcaManager.getMaxSchedulesPerToken() << 32)
-            | (dcaManager.getDefaultMinPurchaseAmount() << 48) | (dcaManager.getSchedulesCreatedCount() << 176);
+            | (dcaManager.getSchedulesCreatedCount() << 48);
 
         assertEq(packed, expected, "protocol scalars and the nonce are not one packed slot");
         // The token-specific minimums keep their own mapping root, one slot further down.
@@ -447,11 +447,11 @@ contract SchedulePackingTest is DcaDappTest {
     function testCreateRevertsWhenTheNonceIsExhaustedBeforeTokensMove() external {
         // Park the counter one create short of the cap, keeping the scalars beside it intact.
         uint256 packed = _load(PROTOCOL_SETTINGS_SLOT);
-        uint256 nonceMask = uint256(type(uint64).max) << 176;
+        uint256 nonceMask = uint256(type(uint64).max) << 48;
         vm.store(
             address(dcaManager),
             bytes32(PROTOCOL_SETTINGS_SLOT),
-            bytes32((packed & ~nonceMask) | (uint256(type(uint64).max) << 176))
+            bytes32((packed & ~nonceMask) | (uint256(type(uint64).max) << 48))
         );
         assertEq(dcaManager.getMinPurchasePeriod(), MIN_PURCHASE_PERIOD, "vm.store clobbered a neighbouring scalar");
 

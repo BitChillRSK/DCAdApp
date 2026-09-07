@@ -86,8 +86,8 @@ contract GettersTest is DcaDappTest {
         assertEq(enumerated[0].lastPurchaseTimestamp, asUser.lastPurchaseTimestamp);
     }
 
-    function test_dcaManager_getOperationsAdminAddress() public {
-        address adminAddress = dcaManager.getOperationsAdminAddress();
+    function test_dcaManager_i_operationsAdmin() public {
+        address adminAddress = address(dcaManager.i_operationsAdmin());
         assertEq(adminAddress, address(operationsAdmin));
         assertTrue(adminAddress.code.length > 0);
     }
@@ -201,24 +201,14 @@ contract GettersTest is DcaDappTest {
     //////////////////////////////////////////////////////////////*/
 
     function test_dcaManager_getMinPurchaseAmount() public {
-        uint256 defaultMinAmount = dcaManager.getDefaultMinPurchaseAmount();
-        assertGt(defaultMinAmount, 0);
+        uint256 minAmount = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
+        assertGt(minAmount, 0);
         
-        (uint256 effectiveMinAmount, bool isCustom) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(effectiveMinAmount, defaultMinAmount);
-        assertFalse(isCustom);
-        
-        // Test setting a custom amount for a token
+        uint256 raised = minAmount * 2;
         vm.prank(OWNER);
-        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), 50 ether);
+        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), raised);
         
-        (uint256 customAmount, bool isCustomSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(customAmount, 50 ether);
-        assertTrue(isCustomSet);
-        
-        (uint256 newEffectiveAmount, bool newIsCustom) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(newEffectiveAmount, 50 ether);
-        assertTrue(newIsCustom);
+        assertEq(dcaManager.getTokenMinPurchaseAmount(address(stablecoin)), raised);
     }
 
     function test_tokenHandler_supportsInterface() public {
@@ -383,7 +373,7 @@ contract GettersTest is DcaDappTest {
         // Test that getters return appropriate default values for empty states
         assertEq(dcaManager.getMinPurchasePeriod(), MIN_PURCHASE_PERIOD);
         assertEq(dcaManager.getMaxSchedulesPerToken(), MAX_SCHEDULES_PER_TOKEN);
-        assertNotEq(dcaManager.getOperationsAdminAddress(), address(0));
+        assertNotEq(address(dcaManager.i_operationsAdmin()), address(0));
         
         // Test empty arrays for new users
         address newUser = makeAddr("newUser");
@@ -394,7 +384,7 @@ contract GettersTest is DcaDappTest {
     function test_getters_accessControl() public {
         // Test that view functions don't have access control restrictions
         vm.prank(makeAddr("randomUser"));
-        assertNotEq(dcaManager.getOperationsAdminAddress(), address(0));
+        assertNotEq(address(dcaManager.i_operationsAdmin()), address(0));
         
         vm.prank(makeAddr("randomUser"));
         uint256 minPeriod = dcaManager.getMinPurchasePeriod();

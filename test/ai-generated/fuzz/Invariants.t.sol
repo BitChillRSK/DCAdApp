@@ -87,9 +87,12 @@ contract InvariantTest is StdInvariant, Test {
         operationsAdmin = new OperationsAdmin(OWNER);
         
         vm.prank(OWNER);
-        dcaManager = new DcaManager(address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, OWNER);
+        dcaManager = new DcaManager(address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, OWNER);
         
         stablecoin = new MockStablecoin(address(this));
+
+        vm.prank(OWNER);
+        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), MIN_PURCHASE_AMOUNT);
         
         // Setup swappers and lending routes
         vm.startPrank(OWNER);

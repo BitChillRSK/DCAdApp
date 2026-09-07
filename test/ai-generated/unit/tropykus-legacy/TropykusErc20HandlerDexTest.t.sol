@@ -25,8 +25,8 @@ import {ownableUnauthorized} from "../../../utils/OzRevert.sol";
  */
 contract TropykusErc20HandlerDexTest is HandlerTestHarness {
 
-    event PurchaseUniswap_AmountOutMinimumPercentUpdated(uint256 oldValue, uint256 newValue);
-    event PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(uint256 oldValue, uint256 newValue);
+    event PurchaseUniswap__AmountOutMinimumPercentUpdated(uint256 oldValue, uint256 newValue);
+    event PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(uint256 oldValue, uint256 newValue);
     
     // Tropykus DEX-specific contracts
     MockKToken public kToken;

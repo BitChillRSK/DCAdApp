@@ -9,7 +9,6 @@ import {IV3SwapRouter} from "@uniswap/swap-router-contracts/contracts/interfaces
 import {ICoinPairPrice} from "./interfaces/ICoinPairPrice.sol";
 import {IPurchaseUniswap} from "./interfaces/IPurchaseUniswap.sol";
 import {IDcaManager} from "./interfaces/IDcaManager.sol";
-import {IOperationsAdmin} from "./interfaces/IOperationsAdmin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -163,8 +162,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
             revert PurchaseUniswap__PurchasePathNotAllowed(pathHash);
         }
         if (msg.sender != owner()) {
-            address admin = IDcaManager(i_dcaManager).getOperationsAdminAddress();
-            if (!IOperationsAdmin(admin).isSwapper(msg.sender)) {
+            if (!IDcaManager(i_dcaManager).i_operationsAdmin().isSwapper(msg.sender)) {
                 revert PurchaseUniswap__UnauthorizedPurchasePathSetter(msg.sender);
             }
         }
@@ -176,7 +174,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
      */
     function setAmountOutMinimumPercent(uint256 amountOutMinimumPercent) external onlyOwner {
         _validateSlippageSettings(amountOutMinimumPercent, s_amountOutMinimumSafetyCheck);
-        emit PurchaseUniswap_AmountOutMinimumPercentUpdated(s_amountOutMinimumPercent, amountOutMinimumPercent);
+        emit PurchaseUniswap__AmountOutMinimumPercentUpdated(s_amountOutMinimumPercent, amountOutMinimumPercent);
         s_amountOutMinimumPercent = amountOutMinimumPercent.toUint128();
     }
 
@@ -185,7 +183,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
      */
     function setAmountOutMinimumSafetyCheck(uint256 amountOutMinimumSafetyCheck) external onlyOwner {
         _validateSlippageSettings(s_amountOutMinimumPercent, amountOutMinimumSafetyCheck);
-        emit PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(s_amountOutMinimumSafetyCheck, amountOutMinimumSafetyCheck);
+        emit PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(s_amountOutMinimumSafetyCheck, amountOutMinimumSafetyCheck);
         s_amountOutMinimumSafetyCheck = amountOutMinimumSafetyCheck.toUint128();
     }
 
@@ -196,7 +194,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
         if (newOracle == address(0)) {
             revert PurchaseUniswap__InvalidOracleAddress();
         }
-        emit PurchaseUniswap_OracleUpdated(address(s_mocOracle), newOracle);
+        emit PurchaseUniswap__OracleUpdated(address(s_mocOracle), newOracle);
         s_mocOracle = ICoinPairPrice(newOracle);
     }
 
@@ -245,7 +243,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
 
     /**
      * @dev Writes `s_swapPath` and its intermediate tokens together, then emits
-     *      `PurchaseUniswap_NewPathSet`. `newPath` must be
+     *      `PurchaseUniswap__NewPathSet`. `newPath` must be
      *      `_encodePurchasePath(intermediateTokens, poolFeeRates)`; the event's components are how
      *      off-chain reconstructs the route. The two writes are one statement pair on purpose: the
      *      purchase checks the router against the active path's intermediate tokens, and a path
@@ -258,11 +256,11 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
     ) internal {
         s_swapPath = newPath;
         s_swapIntermediateTokens = intermediateTokens;
-        emit PurchaseUniswap_NewPathSet(intermediateTokens, poolFeeRates, newPath);
+        emit PurchaseUniswap__NewPathSet(intermediateTokens, poolFeeRates, newPath);
     }
 
     /**
-     * @dev Raw allowlist write and `PurchaseUniswap_PurchasePathAllowedSet`.
+     * @dev Raw allowlist write and `PurchaseUniswap__PurchasePathAllowedSet`.
      *      The caller must already have rejected a no-op permission write and, when
      *      `allowed` is false, revocation of `keccak256(s_swapPath)`, so every emit is a
      *      real transition and the active path stays allowed. `encodedPath` must be
@@ -277,7 +275,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
         bool allowed
     ) internal {
         s_purchasePathAllowed[pathHash] = allowed;
-        emit PurchaseUniswap_PurchasePathAllowedSet(pathHash, encodedPath, intermediateTokens, poolFeeRates, allowed);
+        emit PurchaseUniswap__PurchasePathAllowedSet(pathHash, encodedPath, intermediateTokens, poolFeeRates, allowed);
     }
 
     /**

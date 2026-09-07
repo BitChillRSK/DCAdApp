@@ -127,31 +127,31 @@ contract R64BatchGasBenchmarkTest is Test {
         s_routeIdRegistry.addSwapper(s_swapper);
 
         s_designA = new DcaManager(
-            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, address(this)
+            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, address(this)
         );
         s_designB = new NestedIndexedDcaManager(
-            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT
+            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN
         );
         s_designC = new FlatKeyedDcaManager(
-            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT
+            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN
         );
         s_designD = new UserKeyedDcaManager(
-            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT
+            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN
         );
         s_designE = new TokenKeyedDcaManager(
-            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT
+            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN
         );
         s_designF = new RouteIdDcaManager(
-            address(s_routeIdRegistry), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT
+            address(s_routeIdRegistry), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN
         );
         s_designG = new TripleKeyedDcaManager(
-            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT
+            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN
         );
         s_designH = new PackedRowDcaManager(
-            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT
+            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN
         );
         s_designI = new UserTokenIdDcaManager(
-            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT
+            address(s_operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN
         );
         s_managers = [
             address(s_designA),
@@ -170,6 +170,15 @@ contract R64BatchGasBenchmarkTest is Test {
                 address token = address(uint160(uint256(keccak256(abi.encode("R64.token", d, s)))));
                 s_tokens[d][s] = token;
                 s_handlers[d][s] = new StubPurchaseHandler();
+                if (d == 0) s_designA.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
+                else if (d == 1) s_designB.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
+                else if (d == 2) s_designC.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
+                else if (d == 3) s_designD.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
+                else if (d == 4) s_designE.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
+                else if (d == 5) s_designF.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
+                else if (d == 6) s_designG.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
+                else if (d == 7) s_designH.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
+                else s_designI.setTokenMinPurchaseAmount(token, MIN_PURCHASE_AMOUNT);
                 if (d == 5) s_routeIdsF[s] = s_routeIdRegistry.assignTokenHandler(token, uint32(ROUTE_INDEX), address(s_handlers[d][s]));
                 else s_operationsAdmin.assignTokenHandler(token, ROUTE_INDEX, address(s_handlers[d][s]));
             }

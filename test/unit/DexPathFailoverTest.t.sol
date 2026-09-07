@@ -22,8 +22,8 @@ import {scheduleIdAt} from "test/utils/ScheduleAt.sol";
  * @notice Allowlisted Dex path activation. `setUp` skips MoC lanes so they do not report empty PASSes.
  */
 contract DexPathFailoverTest is DcaDappTest {
-    event PurchaseUniswap_NewPathSet(address[] intermediateTokens, uint24[] poolFeeRates, bytes newPath);
-    event PurchaseUniswap_PurchasePathAllowedSet(
+    event PurchaseUniswap__NewPathSet(address[] intermediateTokens, uint24[] poolFeeRates, bytes newPath);
+    event PurchaseUniswap__PurchasePathAllowedSet(
         bytes32 pathHash, bytes encodedPath, address[] intermediateTokens, uint24[] poolFeeRates, bool allowed
     );
 
@@ -39,7 +39,7 @@ contract DexPathFailoverTest is DcaDappTest {
         _allow(mids, fees, true);
 
         vm.expectEmit(false, false, false, true, address(stablecoinHandler));
-        emit PurchaseUniswap_NewPathSet(mids, fees, path);
+        emit PurchaseUniswap__NewPathSet(mids, fees, path);
         vm.prank(SWAPPER);
         IPurchaseUniswap(address(stablecoinHandler)).setPurchasePath(mids, fees);
         assertEq(IPurchaseUniswap(address(stablecoinHandler)).getSwapPath(), path);
@@ -329,8 +329,8 @@ contract DexPathFailoverTest is DcaDappTest {
         uint24[] memory fees,
         bytes memory path
     ) private {
-        bytes32 newPathSig = IPurchaseUniswap.PurchaseUniswap_NewPathSet.selector;
-        bytes32 allowedSig = IPurchaseUniswap.PurchaseUniswap_PurchasePathAllowedSet.selector;
+        bytes32 newPathSig = IPurchaseUniswap.PurchaseUniswap__NewPathSet.selector;
+        bytes32 allowedSig = IPurchaseUniswap.PurchaseUniswap__PurchasePathAllowedSet.selector;
         int256 newPathIdx = -1;
         int256 allowedIdx = -1;
         for (uint256 i; i < logs.length; ++i) {

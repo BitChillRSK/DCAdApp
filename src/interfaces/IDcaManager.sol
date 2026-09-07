@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.36;
 
+import {IOperationsAdmin} from "./IOperationsAdmin.sol";
+
 /**
  * @title IDcaManager
  * @author BitChill team: Antonio Rodríguez-Ynyesto
@@ -67,17 +69,17 @@ interface IDcaManager {
 
     /**
      * @notice The protocol scalars every create reads, plus the id counter it writes.
-     * @dev One slot (30 of 32 bytes): `createDcaSchedule` loads all four together and stores the bumped
+     * @dev One slot (14 of 32 bytes): `createDcaSchedule` loads all three together and stores the bumped
      *      nonce back into the same word. Owner setters take `uint256` and SafeCast at the write. This is
      *      an internal storage shape rather than an ABI type — the scalars are read through their own
      *      getters. `scheduleNonce` is a strictly increasing counter and is the schedule id itself: ids
      *      must not be derived from array state, because swap-pop on delete can restore a previous array
-     *      shape within a block and let two live schedules share an id.
+     *      shape within a block and let two live schedules share an id. Per-token purchase mins live in
+     *      their own mapping; a protocol-wide default in raw units is unsafe across stablecoin decimals.
      */
     struct ProtocolSettings {
         uint32 minPurchasePeriod; // Minimum time between purchases
         uint16 maxSchedulesPerToken; // Maximum number of schedules per stablecoin
-        uint128 defaultMinPurchaseAmount; // Default minimum purchase amount for all tokens
         uint64 scheduleNonce; // Last assigned schedule id; 0 before the first schedule is created
     }
 
@@ -134,9 +136,7 @@ interface IDcaManager {
     /// @dev The next due boundary is the UTC day of `lastPurchaseTimestamp + purchasePeriod`, not
     ///      this emitted value itself.
     event DcaManager__LastPurchaseTimestampUpdated(address indexed token, uint64 indexed scheduleId, uint256 lastPurchaseTimestamp);
-    /// @notice Owner changed the default minimum purchase amount used when a token has no override.
-    event DcaManager__DefaultMinPurchaseAmountModified(uint256 newDefaultMinPurchaseAmount);
-    /// @notice Owner set a per-token minimum purchase amount. Zero clears the override.
+    /// @notice Owner set a per-token minimum purchase amount. Zero is not allowed.
     event DcaManager__TokenMinPurchaseAmountSet(address indexed token, uint256 minPurchaseAmount);
 
     /*//////////////////////////////////////////////////////////////
@@ -150,8 +150,12 @@ interface IDcaManager {
     error DcaManager__WithdrawalAmountMustBeGreaterThanZero();
     /// @notice Requested withdrawal exceeds this schedule's `tokenBalance`.
     error DcaManager__WithdrawalAmountExceedsBalance(address token, uint256 amount, uint256 balance);
-    /// @notice Purchase amount is below the token's (or default) minimum.
+    /// @notice Purchase amount is below the token's configured minimum.
     error DcaManager__PurchaseAmountMustBeGreaterThanMinimum(address token, uint256 minPurchaseAmount);
+    /// @notice No minimum purchase amount has been set for this token.
+    error DcaManager__TokenMinPurchaseAmountNotSet(address token);
+    /// @notice Per-token minimum purchase amount must be greater than zero.
+    error DcaManager__TokenMinPurchaseAmountMustBeGreaterThanZero(address token);
     /// @notice Purchase period is below the protocol minimum.
     error DcaManager__PurchasePeriodMustBeGreaterThanMinimum();
     /// @notice Protocol minimum purchase period cannot be set below one UTC day.
@@ -436,16 +440,10 @@ interface IDcaManager {
     function modifyMaxSchedulesPerToken(uint256 maxSchedulesPerToken) external;
 
     /**
-     * @notice Set the default minimum purchase amount used when a token has no override.
-     * @param defaultMinPurchaseAmount New default, in the stablecoin's native units.
-     */
-    function modifyDefaultMinPurchaseAmount(uint256 defaultMinPurchaseAmount) external;
-
-    /**
-     * @notice Set or clear a per-token minimum purchase amount.
+     * @notice Set the minimum purchase amount for a stablecoin.
      * @param token The stablecoin.
-     * @param minPurchaseAmount New minimum in that token's native units. Zero clears the override
-     *        so the default applies.
+     * @param minPurchaseAmount New minimum in that token's native units. Must be greater than zero;
+     *        there is no protocol-wide default.
      */
     function setTokenMinPurchaseAmount(address token, uint256 minPurchaseAmount) external;
 
@@ -482,9 +480,9 @@ interface IDcaManager {
 
     /**
      * @notice The OperationsAdmin this manager is permanently pinned to.
-     * @return The constructor-supplied OperationsAdmin address.
+     * @return The constructor-supplied OperationsAdmin.
      */
-    function getOperationsAdminAddress() external view returns (address);
+    function i_operationsAdmin() external view returns (IOperationsAdmin);
 
     /**
      * @notice Block from which guarded user mutations are allowed after the latest protected window.
@@ -547,16 +545,9 @@ interface IDcaManager {
     function getSchedulesCreatedCount() external view returns (uint256);
 
     /**
-     * @notice Default minimum purchase amount for tokens with no override.
-     * @return The default, in the stablecoin's native units.
-     */
-    function getDefaultMinPurchaseAmount() external view returns (uint256);
-
-    /**
-     * @notice Minimum purchase amount that applies to `token`.
+     * @notice Minimum purchase amount configured for `token`.
      * @param token The stablecoin.
-     * @return minPurchaseAmount The effective minimum (custom if set, otherwise the default).
-     * @return customMinAmountSet True when a per-token override is stored (nonzero).
+     * @return The configured minimum in that token's native units, or zero when none has been set.
      */
-    function getTokenMinPurchaseAmount(address token) external view returns (uint256 minPurchaseAmount, bool customMinAmountSet);
+    function getTokenMinPurchaseAmount(address token) external view returns (uint256);
 }

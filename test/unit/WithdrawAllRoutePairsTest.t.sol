@@ -67,6 +67,7 @@ contract WithdrawAllRoutePairsTest is BaseDeploymentTest {
         vm.startPrank(OWNER);
         operationsAdmin.registerRoute(ROUTE_ONE, true);
         operationsAdmin.registerRoute(ROUTE_TWO, true);
+        dcaManager.setTokenMinPurchaseAmount(address(tokenTwo), MIN_PURCHASE_AMOUNT);
         operationsAdmin.assignTokenHandler(address(tokenOne), ROUTE_ONE, address(handlerOneOne));
         operationsAdmin.assignTokenHandler(address(tokenTwo), ROUTE_TWO, address(handlerTwoTwo));
         operationsAdmin.assignTokenHandler(address(tokenOne), ROUTE_TWO, address(handlerOneTwo));

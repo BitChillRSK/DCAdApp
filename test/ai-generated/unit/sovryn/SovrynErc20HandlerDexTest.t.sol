@@ -25,8 +25,8 @@ import {ownableUnauthorized} from "../../../utils/OzRevert.sol";
  */
 contract SovrynErc20HandlerDexTest is HandlerTestHarness {
 
-    event PurchaseUniswap_AmountOutMinimumPercentUpdated(uint256 oldValue, uint256 newValue);
-    event PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(uint256 oldValue, uint256 newValue);
+    event PurchaseUniswap__AmountOutMinimumPercentUpdated(uint256 oldValue, uint256 newValue);
+    event PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(uint256 oldValue, uint256 newValue);
     
     // Sovryn DEX-specific contracts
     MockIsusdToken public iSusdToken;

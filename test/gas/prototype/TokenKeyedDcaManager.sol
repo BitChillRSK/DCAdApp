@@ -95,17 +95,20 @@ contract TokenKeyedDcaManager is ReentrancyGuard {
     constructor(
         address operationsAdminAddress,
         uint256 minPurchasePeriod,
-        uint256 maxSchedulesPerToken,
-        uint256 defaultMinPurchaseAmount
+        uint256 maxSchedulesPerToken
     ) {
         i_operationsAdmin = OperationsAdmin(operationsAdminAddress);
         s_protocolSettings = IDcaManager.ProtocolSettings({
             minPurchasePeriod: minPurchasePeriod.toUint32(),
             maxSchedulesPerToken: maxSchedulesPerToken.toUint16(),
-            defaultMinPurchaseAmount: defaultMinPurchaseAmount.toUint128(),
             scheduleNonce: 0
         });
     }
+
+    function setTokenMinPurchaseAmount(address token, uint256 minPurchaseAmount) external {
+        s_tokenMinPurchaseAmounts[token] = minPurchaseAmount;
+    }
+
 
     function createDcaSchedule(
         address token,
@@ -275,7 +278,7 @@ contract TokenKeyedDcaManager is ReentrancyGuard {
 
     function _validatePurchaseAmount(address token, uint256 purchaseAmount, uint256 tokenBalance) private view {
         uint256 minPurchaseAmount = s_tokenMinPurchaseAmounts[token];
-        if (minPurchaseAmount == 0) minPurchaseAmount = s_protocolSettings.defaultMinPurchaseAmount;
+        if (minPurchaseAmount == 0) revert Prototype__PurchaseAmountBelowMinimum();
         if (purchaseAmount < minPurchaseAmount) revert Prototype__PurchaseAmountBelowMinimum();
         if (purchaseAmount > tokenBalance) revert Prototype__PurchaseAmountExceedsBalance();
     }

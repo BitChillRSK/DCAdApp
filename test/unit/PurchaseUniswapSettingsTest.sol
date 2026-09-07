@@ -21,10 +21,10 @@ import {scheduleIdAt} from "test/utils/ScheduleAt.sol";
 contract PurchaseUniswapSettingsTest is DcaDappTest {
     uint256 private constant SLIPPAGE_SLOT = 7;
 
-    event PurchaseUniswap_AmountOutMinimumPercentUpdated(uint256 oldValue, uint256 newValue);
-    event PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(uint256 oldValue, uint256 newValue);
-    event PurchaseUniswap_OracleUpdated(address indexed oldOracle, address indexed newOracle);
-    event PurchaseUniswap_NewPathSet(address[] intermediateTokens, uint24[] poolFeeRates, bytes newPath);
+    event PurchaseUniswap__AmountOutMinimumPercentUpdated(uint256 oldValue, uint256 newValue);
+    event PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(uint256 oldValue, uint256 newValue);
+    event PurchaseUniswap__OracleUpdated(address indexed oldOracle, address indexed newOracle);
+    event PurchaseUniswap__NewPathSet(address[] intermediateTokens, uint24[] poolFeeRates, bytes newPath);
 
     function setUp() public override {
         super.setUp();
@@ -65,14 +65,14 @@ contract PurchaseUniswapSettingsTest is DcaDappTest {
 
         uint256 newPercent = DEFAULT_AMOUNT_OUT_MINIMUM_PERCENT * 999 / 1000;
         vm.expectEmit(true, true, true, true);
-        emit PurchaseUniswap_AmountOutMinimumPercentUpdated(initialPercent, newPercent);
+        emit PurchaseUniswap__AmountOutMinimumPercentUpdated(initialPercent, newPercent);
         vm.prank(OWNER);
         dex.setAmountOutMinimumPercent(newPercent);
         assertEq(dex.getAmountOutMinimumPercent(), newPercent, "Swap-time floor should be updated");
 
         uint256 newSafetyCheck = DEFAULT_AMOUNT_OUT_MINIMUM_SAFETY_CHECK * 999 / 1000;
         vm.expectEmit(true, true, true, true);
-        emit PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(initialSafetyCheck, newSafetyCheck);
+        emit PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(initialSafetyCheck, newSafetyCheck);
         vm.prank(OWNER);
         dex.setAmountOutMinimumSafetyCheck(newSafetyCheck);
         assertEq(dex.getAmountOutMinimumSafetyCheck(), newSafetyCheck, "Safety check should be updated");
@@ -142,12 +142,12 @@ contract PurchaseUniswapSettingsTest is DcaDappTest {
         uint256 safetyBefore = dex.getAmountOutMinimumSafetyCheck();
 
         vm.expectEmit(true, true, true, true);
-        emit PurchaseUniswap_AmountOutMinimumPercentUpdated(percentBefore, 1 ether);
+        emit PurchaseUniswap__AmountOutMinimumPercentUpdated(percentBefore, 1 ether);
         vm.prank(OWNER);
         dex.setAmountOutMinimumPercent(1 ether);
 
         vm.expectEmit(true, true, true, true);
-        emit PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(safetyBefore, 1 ether);
+        emit PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(safetyBefore, 1 ether);
         vm.prank(OWNER);
         dex.setAmountOutMinimumSafetyCheck(1 ether);
 
@@ -163,20 +163,20 @@ contract PurchaseUniswapSettingsTest is DcaDappTest {
         uint256 raisedSafety = (initialSafety + raisedPercent) / 2;
 
         vm.expectEmit(true, true, true, true);
-        emit PurchaseUniswap_AmountOutMinimumPercentUpdated(initialPercent, raisedPercent);
+        emit PurchaseUniswap__AmountOutMinimumPercentUpdated(initialPercent, raisedPercent);
         vm.prank(OWNER);
         dex.setAmountOutMinimumPercent(raisedPercent);
         assertEq(dex.getAmountOutMinimumPercent(), raisedPercent);
 
         vm.expectEmit(true, true, true, true);
-        emit PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(initialSafety, raisedSafety);
+        emit PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(initialSafety, raisedSafety);
         vm.prank(OWNER);
         dex.setAmountOutMinimumSafetyCheck(raisedSafety);
         assertEq(dex.getAmountOutMinimumSafetyCheck(), raisedSafety);
 
         uint256 loweredSafety = raisedSafety / 2;
         vm.expectEmit(true, true, true, true);
-        emit PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(raisedSafety, loweredSafety);
+        emit PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(raisedSafety, loweredSafety);
         vm.prank(OWNER);
         dex.setAmountOutMinimumSafetyCheck(loweredSafety);
         assertEq(dex.getAmountOutMinimumSafetyCheck(), loweredSafety);
@@ -206,7 +206,7 @@ contract PurchaseUniswapSettingsTest is DcaDappTest {
         
         // Expect the event with the correct parameters
         vm.expectEmit(true, true, false, false);
-        emit PurchaseUniswap_OracleUpdated(oldOracleAddress, address(newMocOracle));
+        emit PurchaseUniswap__OracleUpdated(oldOracleAddress, address(newMocOracle));
 
         // Update the oracle
         vm.prank(OWNER);
@@ -281,7 +281,7 @@ contract PurchaseUniswapSettingsTest is DcaDappTest {
         );
 
         vm.expectEmit(false, false, false, true);
-        emit PurchaseUniswap_NewPathSet(intermediateTokens, poolFeeRates, expectedPath);
+        emit PurchaseUniswap__NewPathSet(intermediateTokens, poolFeeRates, expectedPath);
 
         vm.prank(OWNER);
         IPurchaseUniswap(address(stablecoinHandler)).setPurchasePath(intermediateTokens, poolFeeRates);

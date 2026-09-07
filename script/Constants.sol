@@ -72,8 +72,9 @@ uint256 constant DEFAULT_AMOUNT_OUT_MINIMUM_SAFETY_CHECK = 0.95 ether; // 95%
 uint256 constant BTC_PRICE = 50_000; // 1 BTC = 50,000 DOC
 
 // USDT0 is 6 decimals. Do not pass MIN_PURCHASE_AMOUNT / FEE_PURCHASE_* (18-decimal DOC/USDRIF
-// units) into a USDT0 handler — that would make the min ~25 trillion USDT0 and put every real
-// purchase at the max fee band. Live/mainnet USDT0 deploy paths use these magnitudes.
+// units) into a USDT0 handler or as its `setTokenMinPurchaseAmount` — that would make the min
+// ~25 trillion USDT0 and put every real purchase at the max fee band. Live/mainnet USDT0 deploy
+// paths use these magnitudes. There is no protocol-wide default min; every listed stable must be set.
 uint256 constant USDT0_MIN_PURCHASE_AMOUNT = 25e6;
 uint128 constant USDT0_FEE_PURCHASE_LOWER_BOUND = 1000e6;
 uint128 constant USDT0_FEE_PURCHASE_UPPER_BOUND = 100_000e6;

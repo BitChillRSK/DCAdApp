@@ -7,7 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {ITokenHandler} from "./interfaces/ITokenHandler.sol";
 import {ITokenLending} from "./interfaces/ITokenLending.sol";
-import {OperationsAdmin} from "./OperationsAdmin.sol";
+import {IOperationsAdmin} from "./interfaces/IOperationsAdmin.sol";
 import {IPurchaseRbtc} from "src/interfaces/IPurchaseRbtc.sol";
 
 /**
@@ -36,11 +36,11 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
     /// @dev Five block heights including the activation block; fixed because this is an execution
     ///      buffer, not a confirmation or finality period.
-    uint256 private constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
+    uint256 public constant PROTECTED_PURCHASE_WINDOW_BLOCKS = 5;
 
     /// @dev Constructor-pinned registry. There is no setter: swapping this address
     ///      would redirect every live schedule and bypass add-only route assignment.
-    OperationsAdmin private immutable i_operationsAdmin;
+    IOperationsAdmin public immutable override i_operationsAdmin;
 
     /**
      * @notice The schedules that spend each stablecoin, addressed by the id each was created with.
@@ -65,7 +65,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     mapping(address user => mapping(address token => uint64[] scheduleIds)) private s_scheduleIds;
 
     ProtocolSettings private s_protocolSettings;
-    mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Custom minimum purchase amounts per token
+    mapping(address token => uint256) private s_tokenMinPurchaseAmounts; // Per-token minimum purchase amounts
     /// @dev Zero means never activated: every real block number is at least zero, so mutations start
     ///      unlocked. While live this holds the first block at which the seven guarded calls resume.
     uint256 private s_userMutationsAllowedFromBlock;
@@ -107,24 +107,21 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
      * @param operationsAdminAddress The OperationsAdmin this manager is permanently pinned to.
      * @param minPurchasePeriod Minimum time between purchases, in seconds. Cannot be below one UTC day.
      * @param maxSchedulesPerToken Maximum number of schedules a user may hold per token.
-     * @param defaultMinPurchaseAmount Default minimum purchase amount for tokens with no override.
      * @param initialOwner Address that owns this contract immediately after deploy.
      */
     constructor(
         address operationsAdminAddress,
         uint256 minPurchasePeriod,
         uint256 maxSchedulesPerToken,
-        uint256 defaultMinPurchaseAmount,
         address initialOwner
     ) BitChillOwnable(initialOwner) validateMinPurchasePeriod(minPurchasePeriod) {
         if (operationsAdminAddress.code.length == 0) {
             revert DcaManager__OperationsAdminIsNotAContract(operationsAdminAddress);
         }
-        i_operationsAdmin = OperationsAdmin(operationsAdminAddress);
+        i_operationsAdmin = IOperationsAdmin(operationsAdminAddress);
         s_protocolSettings = ProtocolSettings({
             minPurchasePeriod: minPurchasePeriod.toUint32(),
             maxSchedulesPerToken: maxSchedulesPerToken.toUint16(),
-            defaultMinPurchaseAmount: defaultMinPurchaseAmount.toUint128(),
             scheduleNonce: 0
         });
     }
@@ -440,15 +437,10 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function modifyDefaultMinPurchaseAmount(uint256 defaultMinPurchaseAmount) external override onlyOwner {
-        s_protocolSettings.defaultMinPurchaseAmount = defaultMinPurchaseAmount.toUint128();
-        emit DcaManager__DefaultMinPurchaseAmountModified(defaultMinPurchaseAmount);
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
     function setTokenMinPurchaseAmount(address token, uint256 minPurchaseAmount) external override onlyOwner {
+        if (minPurchaseAmount == 0) {
+            revert DcaManager__TokenMinPurchaseAmountMustBeGreaterThanZero(token);
+        }
         s_tokenMinPurchaseAmounts[token] = minPurchaseAmount;
         emit DcaManager__TokenMinPurchaseAmountSet(token, minPurchaseAmount);
     }
@@ -481,13 +473,6 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         for (uint256 i; i < numOfSchedules; ++i) {
             schedules[i] = s_dcaSchedules[token][scheduleIds[i]];
         }
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function getOperationsAdminAddress() external view override returns (address) {
-        return address(i_operationsAdmin);
     }
 
     /**
@@ -528,17 +513,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function getDefaultMinPurchaseAmount() external view override returns (uint256) {
-        return s_protocolSettings.defaultMinPurchaseAmount;
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function getTokenMinPurchaseAmount(address token) external view override returns (uint256 minPurchaseAmount, bool customMinAmountSet) {
-        uint256 customAmount = s_tokenMinPurchaseAmounts[token];
-        customMinAmountSet = customAmount != 0;
-        minPurchaseAmount = customMinAmountSet ? customAmount : s_protocolSettings.defaultMinPurchaseAmount;
+    function getTokenMinPurchaseAmount(address token) external view override returns (uint256) {
+        return s_tokenMinPurchaseAmounts[token];
     }
 
     /**
@@ -573,7 +549,9 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Shared so the check lives in one place rather than inlined into every guarded entry point.
+     * @dev The multi-line lock check (load unlock block, compare `block.number`, revert with that
+     *      block) lives here for readability; `whenUserMutationsAllowed` is the single gate and
+     *      calls this.
      */
     function _requireUserMutationsAllowed() private view {
         uint256 userMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
@@ -649,7 +627,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     }
 
     /**
-     * @dev Purchase amount must be at least the token (or default) minimum and at most `tokenBalance`.
+     * @dev Purchase amount must be at least the token's configured minimum and at most `tokenBalance`.
      */
     function _validatePurchaseAmount(
         address token,
@@ -658,7 +636,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     ) private view {
         uint256 minPurchaseAmount = s_tokenMinPurchaseAmounts[token];
         if (minPurchaseAmount == 0) {
-            minPurchaseAmount = s_protocolSettings.defaultMinPurchaseAmount;
+            revert DcaManager__TokenMinPurchaseAmountNotSet(token);
         }
 
         if (purchaseAmount < minPurchaseAmount) {

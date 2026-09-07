@@ -80,12 +80,13 @@ contract DeployMocAndUniswap is DeployBase {
         helpConfMoc = new MocHelperConfig();
         MocHelperConfig.NetworkConfig memory networkConfig = helpConfMoc.getActiveNetworkConfig();
         
-        vm.startBroadcast();
         address owner = adminAddresses[environment];
+        vm.startBroadcast(owner);
         adOpsMoc = new OperationsAdmin(owner);
         dcaManMoc = new DcaManager(
-            address(adOpsMoc), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, owner
+            address(adOpsMoc), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, owner
         );
+        dcaManMoc.setTokenMinPurchaseAmount(networkConfig.docTokenAddress, MIN_PURCHASE_AMOUNT);
         
         // Get fee collector address
         address feeCollector = getFeeCollector(environment);
@@ -142,11 +143,11 @@ contract DeployMocAndUniswap is DeployBase {
         helpConfUni = new DexHelperConfig();
         DexHelperConfig.NetworkConfig memory networkConfig = helpConfUni.getActiveNetworkConfig();
         
-        vm.startBroadcast();
         address owner = adminAddresses[environment];
+        vm.startBroadcast(owner);
         adOpsUni = new OperationsAdmin(owner);
         dcaManUni = new DcaManager(
-            address(adOpsUni), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, owner
+            address(adOpsUni), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, owner
         );
         
         // Get fee collector address
@@ -154,6 +155,11 @@ contract DeployMocAndUniswap is DeployBase {
         
         // Get token addresses from network config
         address stablecoinAddress = networkConfig.stablecoinAddress;
+        uint256 minPurchaseAmount = keccak256(abi.encodePacked(stablecoinType))
+                == keccak256(abi.encodePacked(USDT0_STRING))
+            ? USDT0_MIN_PURCHASE_AMOUNT
+            : MIN_PURCHASE_AMOUNT;
+        dcaManUni.setTokenMinPurchaseAmount(stablecoinAddress, minPurchaseAmount);
         
         // Select the appropriate shares based on protocol
         address shareToken;
