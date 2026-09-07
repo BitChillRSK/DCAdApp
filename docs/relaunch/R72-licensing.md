@@ -1,6 +1,6 @@
 # R72 — License BUSL-1.1 and close the GPL compliance gap
 
-Status: **implemented** · Assigned: yes · Optional/further-review: no · Order: after R71 source phase, before README/audit/security truthfulness (R73) · Implementation: stacked on [#128](https://github.com/BitChillRSK/dca-contracts/pull/128)
+Status: **implemented** · Assigned: yes · Optional/further-review: no · Order: after R71 source phase, before README/audit/security truthfulness (R73) · Implementation: [#129](https://github.com/BitChillRSK/dca-contracts/pull/129), stacked on [#128](https://github.com/BitChillRSK/dca-contracts/pull/128)
 
 ## Objective
 
