@@ -107,14 +107,12 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
      * @param operationsAdminAddress The OperationsAdmin this manager is permanently pinned to.
      * @param minPurchasePeriod Minimum time between purchases, in seconds. Cannot be below one UTC day.
      * @param maxSchedulesPerToken Maximum number of schedules a user may hold per token.
-     * @param defaultMinPurchaseAmount Default minimum purchase amount for tokens with no override.
      * @param initialOwner Address that owns this contract immediately after deploy.
      */
     constructor(
         address operationsAdminAddress,
         uint256 minPurchasePeriod,
         uint256 maxSchedulesPerToken,
-        uint256 defaultMinPurchaseAmount,
         address initialOwner
     ) BitChillOwnable(initialOwner) validateMinPurchasePeriod(minPurchasePeriod) {
         if (operationsAdminAddress.code.length == 0) {
@@ -124,7 +122,6 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         s_protocolSettings = ProtocolSettings({
             minPurchasePeriod: minPurchasePeriod.toUint32(),
             maxSchedulesPerToken: maxSchedulesPerToken.toUint16(),
-            defaultMinPurchaseAmount: defaultMinPurchaseAmount.toUint128(),
             scheduleNonce: 0
         });
     }
@@ -440,15 +437,10 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function modifyDefaultMinPurchaseAmount(uint256 defaultMinPurchaseAmount) external override onlyOwner {
-        s_protocolSettings.defaultMinPurchaseAmount = defaultMinPurchaseAmount.toUint128();
-        emit DcaManager__DefaultMinPurchaseAmountModified(defaultMinPurchaseAmount);
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
     function setTokenMinPurchaseAmount(address token, uint256 minPurchaseAmount) external override onlyOwner {
+        if (minPurchaseAmount == 0) {
+            revert DcaManager__TokenMinPurchaseAmountMustBeGreaterThanZero(token);
+        }
         s_tokenMinPurchaseAmounts[token] = minPurchaseAmount;
         emit DcaManager__TokenMinPurchaseAmountSet(token, minPurchaseAmount);
     }
@@ -521,17 +513,14 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function getDefaultMinPurchaseAmount() external view override returns (uint256) {
-        return s_protocolSettings.defaultMinPurchaseAmount;
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function getTokenMinPurchaseAmount(address token) external view override returns (uint256 minPurchaseAmount, bool customMinAmountSet) {
-        uint256 customAmount = s_tokenMinPurchaseAmounts[token];
-        customMinAmountSet = customAmount != 0;
-        minPurchaseAmount = customMinAmountSet ? customAmount : s_protocolSettings.defaultMinPurchaseAmount;
+    function getTokenMinPurchaseAmount(address token)
+        external
+        view
+        override
+        returns (uint256 minPurchaseAmount, bool minAmountSet)
+    {
+        minPurchaseAmount = s_tokenMinPurchaseAmounts[token];
+        minAmountSet = minPurchaseAmount != 0;
     }
 
     /**
@@ -642,7 +631,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     }
 
     /**
-     * @dev Purchase amount must be at least the token (or default) minimum and at most `tokenBalance`.
+     * @dev Purchase amount must be at least the token's configured minimum and at most `tokenBalance`.
      */
     function _validatePurchaseAmount(
         address token,
@@ -651,7 +640,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     ) private view {
         uint256 minPurchaseAmount = s_tokenMinPurchaseAmounts[token];
         if (minPurchaseAmount == 0) {
-            minPurchaseAmount = s_protocolSettings.defaultMinPurchaseAmount;
+            revert DcaManager__TokenMinPurchaseAmountNotSet(token);
         }
 
         if (purchaseAmount < minPurchaseAmount) {

@@ -136,13 +136,9 @@ contract DeployBase is Script {
     function _beginLiveAwareBroadcast(address broadcaster) internal {
         _assertLiveBroadcastSender(broadcaster);
         deployOwner = _isLiveEnvironment() ? broadcaster : adminAddresses[environment];
-        // Pass the broadcaster so tests and `forge script --account` both send `onlyOwner`
-        // setup from the same address that was used as `initialOwner`.
-        if (_isLiveEnvironment()) {
-            vm.startBroadcast(broadcaster);
-        } else {
-            vm.startBroadcast();
-        }
+        // Broadcast as the same address used as `initialOwner` so `onlyOwner` setup in the same
+        // script (handler assignment, per-token mins, …) succeeds in tests and `forge script`.
+        vm.startBroadcast(deployOwner);
     }
 
     function _requireNoPendingOwner(Ownable2Step governed) internal view {

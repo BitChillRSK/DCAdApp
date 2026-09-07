@@ -702,15 +702,8 @@ contract Handler is Test {
         newMinPurchaseAmount = bound(newMinPurchaseAmount, 1 ether, 1000 ether);
         
         vm.startPrank(OWNER);
-        try dcaManager.modifyDefaultMinPurchaseAmount(newMinPurchaseAmount) {
-            // Success - this tests the default minimum purchase amount
-        } catch {
-            // Ignore failures
-        }
-        
-        // Test setting custom amount for specific token
         try dcaManager.setTokenMinPurchaseAmount(address(stablecoin), newMinPurchaseAmount) {
-            // Success - this tests setting custom amount per token
+            // Success - this tests setting the per-token minimum
         } catch {
             // Ignore failures
         }

@@ -152,7 +152,6 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
         assertEq(dcaManager.getMinPurchasePeriod(), 2 days);
         vm.startPrank(OWNER);
         dcaManager.modifyMaxSchedulesPerToken(3);
-        dcaManager.modifyDefaultMinPurchaseAmount(1);
         dcaManager.setTokenMinPurchaseAmount(address(stablecoin), 1);
         vm.stopPrank();
 

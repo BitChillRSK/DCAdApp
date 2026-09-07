@@ -10,6 +10,7 @@ import {ITokenLending} from "../../../src/interfaces/ITokenLending.sol";
 import {IPurchaseRbtc} from "../../../src/interfaces/IPurchaseRbtc.sol";
 import {IPurchaseUniswap} from "../../../src/interfaces/IPurchaseUniswap.sol";
 import {IDcaManagerAccessControl} from "../../../src/interfaces/IDcaManagerAccessControl.sol";
+import {IDcaManager} from "../../../src/interfaces/IDcaManager.sol";
 import {DcaManager} from "../../../src/DcaManager.sol";
 import {OperationsAdmin} from "../../../src/OperationsAdmin.sol";
 import {MockStablecoin} from "../../mocks/MockStablecoin.sol";
@@ -108,9 +109,12 @@ abstract contract HandlerTestHarness is Test {
         operationsAdmin = new OperationsAdmin(OWNER);
         
         vm.prank(OWNER);
-        dcaManager = new DcaManager(address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, OWNER);
+        dcaManager = new DcaManager(address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, OWNER);
         
         stablecoin = new MockStablecoin(address(this));
+
+        vm.prank(OWNER);
+        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), MIN_PURCHASE_AMOUNT);
         
         // Get handler configuration
         routeIndex = getRouteIndex();
@@ -462,30 +466,31 @@ abstract contract HandlerTestHarness is Test {
         }
     }
     
-    function test_dcaManager_modifyMinPurchaseAmount() public {
-        uint256 newAmount = 500 ether;
-        
-        vm.prank(OWNER);
-        dcaManager.modifyDefaultMinPurchaseAmount(newAmount);
-        
-        assertEq(dcaManager.getDefaultMinPurchaseAmount(), newAmount);
-    }
-    
     function test_dcaManager_setTokenMinPurchaseAmount() public {
         uint256 newAmount = 500 ether;
         
         vm.prank(OWNER);
         dcaManager.setTokenMinPurchaseAmount(address(stablecoin), newAmount);
         
-        (uint256 returnedAmount, bool isCustom) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
+        (uint256 returnedAmount, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
         assertEq(returnedAmount, newAmount);
-        assertTrue(isCustom);
+        assertTrue(minAmountSet);
     }
     
-    function test_dcaManager_modifyMinPurchaseAmount_reverts_notOwner() public {
+    function test_dcaManager_setTokenMinPurchaseAmount_reverts_zero() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__TokenMinPurchaseAmountMustBeGreaterThanZero.selector, address(stablecoin)
+            )
+        );
+        vm.prank(OWNER);
+        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), 0);
+    }
+
+    function test_dcaManager_setTokenMinPurchaseAmount_reverts_notOwner() public {
         vm.expectRevert(ownableUnauthorized(USER));
         vm.prank(USER);
-        dcaManager.modifyDefaultMinPurchaseAmount(500 ether);
+        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), 500 ether);
     }
     
     /*//////////////////////////////////////////////////////////////

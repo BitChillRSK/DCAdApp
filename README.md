@@ -315,12 +315,12 @@ Then, from the Safe UI (one call per contract), send `acceptOwnership()`. Until 
 
 Add-on scripts (`DeployIdleHandler`, `DeployLayerBankHandler`, `DeployUsdrifHandler`) revert if `pendingOwner` is set on `OperationsAdmin` or `DcaManager` — wait until the Safe has accepted, then run them.
 
-**USDT0 / USDRIF add-on (`DeployUsdrifHandler`).** This is the live path R36 uses against an existing `DcaManager`. On mainnet the Safe already owns `OperationsAdmin`, so the Foundry EOA hits the non-owner branch: it deploys the handler (constructor self-allowlists the initial path), logs, and returns **without** `assignTokenHandler` and **without** `setTokenMinPurchaseAmount`. That is fail-closed for USDRIF until the Safe assigns the handler (default min `25 ether` is correct). For USDT0 the default min is `25e18` atomic units — about 25 trillion USDT0 — so users cannot create real schedules until the Safe also sets the 6-decimal min. After the script, from the Safe, **in this order**:
+**USDT0 / USDRIF add-on (`DeployUsdrifHandler`).** This is the live path R36 uses against an existing `DcaManager`. On mainnet the Safe already owns `OperationsAdmin`, so the Foundry EOA hits the non-owner branch: it deploys the handler (constructor self-allowlists the initial path), logs, and returns **without** `assignTokenHandler` and **without** `setTokenMinPurchaseAmount`. That is fail-closed until the Safe assigns the handler **and** sets the per-token min (there is no protocol-wide default). After the script, from the Safe, **in this order**:
 
 1. `operationsAdmin.registerRoute(1, true)` **only if** `getRouteClass(1)` is still `Unregistered`. A second `registerRoute` reverts `RouteAlreadyRegistered` (LayerBank is already on the dex map after the USDRIF add-on).
 2. Read `handler.getSwapPath()` and verify it exactly matches the intended stablecoin / intermediate pools / WRBTC route. The constructor already allowlisted that path; this is the human checkpoint before assignment.
 3. `operationsAdmin.assignTokenHandler(token, 1, handler)`.
-4. **USDT0 only:** `dcaManager.setTokenMinPurchaseAmount(usdt0, 25000000)` (`25e6`). Do not skip this step.
+4. `dcaManager.setTokenMinPurchaseAmount(token, min)` — USDRIF `25 ether`, USDT0 `25000000` (`25e6`). Do not skip this step.
 
 **Compromised swapper.** Revoke the swapper key **before** revoking any path. A still-allowlisted compromised key can front-run each `setPurchasePathAllowed(..., false)` by re-activating that path. Order is mandatory: `revokeSwapper` → handler owner or remaining swapper `setPurchasePath` to the preferred approved path if needed → then handler owner revokes obsolete paths. Swapper revocation alone is not a routing kill switch.
 

@@ -53,7 +53,7 @@ contract ModifiersTest is DcaDappTest {
         vm.expectRevert(
             abi.encodeWithSelector(IDcaManager.DcaManager__OperationsAdminIsNotAContract.selector, address(0))
         );
-        new DcaManager(address(0), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, OWNER);
+        new DcaManager(address(0), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, OWNER);
     }
 
     function testConstructorRevertsIfOperationsAdminIsEoa() external {
@@ -61,7 +61,7 @@ contract ModifiersTest is DcaDappTest {
         vm.expectRevert(
             abi.encodeWithSelector(IDcaManager.DcaManager__OperationsAdminIsNotAContract.selector, eoa)
         );
-        new DcaManager(eoa, MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, OWNER);
+        new DcaManager(eoa, MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, OWNER);
     }
 
     function testOperationsAdminNotInStorage() external {
@@ -108,6 +108,6 @@ contract ModifiersTest is DcaDappTest {
 
     function testConstructorRevertsIfMinPurchasePeriodBelowOneDay() external {
         vm.expectRevert(IDcaManager.DcaManager__MinPurchasePeriodMustBeAtLeastOneDay.selector);
-        new DcaManager(address(operationsAdmin), 1 days - 1, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, OWNER);
+        new DcaManager(address(operationsAdmin), 1 days - 1, MAX_SCHEDULES_PER_TOKEN, OWNER);
     }
 }

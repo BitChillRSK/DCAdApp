@@ -201,24 +201,16 @@ contract GettersTest is DcaDappTest {
     //////////////////////////////////////////////////////////////*/
 
     function test_dcaManager_getMinPurchaseAmount() public {
-        uint256 defaultMinAmount = dcaManager.getDefaultMinPurchaseAmount();
-        assertGt(defaultMinAmount, 0);
+        (uint256 minAmount, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
+        assertEq(minAmount, MIN_PURCHASE_AMOUNT);
+        assertTrue(minAmountSet);
         
-        (uint256 effectiveMinAmount, bool isCustom) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(effectiveMinAmount, defaultMinAmount);
-        assertFalse(isCustom);
-        
-        // Test setting a custom amount for a token
         vm.prank(OWNER);
         dcaManager.setTokenMinPurchaseAmount(address(stablecoin), 50 ether);
         
-        (uint256 customAmount, bool isCustomSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
+        (uint256 customAmount, bool isSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
         assertEq(customAmount, 50 ether);
-        assertTrue(isCustomSet);
-        
-        (uint256 newEffectiveAmount, bool newIsCustom) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(newEffectiveAmount, 50 ether);
-        assertTrue(newIsCustom);
+        assertTrue(isSet);
     }
 
     function test_tokenHandler_supportsInterface() public {

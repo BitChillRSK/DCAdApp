@@ -55,12 +55,15 @@ contract FeeOnTransferDepositTest is Test {
 
         vm.prank(OWNER);
         dcaManager = new DcaManager(
-            address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, OWNER
+            address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, OWNER
         );
 
         // Starts 1:1; each test opts into the transfer fee where it wants one.
         token = new MockFeeOnTransferStablecoin();
         token.setFeeRecipient(FOT_FEE_RECIPIENT);
+
+        vm.prank(OWNER);
+        dcaManager.setTokenMinPurchaseAmount(address(token), MIN_PURCHASE_AMOUNT);
 
         mocProxy = new MockMocProxy(address(token));
         vm.deal(address(mocProxy), 100 ether);

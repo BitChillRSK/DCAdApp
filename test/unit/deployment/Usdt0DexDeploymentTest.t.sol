@@ -72,8 +72,8 @@ contract Usdt0DexDeploymentTest is Test {
         vm.prank(address(deployer));
         deployer.maybeAssign(operationsAdmin, dcaManager, usdt0, handler, true);
 
-        (uint256 minPurchase, bool custom) = dcaManager.getTokenMinPurchaseAmount(usdt0);
-        assertTrue(custom, "add-on _maybeAssign must set the 6-decimal min when the broadcaster is owner");
+        (uint256 minPurchase, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(usdt0);
+        assertTrue(minAmountSet, "add-on _maybeAssign must set the 6-decimal min when the broadcaster is owner");
         assertEq(minPurchase, 25e6);
         assertTrue(minPurchase != 25 ether);
         assertEq(operationsAdmin.getTokenHandler(usdt0, LAYERBANK_INDEX), handler);
@@ -83,16 +83,16 @@ contract Usdt0DexDeploymentTest is Test {
         assertEq(LayerBankErc20HandlerDex(payable(handler)).i_aToken().UNDERLYING_ASSET_ADDRESS(), usdt0);
     }
 
-    function test_maybeAssign_nonOwnerLeavesUsdt0MinAtDefault() public {
+    function test_maybeAssign_nonOwnerLeavesUsdt0MinUnset() public {
         DeployUsdrifHandlerHarness deployer = new DeployUsdrifHandlerHarness();
         (OperationsAdmin operationsAdmin, DcaManager dcaManager, address handler, address usdt0) =
             _deploySixDecimalStack(address(deployer));
 
         deployer.maybeAssign(operationsAdmin, dcaManager, usdt0, handler, true);
 
-        (uint256 minPurchase, bool custom) = dcaManager.getTokenMinPurchaseAmount(usdt0);
-        assertFalse(custom, "non-owner add-on must not set the min; Safe runbook has to");
-        assertEq(minPurchase, MIN_PURCHASE_AMOUNT);
+        (uint256 minPurchase, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(usdt0);
+        assertFalse(minAmountSet, "non-owner add-on must not set the min; Safe runbook has to");
+        assertEq(minPurchase, 0);
         assertEq(operationsAdmin.getTokenHandler(usdt0, LAYERBANK_INDEX), address(0));
     }
 
@@ -102,7 +102,7 @@ contract Usdt0DexDeploymentTest is Test {
     {
         operationsAdmin = new OperationsAdmin(owner);
         dcaManager = new DcaManager(
-            address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, owner
+            address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, owner
         );
         (handler, usdt0) = _deploySixDecimalHandler(address(dcaManager), owner);
     }

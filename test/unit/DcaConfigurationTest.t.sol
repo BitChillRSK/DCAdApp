@@ -19,7 +19,6 @@ contract DcaConfigurationTest is DcaDappTest {
         address indexed user, uint64 indexed scheduleId, uint256 previousPeriod, uint256 newPeriod
     );
     event DcaManager__MaxSchedulesPerTokenModified(uint256 maxSchedulesPerToken);
-    event DcaManager__DefaultMinPurchaseAmountModified(uint256 newDefaultAmount);
     event DcaManager__TokenMinPurchaseAmountSet(address indexed token, uint256 customAmount);
 
     function setUp() public override {
@@ -221,53 +220,53 @@ contract DcaConfigurationTest is DcaDappTest {
     /// Min Purchase Amount tests ///
     ///////////////////////////////
 
-    function testModifyDefaultMinPurchaseAmount() external {
-        uint256 newDefaultAmount = 50 ether;
-        vm.expectEmit(true, true, true, true);
-        emit DcaManager__DefaultMinPurchaseAmountModified(newDefaultAmount);
-        vm.startPrank(OWNER);
-        dcaManager.modifyDefaultMinPurchaseAmount(newDefaultAmount);
-        assertEq(newDefaultAmount, dcaManager.getDefaultMinPurchaseAmount());
-        vm.stopPrank();
-    }
-
     function testSetTokenMinPurchaseAmount() external {
         uint256 customAmount = 75 ether;
         vm.expectEmit(true, true, true, true);
         emit DcaManager__TokenMinPurchaseAmountSet(address(stablecoin), customAmount);
         vm.startPrank(OWNER);
         dcaManager.setTokenMinPurchaseAmount(address(stablecoin), customAmount);
-        (uint256 returnedAmount, bool isCustom) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
+        (uint256 returnedAmount, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
         assertEq(customAmount, returnedAmount);
-        assertTrue(isCustom);
+        assertTrue(minAmountSet);
         vm.stopPrank();
     }
 
-    function testEffectiveMinPurchaseAmountUsesDefaultWhenNoCustomSet() external {
-        uint256 defaultAmount = dcaManager.getDefaultMinPurchaseAmount();
-        (uint256 returnedAmount, bool isCustom) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(defaultAmount, returnedAmount);
-        assertFalse(isCustom);
-        
-        // Verify that a token without custom amount returns the default
+    function testSetTokenMinPurchaseAmountRevertsOnZero() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__TokenMinPurchaseAmountMustBeGreaterThanZero.selector, address(stablecoin)
+            )
+        );
+        vm.prank(OWNER);
+        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), 0);
+    }
+
+    function testUnsetTokenMinPurchaseAmountRevertsOnValidation() external {
         address newToken = makeAddr("newToken");
-        (uint256 newTokenAmount, bool newTokenIsCustom) = dcaManager.getTokenMinPurchaseAmount(newToken);
-        assertEq(defaultAmount, newTokenAmount);
-        assertFalse(newTokenIsCustom);
+        (uint256 returnedAmount, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(newToken);
+        assertEq(returnedAmount, 0);
+        assertFalse(minAmountSet);
+
+        // Clear the harness stablecoin's min so the validation path fails closed without needing a
+        // second handler assignment (each handler address is one-shot).
+        uint256 tokenMinSlot = uint256(keccak256(abi.encode(address(stablecoin), uint256(5))));
+        vm.store(address(dcaManager), bytes32(tokenMinSlot), bytes32(0));
+        (returnedAmount, minAmountSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
+        assertEq(returnedAmount, 0);
+        assertFalse(minAmountSet);
+
+        uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__TokenMinPurchaseAmountNotSet.selector, address(stablecoin)
+            )
+        );
+        vm.prank(USER);
+        dcaManager.updatePurchaseAmount(address(stablecoin), scheduleId, AMOUNT_TO_SPEND);
     }
 
-    function testEffectiveMinPurchaseAmountUsesCustomWhenSet() external {
-        uint256 customAmount = 100 ether;
-        vm.startPrank(OWNER);
-        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), customAmount);
-        vm.stopPrank();
-        
-        (uint256 returnedAmount, bool isCustom) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(customAmount, returnedAmount);
-        assertTrue(isCustom);
-    }
-
-    function testMinPurchaseAmountValidationUsesEffectiveAmount() external {
+    function testMinPurchaseAmountValidationUsesConfiguredAmount() external {
         uint256 customAmount = 30 ether;
         vm.startPrank(OWNER);
         dcaManager.setTokenMinPurchaseAmount(address(stablecoin), customAmount);
@@ -276,7 +275,6 @@ contract DcaConfigurationTest is DcaDappTest {
         vm.startPrank(USER);
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         
-        // Should revert with the custom amount, not the default
         bytes memory encodedRevert = abi.encodeWithSelector(
             IDcaManager.DcaManager__PurchaseAmountMustBeGreaterThanMinimum.selector, address(stablecoin), customAmount
         );

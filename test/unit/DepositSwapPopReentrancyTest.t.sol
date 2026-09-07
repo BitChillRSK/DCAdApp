@@ -73,10 +73,12 @@ contract DepositSwapPopReentrancyTest is Test {
 
         vm.prank(OWNER);
         dcaManager = new DcaManager(
-            address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, MIN_PURCHASE_AMOUNT, OWNER
+            address(operationsAdmin), MIN_PURCHASE_PERIOD, MAX_SCHEDULES_PER_TOKEN, OWNER
         );
 
         token = new MockReentrantStablecoin();
+        vm.prank(OWNER);
+        dcaManager.setTokenMinPurchaseAmount(address(token), MIN_PURCHASE_AMOUNT);
         kToken = new MockKdocToken(address(token));
         MockMocProxy mocProxy = new MockMocProxy(address(token));
 
