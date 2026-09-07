@@ -160,13 +160,26 @@ Answered 2026-09-07 (source phase). License remains deferred to a later prompt /
    `UserSharesUpdated` (exact per-row share debit) plus `SharesRedeemedBatch` (measured totals).
    Keep the single-user `_redeemShares` emission: there `underlyingAmount` is measured cash after
    the protocol call. Update NatSpec so the field has one meaning.
-4. **MoC — `redeemFreeDoc` only; bubble original reverts.** Live docs and a Rootstock fork tip
-   probe show `redeemDocRequest` is the settlement-queue path, not a prerequisite for immediate
-   free-DOC redemption. Drop the request call and both parameterless `try`/`catch` wrappers;
-   delete `IPurchaseMoc`. Zero measured rBTC still fails closed in `PurchaseRbtc`.
+4. **MoC — `redeemFreeDoc` only; bubble original reverts.** Evidence lives in
+   `test/mainnet-debug/moc-redeem-free-doc/` (`make probe-moc-redeem-free-doc`): free DOC redeems
+   without a prior `redeemDocRequest`, and the request path does not pay immediate rBTC. Drop the
+   request call and both parameterless `try`/`catch` wrappers; delete `IPurchaseMoc`. Zero measured
+   rBTC still fails closed in `PurchaseRbtc`.
+5. **Sovryn 0.1% exit fee is live on tip — user/frontend disclosure? (open).** Observed ~block
+   9,219,745 (2026-09-07); haircut to `0xDDE75f…6f9B`. Contracts already measure cash (R1). Do users
+   and the front-end get an explicit “Sovryn exits cost ~0.1%” notice before relaunch cutover?
+   Record the answer here; tracked as [front-end#25](https://github.com/BitChillRSK/front-end/issues/25).
 
-No other product gate. In particular, keep `minRbtcOut == 0` valid, add no purchase pause, and do not
-refactor the handler inheritance graph.
+No other product gate on the source phase. In particular, keep `minRbtcOut == 0` valid, add no purchase
+pause, and do not refactor the handler inheritance graph.
+
+## Ops checks (not Solidity)
+
+- **Standing `redeemDocRequest` settlements from the live (pre-relaunch) handlers.** Old BitChill
+  MoC handlers called `redeemDocRequest` before every purchase. Confirm whether any of those
+  handler-address queue entries ever settled (or still can) against live MoC, and whether any DOC
+  is stranded waiting on settlement. Out of scope for the contracts PR; ownership is ops + a note
+  in the cutover runbook before mainnet drain/redeploy.
 
 ## Mandatory implementation order
 
