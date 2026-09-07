@@ -195,7 +195,7 @@ contract EventIndexingTest is DcaDappTest {
         if (sig == keccak256("OperationsAdmin__SwapperAdded(address)")) return (true, 1);
         if (sig == keccak256("OperationsAdmin__SwapperRevoked(address)")) return (true, 1);
         if (sig == keccak256("OperationsAdmin__DepositsPauseSet(address,uint256,bool)")) return (true, 1);
-        if (sig == keccak256("PurchaseUniswap_PurchasePathAllowedSet(bytes32,bytes,address[],uint24[],bool)")) {
+        if (sig == keccak256("PurchaseUniswap__PurchasePathAllowedSet(bytes32,bytes,address[],uint24[],bool)")) {
             return (true, 0);
         }
         if (sig == keccak256("FeeHandler__MinFeeRateSet(uint256)")) return (true, 0);
@@ -204,10 +204,10 @@ contract EventIndexingTest is DcaDappTest {
         if (sig == keccak256("FeeHandler__PurchaseUpperBoundSet(uint256)")) return (true, 0);
         if (sig == keccak256("FeeHandler__FeeCollectorAddressSet(address)")) return (true, 1);
         if (sig == keccak256("FeeHandler__FeeTransferred(address,address,uint256)")) return (true, 2);
-        if (sig == keccak256("PurchaseUniswap_NewPathSet(address[],uint24[],bytes)")) return (true, 0);
-        if (sig == keccak256("PurchaseUniswap_AmountOutMinimumPercentUpdated(uint256,uint256)")) return (true, 0);
-        if (sig == keccak256("PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(uint256,uint256)")) return (true, 0);
-        if (sig == keccak256("PurchaseUniswap_OracleUpdated(address,address)")) return (true, 2);
+        if (sig == keccak256("PurchaseUniswap__NewPathSet(address[],uint24[],bytes)")) return (true, 0);
+        if (sig == keccak256("PurchaseUniswap__AmountOutMinimumPercentUpdated(uint256,uint256)")) return (true, 0);
+        if (sig == keccak256("PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(uint256,uint256)")) return (true, 0);
+        if (sig == keccak256("PurchaseUniswap__OracleUpdated(address,address)")) return (true, 2);
         if (sig == keccak256("IdleErc20Handler__AmountAdjusted(address,uint256,uint256)")) return (true, 1);
         if (sig == OWNERSHIP_TRANSFERRED) return (true, 2);
         if (sig == OWNERSHIP_TRANSFER_STARTED) return (true, 2);

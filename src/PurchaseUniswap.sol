@@ -243,7 +243,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
 
     /**
      * @dev Writes `s_swapPath` and its intermediate tokens together, then emits
-     *      `PurchaseUniswap_NewPathSet`. `newPath` must be
+     *      `PurchaseUniswap__NewPathSet`. `newPath` must be
      *      `_encodePurchasePath(intermediateTokens, poolFeeRates)`; the event's components are how
      *      off-chain reconstructs the route. The two writes are one statement pair on purpose: the
      *      purchase checks the router against the active path's intermediate tokens, and a path
@@ -260,7 +260,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
     }
 
     /**
-     * @dev Raw allowlist write and `PurchaseUniswap_PurchasePathAllowedSet`.
+     * @dev Raw allowlist write and `PurchaseUniswap__PurchasePathAllowedSet`.
      *      The caller must already have rejected a no-op permission write and, when
      *      `allowed` is false, revocation of `keccak256(s_swapPath)`, so every emit is a
      *      real transition and the active path stays allowed. `encodedPath` must be
