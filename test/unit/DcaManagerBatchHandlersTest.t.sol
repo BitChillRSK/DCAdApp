@@ -3,7 +3,6 @@ pragma solidity 0.8.36;
 
 import {DcaDappTest} from "./DcaDappTest.t.sol";
 import {IDcaManager} from "../../src/interfaces/IDcaManager.sol";
-import {IPurchaseMoc} from "../../src/interfaces/IPurchaseMoc.sol";
 import {IPurchaseRbtc} from "../../src/interfaces/IPurchaseRbtc.sol";
 import {DeployIdleHandler} from "../../script/DeployIdleHandler.s.sol";
 import {DeployLayerBankHandler} from "../../script/DeployLayerBankHandler.s.sol";
@@ -175,12 +174,13 @@ contract DcaManagerBatchHandlersTest is DcaDappTest {
         uint256 firstRbtcBefore = IPurchaseRbtc(address(stablecoinHandler)).getAccumulatedRbtcBalance(USER);
         uint256 secondRbtcBefore = IPurchaseRbtc(secondHandler).getAccumulatedRbtcBalance(USER);
 
-        // The first handler is called; the second then fails inside the MoC interaction.
+        // The first handler is called; the second then fails inside MoC's redeemFreeDoc
+        // (DOC transferFrom), and that revert bubbles without a BitChill wrapper.
         vm.prank(secondHandler);
         stablecoin.approve(address(mocProxy), 0);
 
         IDcaManager.Batch[] memory batches = _twoHandlers();
-        vm.expectRevert(IPurchaseMoc.PurchaseMoc__RedeemFreeDocFailed.selector);
+        vm.expectRevert();
         _batchBuy(batches);
 
         IDcaManager.DcaSchedule memory firstAfter =

@@ -117,7 +117,7 @@ Everything else is single-sourced on the interface:
   its own code that a reader of the surface could not infer; an abstract's header reaches no shipped
   artifact whichever side it sits on, so there is nothing to be gained by restating the interface there.
 - Two cases where no interface owns the claim, so it stays on the implementation. An interface that
-  declares no functions (`IDcaManagerAccessControl`, `IPurchaseMoc`, `ILayerBankErc20Handler`) is a home
+  declares no functions (`IDcaManagerAccessControl`, `ILayerBankErc20Handler`) is a home
   for errors and events, not a surface: its `@notice` says what it carries. And a fact true of one
   implementation cannot live on an interface several share — `ITokenLending` is Sovryn's, LayerBank's,
   and Tropykus's at once.

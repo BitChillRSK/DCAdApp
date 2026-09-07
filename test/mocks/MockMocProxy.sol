@@ -10,13 +10,27 @@ contract MockMocProxy {
 
     event MockMocProxy__DocRedeemed(address indexed user, uint256 docAmount, uint256 btcAmount);
 
+    uint256 public docRequestCalls;
+    uint256 public freeDocCalls;
+    string private s_revertFreeDoc;
+
     constructor(address docTokenAddress) {
         mockDocToken = MockStablecoin(docTokenAddress);
     }
 
-    function redeemDocRequest(uint256 docAmount) external {}
+    function setRevertFreeDoc(string calldata reason) external {
+        s_revertFreeDoc = reason;
+    }
+
+    function redeemDocRequest(uint256) external {
+        ++docRequestCalls;
+    }
 
     function redeemFreeDoc(uint256 docAmount) external {
+        ++freeDocCalls;
+        if (bytes(s_revertFreeDoc).length != 0) {
+            revert(s_revertFreeDoc);
+        }
         // Priced off the requested amount on purpose: production DOC is not fee-on-transfer, so
         // received == docAmount. The burn below uses the measured delta only so this mock stays
         // solvent when a FOT stablecoin mock is swapped in; it is not modelling a MoC payout rule.
