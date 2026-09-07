@@ -212,7 +212,10 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
             }
             _setUserShares(users[i], usersShares, usersShares - usersSharesToRedeem);
             totalSharesToRedeem += usersSharesToRedeem;
-            emit TokenLending__SharesRedeemed(users[i], purchaseAmounts[i], usersSharesToRedeem);
+            // Per-user facts on this path are `UserSharesUpdated` (exact virtual debit) and, after
+            // the protocol call, one measured `SharesRedeemedBatch`. Do not emit `SharesRedeemed`
+            // here: that event's `underlyingAmount` is measured cash on single redeems, and the
+            // planned gross is not measured cash.
         }
         uint256 stablecoinReceived = _measuredProtocolRedeem(totalSharesToRedeem, exchangeRate);
         if (stablecoinReceived > 0) {

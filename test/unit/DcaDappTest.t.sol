@@ -81,6 +81,7 @@ contract DcaDappTest is Test {
     function _maxPurchaseSlippage() internal view returns (uint256) {
         return isDexSwaps ? DEX_MAX_SLIPPAGE_PERCENT : MAX_SLIPPAGE_PERCENT;
     }
+
     string lendingProtocol = vm.envString("LENDING_PROTOCOL");
     bool isTropykus = keccak256(abi.encodePacked(lendingProtocol)) == keccak256(abi.encodePacked(TROPYKUS_STRING));
     bool isSovryn = keccak256(abi.encodePacked(lendingProtocol)) == keccak256(abi.encodePacked(SOVRYN_STRING));
@@ -535,10 +536,8 @@ contract DcaDappTest is Test {
         uint256 period = dcaDetails[SCHEDULE_INDEX].purchasePeriod;
         uint256 lastPurchaseTimestamp = lastTs == 0 ? block.timestamp : lastTs + period;
         emit DcaManager__LastPurchaseTimestampUpdated(address(stablecoin), dcaDetailsIds[SCHEDULE_INDEX], lastPurchaseTimestamp);
-        if (isLendingLane) {
-            vm.expectEmit(true, false, false, false);
-            emit TokenLending__SharesRedeemed(USER, 0, 0);
-        }
+        // Lending purchases go through `_batchRetrieveStablecoin`, which does not emit
+        // `TokenLending__SharesRedeemed` (that event is single-redeem / measured cash only).
         if (block.chainid == ANVIL_CHAIN_ID && isMocSwaps) {
             vm.expectEmit(true, true, true, true);
         } else {
