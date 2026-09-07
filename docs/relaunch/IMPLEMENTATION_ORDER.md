@@ -122,6 +122,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R60 | 59 (planned) | none (`via_ir` deploy profile; whole suite runs against shipped bytecode) |
 | R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
 | R69 | 69 ([#126](https://github.com/BitChillRSK/dca-contracts/pull/126)) | none (OZ IERC165; SafeERC20 approve on Dex; external+internal deposit/withdraw; floor dust documented, not credited) |
+| R70 | 70 | none (public `i_operationsAdmin`; fail-closed per-token mins; `_requireUserMutationsAllowed` comment) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 
@@ -980,6 +981,16 @@ reverted: ~1e-13 dollars of residue is not worth a cross-file hot-path subtracti
 mode is a whole-batch revert). Gas of public+`super` vs external+internal is a wash for
 these signatures — choose the clearer seam. Public construction immutables stay. Does not flatten
 handler inheritance, reopen licensing, or revive a rescue. Lands after R68 and before relaunch.
+
+### R70 - public OperationsAdmin pin, fail-closed per-token mins, comment accuracy ([spec](./R70-ops-admin-visibility-and-fail-closed-mins.md))
+
+Review follow-ups after R69. Three small, independent fixes: (1) `i_operationsAdmin` becomes
+`public immutable` and `getOperationsAdminAddress` is removed so the pin matches the house
+immutable convention R69 already stated; (2) drop `defaultMinPurchaseAmount` — a single raw-unit
+default is unsafe across 18-dec and 6-dec stables, so unset tokens revert and every listed stable
+gets an explicit `setTokenMinPurchaseAmount` at deploy; (3) reword `_requireUserMutationsAllowed`'s
+`@dev` so it does not claim the helper is the single gate (the modifier already is). Does not
+flatten inheritance, reopen licensing, or pad the freed `ProtocolSettings` bytes. Lands after R69.
 
 ## Closed non-implementation decisions
 
