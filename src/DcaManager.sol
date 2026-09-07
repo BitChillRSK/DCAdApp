@@ -555,7 +555,9 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Shared so the check lives in one place rather than inlined into every guarded entry point.
+     * @dev The multi-line lock check (load unlock block, compare `block.number`, revert with that
+     *      block) lives here for readability; `whenUserMutationsAllowed` is the single gate and
+     *      calls this.
      */
     function _requireUserMutationsAllowed() private view {
         uint256 userMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
