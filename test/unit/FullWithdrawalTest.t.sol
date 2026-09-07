@@ -14,8 +14,6 @@ import {scheduleAt, scheduleIdAt} from "test/utils/ScheduleAt.sol";
  */
 contract FullWithdrawalTest is DcaDappTest {
     uint256 constant INTEREST_ACCRUAL_PERIOD = 30 days;
-    /// @dev share conversion rounds up, so a stablecoin payout can differ from the requested amount by dust
-    uint256 constant PAYOUT_TOLERANCE = 1e6;
 
     function setUp() public override {
         super.setUp();

@@ -763,9 +763,11 @@ contract DcaDappTest is Test {
      * @param requestedGross the total stablecoin the purchase path asked the lending protocol for
      * @dev data[0] is the measured redemption. Lending batches ceil each row independently, so the
      * protocol can burn up to `(n − 1)` more shares than `ceil(sum → shares)` and pay a few wei of
-     * DOC above the request; live iToken conversion can add another wei. On live Sovryn, SIP-0094's
-     * 10 bps Perimeter Fee makes measured cash ~99.9% of the share-backed request — that haircut is
-     * allowed here; NetRedemptionTest covers the fee with mocks. Local mocks stay fee-free.
+     * DOC above the request; live iToken conversion can add another wei. On live Sovryn tip
+     * (fee charging since ~block 9,219,745 — see `test/mainnet-debug/sovryn-exit-fee/`), SIP-0094's
+     * 10 bps makes measured cash ~99.9% of the share-backed request; allow that haircut here because
+     * the event reports measured cash. The early-warning instrument for "did the fee turn on?" is
+     * `make probe-sovryn-exit-fee` (gross vs net + live fee sink), not an absolute band on this emit.
      */
     function _assertBatchRedemptionReported(uint256 requestedGross) internal {
         Vm.Log[] memory entries = vm.getRecordedLogs();

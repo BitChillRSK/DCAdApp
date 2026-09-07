@@ -6,6 +6,7 @@ import {IDcaManager} from "../../src/interfaces/IDcaManager.sol";
 import {IPurchaseRbtc} from "../../src/interfaces/IPurchaseRbtc.sol";
 import {DeployIdleHandler} from "../../script/DeployIdleHandler.s.sol";
 import {DeployLayerBankHandler} from "../../script/DeployLayerBankHandler.s.sol";
+import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import "../Constants.sol";
 import {scheduleAt, scheduleIdAt} from "test/utils/ScheduleAt.sol";
 
@@ -179,8 +180,16 @@ contract DcaManagerBatchHandlersTest is DcaDappTest {
         vm.prank(secondHandler);
         stablecoin.approve(address(mocProxy), 0);
 
+        // Anvil-only (`_requireTwoHandlers`): revoke the second handler's MoC allowance so
+        // MockMocProxy.redeemFreeDoc's DOC transferFrom reverts. MoC wrappers are gone, so the
+        // OZ ERC-20 error bubbles. Scoped to that selector — a bare expectRevert would also
+        // pass if the *first* handler failed. Fork lanes skip this case (no second MoC handler).
+        uint256 fee = feeCalculator.calculateFee(AMOUNT_TO_SPEND);
+        uint256 netDoc = AMOUNT_TO_SPEND - fee;
         IDcaManager.Batch[] memory batches = _twoHandlers();
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(mocProxy), uint256(0), netDoc)
+        );
         _batchBuy(batches);
 
         IDcaManager.DcaSchedule memory firstAfter =

@@ -11,6 +11,10 @@ import "../Constants.sol";
 import {scheduleIdAt} from "test/utils/ScheduleAt.sol";
 
 contract RbtcWithdrawalTest is DcaDappTest {
+    /// @dev One-purchase MoC tip observed ~0.252% under oracle; 0.30% trips a real commission change
+    ///      without the 2× headroom of `MAX_SLIPPAGE_PERCENT` (0.50%). Dex keeps `_maxPurchaseSlippage`.
+    uint256 private constant MOC_ONE_PURCHASE_SLIPPAGE = 0.003 ether;
+
     function setUp() public override {
         super.setUp();
     }
@@ -37,13 +41,20 @@ contract RbtcWithdrawalTest is DcaDappTest {
         dcaManager.withdrawAllAccumulatedRbtc(tokens, routeIndexes);
         uint256 rbtcBalanceAfterWithdrawal = USER.balance;
 
-        // MoC commission and live Uniswap path impact both need the harness slippage bound;
-        // a hardcoded 0.25% was too tight on tip MoC (~0.252% observed on Sovryn fork).
-        assertApproxEqRel(
-            rbtcBalanceAfterWithdrawal - rbtcBalanceBeforeWithdrawal,
-            netPurchaseAmount / s_btcPrice,
-            _maxPurchaseSlippage()
-        );
+        if (isMocSwaps) {
+            // Tip MoC commission ~0.252%; keep a tight canary rather than MAX_SLIPPAGE_PERCENT (0.5%).
+            assertApproxEqRel(
+                rbtcBalanceAfterWithdrawal - rbtcBalanceBeforeWithdrawal,
+                netPurchaseAmount / s_btcPrice,
+                MOC_ONE_PURCHASE_SLIPPAGE
+            );
+        } else {
+            assertApproxEqRel(
+                rbtcBalanceAfterWithdrawal - rbtcBalanceBeforeWithdrawal,
+                netPurchaseAmount / s_btcPrice,
+                _maxPurchaseSlippage()
+            );
+        }
     }
 
     function testWithdrawRbtcAfterSeveralPurchases() external {

@@ -22,10 +22,6 @@ contract DcaScheduleTest is DcaDappTest {
         address indexed user, uint64 indexed scheduleId, uint256 previousPeriod, uint256 newPeriod
     );
 
-    /// @dev the refund is what the handler actually paid, and a lending protocol's share conversion rounds
-    /// up, so the amount can exceed the schedule's recorded balance by dust
-    uint256 constant REFUND_ROUNDING_TOLERANCE = 1e6;
-
     function setUp() public override {
         super.setUp();
     }
