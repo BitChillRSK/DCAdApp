@@ -165,10 +165,11 @@ Answered 2026-09-07 (source phase). License remains deferred to a later prompt /
    without a prior `redeemDocRequest`, and the request path does not pay immediate rBTC. Drop the
    request call and both parameterless `try`/`catch` wrappers; delete `IPurchaseMoc`. Zero measured
    rBTC still fails closed in `PurchaseRbtc`.
-5. **Sovryn 0.1% exit fee is live on tip — user/frontend disclosure? (open).** Observed ~block
-   9,219,745 (2026-09-07); haircut to `0xDDE75f…6f9B`. Contracts already measure cash (R1). Do users
-   and the front-end get an explicit “Sovryn exits cost ~0.1%” notice before relaunch cutover?
-   Record the answer here; tracked as [front-end#25](https://github.com/BitChillRSK/front-end/issues/25).
+5. **Sovryn 0.1% exit fee — disclose in the front-end if/when Sovryn ships (answered 2026-09-07).**
+   Tip burns already haircut ~10 bps (probe evidence); BitChill still measures cash (R1). Human: Sovryn
+   may or may not be on the relaunch map. Do **not** treat this as an urgent live-UI change. When (if)
+   a Sovryn route is offered after cutover, the front-end should tell users exits cost ~0.1%. Tracked as
+   [front-end#25](https://github.com/BitChillRSK/front-end/issues/25).
 
 No other product gate on the source phase. In particular, keep `minRbtcOut == 0` valid, add no purchase
 pause, and do not refactor the handler inheritance graph.
