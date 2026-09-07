@@ -121,7 +121,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R55 | 58 ([#113](https://github.com/BitChillRSK/dca-contracts/pull/113)) | none (measured; recommendation is keep stock solc, no IR) |
 | R60 | 59 (planned) | none (`via_ir` deploy profile; whole suite runs against shipped bytecode) |
 | R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
-| R69 | 69 (planning [#125](https://github.com/BitChillRSK/dca-contracts/pull/125)) | none (OZ IERC165; SafeERC20 approve on Dex; external+internal deposit/withdraw; last-buyer batch rBTC dust) |
+| R69 | 69 ([#126](https://github.com/BitChillRSK/dca-contracts/pull/126)) | none (OZ IERC165; SafeERC20 approve on Dex; external+internal deposit/withdraw; floor dust documented, not credited) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 
@@ -964,7 +964,7 @@ floor or floor+1 underlying so Aave half-up maps back to the exact scaled burn. 
 `testSinglePurchase` / fee-free withdraw **+8,080** gas; 5-row `testBatchPurchasesOneUser`
 **+16,355**; harness `batchRetrieve` 1/10/200 rows 65,134 / 70,225 / 1,188,494.
 
-### R69 - token I/O consistency, visibility style, and batch rBTC dust ([spec](./R69-token-io-consistency-and-batch-dust.md), planning [#125](https://github.com/BitChillRSK/dca-contracts/pull/125))
+### R69 - token I/O consistency, visibility style, and batch rBTC dust ([spec](./R69-token-io-consistency-and-batch-dust.md), planning [#125](https://github.com/BitChillRSK/dca-contracts/pull/125), [#126](https://github.com/BitChillRSK/dca-contracts/pull/126))
 
 Pre-cutover housekeeping after R68. Four small gaps that should not ship: `OperationsAdmin` imports
 `IERC165` from forge-std while handlers advertise through OpenZeppelin; `PurchaseUniswap` is the only
@@ -974,8 +974,10 @@ first-party path that uses Uniswap `TransferHelper.safeApprove` instead of `Safe
 house `external` + `_helper` pattern; and `batchBuyRbtc`'s floor pro-rata can leave up to `n − 1` wei
 of measured rBTC on the handler with no `s_usersAccumulatedRbtc` credit — stranded after R8 removed
 the owner rescue. Fix: one OZ IERC165 import, SafeERC20 on the Dex approve, `_depositToken` /
-`_withdrawToken` internals with `external` ABI entries, `setPurchasePath` → `external`, last-buyer
-remainder so every measured wei is credited. Gas of public+`super` vs external+internal is a wash for
+`_withdrawToken` internals with `external` ABI entries, `setPurchasePath` → `external`, and NatSpec
+plus tests that state the floor dust rather than a last-buyer remainder (a remainder was tried and
+reverted: ~1e-13 dollars of residue is not worth a cross-file hot-path subtraction whose failure
+mode is a whole-batch revert). Gas of public+`super` vs external+internal is a wash for
 these signatures — choose the clearer seam. Public construction immutables stay. Does not flatten
 handler inheritance, reopen licensing, or revive a rescue. Lands after R68 and before relaunch.
 

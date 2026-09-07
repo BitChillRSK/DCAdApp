@@ -52,11 +52,15 @@ interface IPurchaseRbtc {
      * @param minRbtcOut Minimum rBTC this batch as a whole must buy, in rBTC/WRBTC wei (18 decimals)
      *        whatever the stablecoin's decimals. `0` disables this check.
      * @dev Called only by DcaManager after it has debited each schedule. Fees are aggregated and
-     *      transferred once; each buyer is credited a pro-rata share of the measured rBTC. `minRbtcOut`
-     *      is compared against the rBTC this handler measures itself receiving, so it applies to every
-     *      purchase venue and never trusts an integrator return value. Where the venue applies a floor of
-     *      its own — `PurchaseUniswap` does, `PurchaseMoc` does not — that floor is enforced
-     *      independently and the stricter of the two decides the outcome.
+     *      transferred once; each row is credited a floor share of the measured rBTC by planned-net
+     *      weight, and `amountSpent` is reported the same way. Both floor by design, so a batch's
+     *      per-row figures can sum up to one wei per row below its total. That residue stays uncredited
+     *      and there is no owner sweep for it: it only ever leaves the books below the rBTC actually
+     *      held, which is the safe direction for withdrawals. `minRbtcOut` is compared against the rBTC
+     *      this handler measures itself receiving, so it applies to every purchase venue and never
+     *      trusts an integrator return value. Where the venue applies a floor of its own —
+     *      `PurchaseUniswap` does, `PurchaseMoc` does not — that floor is enforced independently and
+     *      the stricter of the two decides the outcome.
      */
     function batchBuyRbtc(
         address[] memory buyers,

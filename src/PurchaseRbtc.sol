@@ -78,9 +78,9 @@ abstract contract PurchaseRbtc is IPurchaseRbtc, FeeHandler, DcaManagerAccessCon
 
         uint256 numOfPurchases = buyers.length;
         for (uint256 i; i < numOfPurchases; ++i) {
-            // The planned net amounts are only allocation weights: they sum to totalNetStablecoinPlanned,
-            // so the shares below sum to exactly 1 even if the redemption paid less than expected. Both the
-            // rBTC credited and the stablecoin reported as spent are shares of what actually moved.
+            // Planned nets are allocation weights only: they sum to totalNetStablecoinPlanned, so each row
+            // takes its share of what actually moved even if the redemption paid less than planned. Both
+            // shares floor, which can leave under one wei of rBTC per row uncredited; see IPurchaseRbtc.
             uint256 plannedNet = netStablecoinAmountsToSpend[i];
             address buyer = buyers[i];
             uint256 usersPurchasedRbtc = totalPurchasedRbtc * plannedNet / totalNetStablecoinPlanned;

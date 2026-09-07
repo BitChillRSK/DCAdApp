@@ -4,7 +4,6 @@ pragma solidity 0.8.36;
 import {TokenHandler} from "src/TokenHandler.sol";
 import {StablecoinSource} from "src/StablecoinSource.sol";
 import {IIdleErc20Handler} from "./IIdleErc20Handler.sol";
-import {ITokenHandler} from "src/interfaces/ITokenHandler.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -40,40 +39,6 @@ abstract contract IdleErc20Handler is TokenHandler, IIdleErc20Handler, Stablecoi
     ) TokenHandler(dcaManagerAddress, stableTokenAddress, feeCollector, feeSettings, initialOwner) {}
 
     /*//////////////////////////////////////////////////////////////
-                           EXTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @inheritdoc ITokenHandler
-     * @dev TokenHandler owns the balance-delta measurement and reverts unless the delta equals the
-     *      request, so a fee-on-transfer token never reaches the idle balance. The idle mapping is
-     *      credited with the request.
-     */
-    function depositToken(address user, uint256 depositAmount)
-        public
-        override
-        onlyDcaManager
-    {
-        super.depositToken(user, depositAmount);
-        s_idleBalances[user] += depositAmount;
-    }
-
-    /**
-     * @inheritdoc ITokenHandler
-     */
-    function withdrawToken(address user, uint256 withdrawalAmount)
-        public
-        override
-        onlyDcaManager
-        returns (uint256)
-    {
-        uint256 requested = withdrawalAmount;
-        withdrawalAmount = _debitIdleBalance(user, withdrawalAmount);
-        if (requested > 0 && withdrawalAmount == 0) revert IdleErc20Handler__ZeroStablecoinPaid(requested);
-        return super.withdrawToken(user, withdrawalAmount);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                                 GETTERS
     //////////////////////////////////////////////////////////////*/
 
@@ -87,6 +52,26 @@ abstract contract IdleErc20Handler is TokenHandler, IIdleErc20Handler, Stablecoi
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev TokenHandler owns the balance-delta measurement and reverts unless the delta equals the
+     *      request, so a fee-on-transfer token never reaches the idle balance. The idle mapping is
+     *      credited with the request.
+     */
+    function _depositToken(address user, uint256 depositAmount) internal virtual override {
+        super._depositToken(user, depositAmount);
+        s_idleBalances[user] += depositAmount;
+    }
+
+    /**
+     * @dev Clamp to the caller's idle balance, then pay that amount from the pooled stablecoin.
+     */
+    function _withdrawToken(address user, uint256 withdrawalAmount) internal virtual override returns (uint256) {
+        uint256 requested = withdrawalAmount;
+        withdrawalAmount = _debitIdleBalance(user, withdrawalAmount);
+        if (requested > 0 && withdrawalAmount == 0) revert IdleErc20Handler__ZeroStablecoinPaid(requested);
+        return super._withdrawToken(user, withdrawalAmount);
+    }
 
     /**
      * @dev The stablecoin this handler holds idle.

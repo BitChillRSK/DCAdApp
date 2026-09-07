@@ -4,7 +4,6 @@ pragma solidity 0.8.36;
 import {PurchaseRbtc} from "./PurchaseRbtc.sol";
 import {IPurchaseRbtc} from "./interfaces/IPurchaseRbtc.sol";
 import {IWRBTC} from "./interfaces/IWRBTC.sol";
-import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import {ISwapRouter02} from "@uniswap/swap-router-contracts/contracts/interfaces/ISwapRouter02.sol";
 import {IV3SwapRouter} from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import {ICoinPairPrice} from "./interfaces/ICoinPairPrice.sol";
@@ -13,6 +12,7 @@ import {IDcaManager} from "./interfaces/IDcaManager.sol";
 import {IOperationsAdmin} from "./interfaces/IOperationsAdmin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /**
@@ -22,6 +22,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
  */
 abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
     using SafeCast for uint256;
+    using SafeERC20 for IERC20;
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -153,7 +154,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
      * @inheritdoc IPurchaseUniswap
      */
     function setPurchasePath(address[] memory intermediateTokens, uint24[] memory poolFeeRates)
-        public
+        external
         override
     {
         bytes memory newPath = _encodePurchasePath(intermediateTokens, poolFeeRates);
@@ -301,7 +302,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
         returns (uint256 amountOut)
     {
         IERC20 purchaseToken = _purchaseToken();
-        TransferHelper.safeApprove(address(purchaseToken), address(i_swapRouter02), stablecoinAmount);
+        purchaseToken.forceApprove(address(i_swapRouter02), stablecoinAmount);
 
         uint256 amountOutLowerBound = _getAmountOutLowerBound(stablecoinAmount);
         uint256 amountOutMinimum = minRbtcOut > amountOutLowerBound ? minRbtcOut : amountOutLowerBound;
