@@ -11,6 +11,10 @@ import "../Constants.sol";
 import {scheduleIdAt} from "test/utils/ScheduleAt.sol";
 
 contract RbtcWithdrawalTest is DcaDappTest {
+    /// @dev One-purchase MoC tip observed ~0.252% under oracle; 0.30% trips a real commission change
+    ///      without the 2× headroom of `MAX_SLIPPAGE_PERCENT` (0.50%). Dex keeps `_maxPurchaseSlippage`.
+    uint256 private constant MOC_ONE_PURCHASE_SLIPPAGE = 0.003 ether;
+
     function setUp() public override {
         super.setUp();
     }
@@ -37,18 +41,18 @@ contract RbtcWithdrawalTest is DcaDappTest {
         dcaManager.withdrawAllAccumulatedRbtc(tokens, routeIndexes);
         uint256 rbtcBalanceAfterWithdrawal = USER.balance;
 
-        if (keccak256(abi.encodePacked(swapType)) == keccak256(abi.encodePacked("mocSwaps"))) {
-            // assertEq(rbtcBalanceAfterWithdrawal - rbtcBalanceBeforeWithdrawal, netPurchaseAmount / s_btcPrice);
-            assertApproxEqRel( // MoC takes some commission so strict equality us not possible
+        if (isMocSwaps) {
+            // Tip MoC commission ~0.252%; keep a tight canary rather than MAX_SLIPPAGE_PERCENT (0.5%).
+            assertApproxEqRel(
                 rbtcBalanceAfterWithdrawal - rbtcBalanceBeforeWithdrawal,
                 netPurchaseAmount / s_btcPrice,
-                0.25e16 // Allow a maximum difference of 0.25%
+                MOC_ONE_PURCHASE_SLIPPAGE
             );
-        } else if (keccak256(abi.encodePacked(swapType)) == keccak256(abi.encodePacked("dexSwaps"))) {
-            assertApproxEqRel( // The mock contract that simulates swapping on Uniswap allows for some slippage
+        } else {
+            assertApproxEqRel(
                 rbtcBalanceAfterWithdrawal - rbtcBalanceBeforeWithdrawal,
                 netPurchaseAmount / s_btcPrice,
-                _maxPurchaseSlippage() // Allow a maximum difference of 0.5%
+                _maxPurchaseSlippage()
             );
         }
     }

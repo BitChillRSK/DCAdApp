@@ -16,10 +16,6 @@ import {scheduleAt, scheduleIdAt, scheduleCount} from "test/utils/ScheduleAt.sol
  */
 contract DepositsPauseTest is DcaDappTest {
     uint256 private constant SECOND_IDLE_INDEX = 10;
-    /// @dev A live lending share round-trip loses a few wei to rounding, and how many depends on the
-    ///      forked block. The point here is that the exit paid out while paused, not the exact share
-    ///      math, which the lending suites own. `withdrawStablecoin` already asserts the ledger.
-    uint256 private constant WITHDRAWAL_ROUNDING_TOLERANCE = 1e12; // 0.0001%, Foundry's 1e18 scale
 
     function setUp() public override {
         super.setUp();
@@ -160,7 +156,7 @@ contract DepositsPauseTest is DcaDappTest {
         assertApproxEqRel(
             stablecoin.balanceOf(USER) - userStablecoinBefore,
             AMOUNT_TO_DEPOSIT,
-            WITHDRAWAL_ROUNDING_TOLERANCE,
+            _lendingRedeemCashRelTol(),
             "the exit did not pay the user on a paused route"
         );
     }

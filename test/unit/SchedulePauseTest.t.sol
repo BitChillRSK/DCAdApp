@@ -18,10 +18,6 @@ import {scheduleAt, scheduleIdAt, scheduleCount} from "test/utils/ScheduleAt.sol
 contract SchedulePauseTest is DcaDappTest {
     event DcaManager__SchedulePauseSet(address indexed user, uint64 indexed scheduleId, bool paused);
 
-    /// @dev A live lending share round-trip loses a few wei to rounding, and how many depends on the
-    ///      forked block. These tests assert that the exit paid while paused, not the share math.
-    uint256 private constant WITHDRAWAL_ROUNDING_TOLERANCE = 1e12; // 0.0001%, Foundry's 1e18 scale
-
     function setUp() public override {
         super.setUp();
     }
@@ -234,7 +230,7 @@ contract SchedulePauseTest is DcaDappTest {
         assertApproxEqRel(
             stablecoin.balanceOf(USER) - userStablecoinBefore,
             AMOUNT_TO_DEPOSIT,
-            WITHDRAWAL_ROUNDING_TOLERANCE,
+            _lendingRedeemCashRelTol(),
             "the exit did not pay the user on a paused schedule"
         );
     }

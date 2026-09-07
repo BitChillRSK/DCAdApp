@@ -21,7 +21,7 @@ PROBE_VERBOSITY ?= -vv
 PROBE_MATCH ?=
 
 # Targets
-.PHONY: all test moc dex help check ci check-deploy build build-deploy patch-deps slither moc-none moc-layerbank moc-tropykus moc-sovryn dex-none dex-tropykus dex-sovryn dex-layerbank invariants invariants-sovryn fork fork-none fork-tropykus fork-sovryn fork-layerbank fork-dex-path probe-sovryn-exit-fee probe-dex-quote-floor coverage
+.PHONY: all test moc dex help check ci check-deploy build build-deploy patch-deps slither moc-none moc-layerbank moc-tropykus moc-sovryn dex-none dex-tropykus dex-sovryn dex-layerbank invariants invariants-sovryn fork fork-none fork-tropykus fork-sovryn fork-layerbank fork-dex-path probe-sovryn-exit-fee probe-moc-redeem-free-doc probe-dex-quote-floor coverage
 
 all: help
 
@@ -194,6 +194,18 @@ probe-sovryn-exit-fee:
 		$(if $(PROBE_MATCH),--match-test $(PROBE_MATCH),) \
 		--fork-url $$RSK_MAINNET_RPC_URL $(PROBE_VERBOSITY) -j 1
 
+# R71 MoC evidence (`test/mainnet-debug/moc-redeem-free-doc/`). Free DOC redeems without redeemDocRequest.
+probe-moc-redeem-free-doc:
+	@echo "Probing live MoC redeemFreeDoc without a prior redeemDocRequest..."
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	if [ -z "$$RSK_MAINNET_RPC_URL" ]; then \
+		echo "error: RSK_MAINNET_RPC_URL is not set. Add it to .env or export it."; \
+		exit 1; \
+	fi; \
+	forge test --match-path "test/mainnet-debug/moc-redeem-free-doc/**" \
+		$(if $(PROBE_MATCH),--match-test $(PROBE_MATCH),) \
+		--fork-url $$RSK_MAINNET_RPC_URL $(PROBE_VERBOSITY) -j 1
+
 # R51 Dex quote-vs-floor table (excluded from check/fork/CI). Prices every shipped path against the live
 # pools at FORK_BLOCK_DEX_QUOTE and compares each row with the oracle-derived governance floor.
 probe-dex-quote-floor:
@@ -266,6 +278,7 @@ help:
 	@echo "  make fork-layerbank            # LayerBank fork tests (chain tip; default mocSwaps)"
 	@echo "  make fork-dex-path             # R52 Dex path allowlist on LayerBank and idle USDRIF Uniswap forks"
 	@echo "  make probe-sovryn-exit-fee     # Live iSUSD burn: is SIP-0094's 0.1% fee charging?"
+	@echo "  make probe-moc-redeem-free-doc # R71: live MoC redeemFreeDoc alone (no redeemDocRequest)"
 	@echo "  make probe-dex-quote-floor     # R51: live Dex pool quotes vs the oracle floor, at a pinned block"
 	@echo ""
 	@echo "Environment variables:"

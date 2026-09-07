@@ -123,6 +123,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
 | R69 | 69 ([#126](https://github.com/BitChillRSK/dca-contracts/pull/126)) | none (OZ IERC165; SafeERC20 approve on Dex; external+internal deposit/withdraw; floor dust documented, not credited) |
 | R70 | 70 ([#127](https://github.com/BitChillRSK/dca-contracts/pull/127)) | none (public `i_operationsAdmin`; fail-closed per-token mins; `_requireUserMutationsAllowed` comment) |
+| R71 | 71 ([#128](https://github.com/BitChillRSK/dca-contracts/pull/128) source phase) | **license/SPDX deferred; Dex admin keep; batch lending-event semantics; evidence-gated MoC sequence/reverts** (src first in #128; deploy/release work follows) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 
@@ -991,6 +992,19 @@ default is unsafe across 18-dec and 6-dec stables, so unset tokens revert and ev
 gets an explicit `setTokenMinPurchaseAmount` at deploy; (3) reword `_requireUserMutationsAllowed`'s
 `@dev` so it does not claim the helper is the single gate (the modifier already is). Does not
 flatten inheritance, reopen licensing, or pad the freed `ProtocolSettings` bytes. Lands after R69.
+
+### R71 - final pre-deployment hardening and release truthfulness ([spec](./R71-final-predeployment-hardening.md))
+
+The last implementation item before any final deployment. First settle every source-affecting gate with
+the human: license/SPDX; keep the Dex admin traversal or pin the manager-resolved admin after measuring
+both; remove, post-redeem allocate, or distinctly replace the ambiguous batch-row `SharesRedeemed`; and, only after
+authoritative/live MoC research, choose the minimum necessary redemption calls and whether downstream
+reverts bubble or retain a stage wrapper. Complete and test **all `src/` work first**. Only after that
+source phase is frozen, add and test the fail-closed final-stack deployment script, run Slither and final
+ABI/storage/size/release-profile comparisons, then correct README, audit, security, runbook, and consumer
+records. Keep `minRbtcOut == 0` valid, add no purchase pause, and do not refactor the handler diamond.
+Lands after R70 and before the R60 testnet/Blockscout proof is
+treated as complete for the final commit.
 
 ## Closed non-implementation decisions
 

@@ -19,8 +19,11 @@ interface ITokenLending is ITokenHandler {
     /// @dev Only `user` is indexed. `newShares` equals `getUserShares(user)` after the call.
     ///      Reverted mutations produce no lasting log. Idle handlers do not emit this.
     event TokenLending__UserSharesUpdated(address indexed user, uint256 previousShares, uint256 newShares);
-    /// @notice Shares were redeemed for one user. In a batch this fires per user with that user's
-    ///         planned share; `SharesRedeemedBatch` carries the total the handler measured.
+    /// @notice One user's shares were redeemed for measured stablecoin.
+    /// @dev Emitted only on single-user redeems (`withdraw` / interest). `underlyingAmount` is the
+    ///      stablecoin this handler measured receiving for that user. Batch purchases do not emit
+    ///      this: each row's exact share debit is `UserSharesUpdated`, and measured cash for the
+    ///      whole redeem is `SharesRedeemedBatch`.
     event TokenLending__SharesRedeemed(
         address indexed user, uint256 underlyingAmount, uint256 sharesAmountRedeemed
     );

@@ -47,7 +47,9 @@ No new on-chain `totalShares` counter is required for forwarding. An indexer can
 ## Existing events are not a substitute
 
 - `TokenHandler__TokenDeposited` identifies the user but reports stablecoin received, not the exact number of lending shares minted at the then-current exchange rate.
-- `TokenLending__SharesRedeemed` reports exact per-user share burns, including batch debits, but there is no corresponding exact share-mint event.
+- `TokenLending__SharesRedeemed` reports measured stablecoin and exact share burns on
+  **single-user** redeems only. Batch purchases emit per-row `UserSharesUpdated` and one
+  measured `SharesRedeemedBatch` instead — there is still no exact share-mint event.
 - `DcaManager` events report schedule principal in underlying stablecoin. Schedule principal is not a lending-share balance.
 - `getUserShares(user)` exposes current state, not the historical time-weighted balance required for forwarding.
 

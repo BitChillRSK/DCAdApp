@@ -143,6 +143,41 @@ contract LendingErc20HandlerRedeemTest is Test {
         assertEq(harness.getUserShares(userA), start - firstShares - secondShares);
     }
 
+    function test_batchRetrieve_doesNotEmitSharesRedeemed() public {
+        harness.depositToken(userA, USER_A_DEPOSIT);
+        harness.depositToken(userB, USER_B_DEPOSIT);
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 10 ether;
+        amounts[1] = 20 ether;
+
+        vm.recordLogs();
+        uint256 received = harness.batchRetrieveStablecoin(users, amounts);
+        assertGt(received, 0);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 sharesRedeemedTopic = TokenLending__SharesRedeemed.selector;
+        bytes32 batchTopic = ITokenLending.TokenLending__SharesRedeemedBatch.selector;
+        bool sawBatch;
+        for (uint256 i; i < logs.length; ++i) {
+            assertTrue(logs[i].topics[0] != sharesRedeemedTopic, "SharesRedeemed must not fire on batch");
+            if (logs[i].topics[0] == batchTopic) {
+                sawBatch = true;
+                (uint256 underlyingAmount, uint256 sharesAmountRedeemed) =
+                    abi.decode(logs[i].data, (uint256, uint256));
+                assertEq(underlyingAmount, received);
+                assertEq(
+                    sharesAmountRedeemed,
+                    _stablecoinToSharesUp(amounts[0], RATE_SCALE) + _stablecoinToSharesUp(amounts[1], RATE_SCALE)
+                );
+            }
+        }
+        assertTrue(sawBatch, "SharesRedeemedBatch required");
+    }
+
     function test_batchRetrieve_debitsEqualProtocolBurn() public {
         // Non-round rate so aggregate-then-pro-rata ceilings would have left orphan shares.
         uint256 rate = 1_000_123_456_789_012_345;
@@ -495,9 +530,12 @@ contract LendingErc20HandlerRedeemTest is Test {
     }
 
     /// @dev Gas snapshot for the PR body: 1 / 10 / 200 row batchRetrieve under the harness.
+    ///      Warm one call first so cold-storage startup does not dominate the short measurements
+    ///      (after dropping per-row `SharesRedeemed`, a cold 1-row call can exceed a warm 10-row).
     function test_gas_batchRetrieve_rowCounts() public {
         _fundAndDeposit(userA, 10_000 ether);
         uint256 rowAmount = 1 ether;
+        _batchRows(1, rowAmount);
 
         uint256 g1 = gasleft();
         _batchRows(1, rowAmount);
