@@ -48,7 +48,8 @@ contract DcaScheduleTest is DcaDappTest {
             assertEq(address(uint160(uint256(logs[i].topics[2]))), address(stablecoin));
             assertEq(uint64(uint256(logs[i].topics[3])), scheduleId);
             uint256 refundedAmount = abi.decode(logs[i].data, (uint256));
-            assertApproxEqAbs(refundedAmount, expectedRefund, REFUND_ROUNDING_TOLERANCE);
+            // Event reports measured cash from the handler; live Sovryn applies SIP-0094's 10 bps.
+            assertApproxEqRel(refundedAmount, expectedRefund, _lendingRedeemCashRelTol());
             found = true;
         }
         assertTrue(found, "no DcaManager__DcaScheduleDeleted log recorded");

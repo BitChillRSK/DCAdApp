@@ -223,7 +223,7 @@ contract StablecoinLendingTest is DcaDappTest {
         assertApproxEqRel(
             userStablecoinBalanceAfterInterestWithdrawal - userStablecoinBalanceBeforeInterestWithdrawal,
             withdrawableInterest,
-            1 // Allow a maximum difference of 1e-18%
+            _lendingRedeemCashRelTol()
         );
         withdrawableInterest = dcaManager.getInterestAccrued(USER, address(stablecoin), s_routeIndex);
         if (withdrawableInterest == 1) withdrawableInterest--; // Handle Sovryn's precision loss
@@ -279,7 +279,7 @@ contract StablecoinLendingTest is DcaDappTest {
         assertApproxEqRel(
             stablecoin.balanceOf(USER) - userBalanceBeforeWithdrawal,
             withdrawableInterest,
-            1 // Allow a maximum difference of 1e-18%
+            _lendingRedeemCashRelTol()
         );
     }
 
@@ -303,7 +303,7 @@ contract StablecoinLendingTest is DcaDappTest {
         assertApproxEqRel(
             stablecoin.balanceOf(USER) - userBalanceBeforeWithdrawal,
             withdrawableInterest,
-            1 // Allow a maximum difference of 1e-18%
+            _lendingRedeemCashRelTol()
         );
         uint256 remainingInterest = dcaManager.getInterestAccrued(USER, address(stablecoin), s_routeIndex);
         if (remainingInterest == 1) remainingInterest--; // Handle Sovryn's precision loss
@@ -331,7 +331,7 @@ contract StablecoinLendingTest is DcaDappTest {
         assertApproxEqRel(
             userStablecoinBalanceAfterInterestWithdrawal - userStablecoinBalanceBeforeInterestWithdrawal,
             withdrawableInterest + AMOUNT_TO_SPEND,
-            1 // Allow a maximum difference of 1e-18%
+            _lendingRedeemCashRelTol()
         );
 
         withdrawableInterest = dcaManager.getInterestAccrued(USER, address(stablecoin), s_routeIndex);

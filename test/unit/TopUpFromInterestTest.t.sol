@@ -320,8 +320,8 @@ contract TopUpFromInterestTest is DcaDappTest {
         dcaManager.withdrawToken(address(stablecoin), scheduleId, type(uint256).max);
 
         assertEq(_schedule(SCHEDULE_INDEX).tokenBalance, 0, "the sentinel left principal behind");
-        assertApproxEqAbs(
-            stablecoin.balanceOf(USER) - userStablecoinBefore, credited, DUST, "the exit paid less than the ledger"
+        assertApproxEqRel(
+            stablecoin.balanceOf(USER) - userStablecoinBefore, credited, _lendingRedeemCashRelTol(), "the exit paid less than the ledger"
         );
     }
 
@@ -337,8 +337,8 @@ contract TopUpFromInterestTest is DcaDappTest {
         vm.prank(USER);
         dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
 
-        assertApproxEqAbs(
-            stablecoin.balanceOf(USER) - userStablecoinBefore, credited, DUST, "deletion paid less than the ledger"
+        assertApproxEqRel(
+            stablecoin.balanceOf(USER) - userStablecoinBefore, credited, _lendingRedeemCashRelTol(), "deletion paid less than the ledger"
         );
     }
 

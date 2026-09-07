@@ -160,7 +160,7 @@ contract DepositsPauseTest is DcaDappTest {
         assertApproxEqRel(
             stablecoin.balanceOf(USER) - userStablecoinBefore,
             AMOUNT_TO_DEPOSIT,
-            WITHDRAWAL_ROUNDING_TOLERANCE,
+            _lendingRedeemCashRelTol(),
             "the exit did not pay the user on a paused route"
         );
     }

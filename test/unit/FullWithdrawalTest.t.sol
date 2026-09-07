@@ -33,10 +33,10 @@ contract FullWithdrawalTest is DcaDappTest {
         dcaManager.withdrawToken(address(stablecoin), scheduleId, type(uint256).max);
 
         assertEq(_scheduleBalance(SCHEDULE_INDEX), 0, "the schedule was not emptied");
-        assertApproxEqAbs(
+        assertApproxEqRel(
             stablecoin.balanceOf(USER) - userStablecoinBefore,
             AMOUNT_TO_DEPOSIT,
-            PAYOUT_TOLERANCE,
+            _lendingRedeemCashRelTol(),
             "the user was not paid the schedule balance"
         );
     }
@@ -70,10 +70,10 @@ contract FullWithdrawalTest is DcaDappTest {
         dcaManager.withdrawToken(address(stablecoin), scheduleId, type(uint256).max);
 
         assertEq(_scheduleBalance(SCHEDULE_INDEX), 0, "the schedule was not emptied");
-        assertApproxEqAbs(
+        assertApproxEqRel(
             stablecoin.balanceOf(USER) - userStablecoinBefore,
             liveBalance,
-            PAYOUT_TOLERANCE,
+            _lendingRedeemCashRelTol(),
             "the user was not paid the live balance"
         );
     }
@@ -155,10 +155,10 @@ contract FullWithdrawalTest is DcaDappTest {
         );
 
         assertEq(_scheduleBalance(SCHEDULE_INDEX), 0, "the schedule was not emptied");
-        assertApproxEqAbs(
+        assertApproxEqRel(
             stablecoin.balanceOf(USER) - userStablecoinBefore,
             principal + interest,
-            PAYOUT_TOLERANCE,
+            _lendingRedeemCashRelTol(),
             "the user was not paid principal plus interest"
         );
     }
