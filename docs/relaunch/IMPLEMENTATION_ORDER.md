@@ -122,7 +122,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R60 | 59 (planned) | none (`via_ir` deploy profile; whole suite runs against shipped bytecode) |
 | R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
 | R69 | 69 ([#126](https://github.com/BitChillRSK/dca-contracts/pull/126)) | none (OZ IERC165; SafeERC20 approve on Dex; external+internal deposit/withdraw; floor dust documented, not credited) |
-| R70 | 70 | none (public `i_operationsAdmin`; fail-closed per-token mins; `_requireUserMutationsAllowed` comment) |
+| R70 | 70 ([#127](https://github.com/BitChillRSK/dca-contracts/pull/127)) | none (public `i_operationsAdmin`; fail-closed per-token mins; `_requireUserMutationsAllowed` comment) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 

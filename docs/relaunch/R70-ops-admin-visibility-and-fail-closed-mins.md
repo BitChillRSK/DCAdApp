@@ -1,6 +1,6 @@
 # R70 — Public OperationsAdmin pin, fail-closed per-token mins, comment accuracy
 
-Status: **not started** · Assigned: yes · Optional/further-review: no · Order: after R69, before relaunch
+Status: **implemented** · Assigned: yes · Optional/further-review: no · Order: after R69, before relaunch · Implementation PR: [#127](https://github.com/BitChillRSK/dca-contracts/pull/127)
 
 ## Objective
 
