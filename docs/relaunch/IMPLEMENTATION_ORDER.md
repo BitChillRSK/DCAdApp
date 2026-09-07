@@ -123,7 +123,7 @@ Ask = product questions for that PR only. `Start with R2` means PR 3.
 | R68 | 68 ([#124](https://github.com/BitChillRSK/dca-contracts/pull/124)) | none (full external lending-share consumption or revert; cash may still be net of fee/loss) |
 | R69 | 69 ([#126](https://github.com/BitChillRSK/dca-contracts/pull/126)) | none (OZ IERC165; SafeERC20 approve on Dex; external+internal deposit/withdraw; floor dust documented, not credited) |
 | R70 | 70 ([#127](https://github.com/BitChillRSK/dca-contracts/pull/127)) | none (public `i_operationsAdmin`; fail-closed per-token mins; `_requireUserMutationsAllowed` comment) |
-| R71 | 71 (planned) | **license/SPDX; Dex admin dependency; batch lending-event semantics; evidence-gated MoC sequence/reverts** (all `src/` work first, then deploy/release work) |
+| R71 | 71 ([#128](https://github.com/BitChillRSK/dca-contracts/pull/128) source phase) | **license/SPDX deferred; Dex admin keep; batch lending-event semantics; evidence-gated MoC sequence/reverts** (src first in #128; deploy/release work follows) |
 
 ### PR 1 - R23 toolchain and dependency baseline
 

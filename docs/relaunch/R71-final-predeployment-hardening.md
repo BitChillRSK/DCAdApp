@@ -1,8 +1,8 @@
 # R71 — Final pre-deployment hardening and release truthfulness
 
-Status: **in progress (source phase PR)** · Assigned: yes · Optional/further-review: no · Order: after R70, before any final deployment
+Status: **source phase in review** · Assigned: yes · Optional/further-review: no · Order: after R70, before any final deployment · Implementation PR: [#128](https://github.com/BitChillRSK/dca-contracts/pull/128)
 
-This PR ships the **source phase only** (gates 1–4 answers + MoC / batch-event / Dex-keep `src/` work and tests). License stays deferred. Deploy script, Slither, and public-doc phases remain for a follow-up chat after this PR merges (same R71 spec).
+[#128](https://github.com/BitChillRSK/dca-contracts/pull/128) ships the **source phase only** (gates 1–4 answers + MoC / batch-event / Dex-keep `src/` work and tests). License stays deferred. Deploy script, Slither, and public-doc phases remain for a follow-up chat after this PR merges (same R71 spec).
 
 ## Objective
 
