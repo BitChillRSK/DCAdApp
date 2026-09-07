@@ -120,7 +120,7 @@ SWAP_TYPE=mocSwaps LENDING_PROTOCOL=sovryn STABLECOIN_TYPE=DOC forge test --matc
 SWAP_TYPE=mocSwaps LENDING_PROTOCOL=sovryn STABLECOIN_TYPE=DOC forge test --match-contract SchedulePackingTest
 SWAP_TYPE=mocSwaps LENDING_PROTOCOL=sovryn STABLECOIN_TYPE=DOC forge test --match-contract GettersTest
 SWAP_TYPE=mocSwaps LENDING_PROTOCOL=sovryn STABLECOIN_TYPE=DOC forge test --match-contract ModifiersTest
-STABLECOIN_TYPE=USDT0 LENDING_PROTOCOL=layerbank SWAP_TYPE=dexSwaps forge test --match-path test/unit/deployment/
+STABLECOIN_TYPE=USDT0 LENDING_PROTOCOL=layerbank SWAP_TYPE=dexSwaps forge test --match-path 'test/unit/deployment/**'
 ```
 
 Behaviors to assert:
