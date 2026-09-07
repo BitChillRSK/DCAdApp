@@ -36,20 +36,20 @@ interface IPurchaseUniswap {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice An approved Uniswap V3 path was activated by construction, a swapper, or this handler's owner.
-    event PurchaseUniswap_NewPathSet(
+    event PurchaseUniswap__NewPathSet(
         address[] intermediateTokens, uint24[] poolFeeRates, bytes newPath
     );
     /// @notice Exact encoded path derived from `intermediateTokens` / `poolFeeRates` was allowed or revoked.
     /// @dev Construction emits `allowed = true` for the initial path. Later writes are owner-only.
-    event PurchaseUniswap_PurchasePathAllowedSet(
+    event PurchaseUniswap__PurchasePathAllowedSet(
         bytes32 pathHash, bytes encodedPath, address[] intermediateTokens, uint24[] poolFeeRates, bool allowed
     );
     /// @notice Owner changed the swap-time oracle floor.
-    event PurchaseUniswap_AmountOutMinimumPercentUpdated(uint256 oldValue, uint256 newValue);
+    event PurchaseUniswap__AmountOutMinimumPercentUpdated(uint256 oldValue, uint256 newValue);
     /// @notice Owner changed the lower bound on the swap-time oracle floor.
-    event PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(uint256 oldValue, uint256 newValue);
+    event PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(uint256 oldValue, uint256 newValue);
     /// @notice Owner pointed the min-out oracle at a new MoC BTC/USD feed.
-    event PurchaseUniswap_OracleUpdated(address indexed oldOracle, address indexed newOracle);
+    event PurchaseUniswap__OracleUpdated(address indexed oldOracle, address indexed newOracle);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS

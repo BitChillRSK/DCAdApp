@@ -174,7 +174,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
      */
     function setAmountOutMinimumPercent(uint256 amountOutMinimumPercent) external onlyOwner {
         _validateSlippageSettings(amountOutMinimumPercent, s_amountOutMinimumSafetyCheck);
-        emit PurchaseUniswap_AmountOutMinimumPercentUpdated(s_amountOutMinimumPercent, amountOutMinimumPercent);
+        emit PurchaseUniswap__AmountOutMinimumPercentUpdated(s_amountOutMinimumPercent, amountOutMinimumPercent);
         s_amountOutMinimumPercent = amountOutMinimumPercent.toUint128();
     }
 
@@ -183,7 +183,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
      */
     function setAmountOutMinimumSafetyCheck(uint256 amountOutMinimumSafetyCheck) external onlyOwner {
         _validateSlippageSettings(s_amountOutMinimumPercent, amountOutMinimumSafetyCheck);
-        emit PurchaseUniswap_AmountOutMinimumSafetyCheckUpdated(s_amountOutMinimumSafetyCheck, amountOutMinimumSafetyCheck);
+        emit PurchaseUniswap__AmountOutMinimumSafetyCheckUpdated(s_amountOutMinimumSafetyCheck, amountOutMinimumSafetyCheck);
         s_amountOutMinimumSafetyCheck = amountOutMinimumSafetyCheck.toUint128();
     }
 
@@ -194,7 +194,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
         if (newOracle == address(0)) {
             revert PurchaseUniswap__InvalidOracleAddress();
         }
-        emit PurchaseUniswap_OracleUpdated(address(s_mocOracle), newOracle);
+        emit PurchaseUniswap__OracleUpdated(address(s_mocOracle), newOracle);
         s_mocOracle = ICoinPairPrice(newOracle);
     }
 
@@ -256,7 +256,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
     ) internal {
         s_swapPath = newPath;
         s_swapIntermediateTokens = intermediateTokens;
-        emit PurchaseUniswap_NewPathSet(intermediateTokens, poolFeeRates, newPath);
+        emit PurchaseUniswap__NewPathSet(intermediateTokens, poolFeeRates, newPath);
     }
 
     /**
@@ -275,7 +275,7 @@ abstract contract PurchaseUniswap is PurchaseRbtc, IPurchaseUniswap {
         bool allowed
     ) internal {
         s_purchasePathAllowed[pathHash] = allowed;
-        emit PurchaseUniswap_PurchasePathAllowedSet(pathHash, encodedPath, intermediateTokens, poolFeeRates, allowed);
+        emit PurchaseUniswap__PurchasePathAllowedSet(pathHash, encodedPath, intermediateTokens, poolFeeRates, allowed);
     }
 
     /**
