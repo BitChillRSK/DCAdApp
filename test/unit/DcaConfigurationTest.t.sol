@@ -150,14 +150,17 @@ contract DcaConfigurationTest is DcaDappTest {
     }
 
     function testPurchaseAmountMustBeGreaterThanMin() external {
+        (uint256 minPurchaseAmount,) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
         vm.prank(USER);
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         bytes memory encodedRevert = abi.encodeWithSelector(
-            IDcaManager.DcaManager__PurchaseAmountMustBeGreaterThanMinimum.selector, address(stablecoin), MIN_PURCHASE_AMOUNT
+            IDcaManager.DcaManager__PurchaseAmountMustBeGreaterThanMinimum.selector,
+            address(stablecoin),
+            minPurchaseAmount
         );
         vm.expectRevert(encodedRevert);
         vm.prank(USER);
-        dcaManager.updatePurchaseAmount(address(stablecoin), scheduleId, MIN_PURCHASE_AMOUNT - 1);
+        dcaManager.updatePurchaseAmount(address(stablecoin), scheduleId, minPurchaseAmount - 1);
     }
 
     function testPurchasePeriodMustBeGreaterThanMin() external {

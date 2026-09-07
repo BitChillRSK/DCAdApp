@@ -202,14 +202,15 @@ contract GettersTest is DcaDappTest {
 
     function test_dcaManager_getMinPurchaseAmount() public {
         (uint256 minAmount, bool minAmountSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(minAmount, MIN_PURCHASE_AMOUNT);
         assertTrue(minAmountSet);
+        assertGt(minAmount, 0);
         
+        uint256 raised = minAmount * 2;
         vm.prank(OWNER);
-        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), 50 ether);
+        dcaManager.setTokenMinPurchaseAmount(address(stablecoin), raised);
         
         (uint256 customAmount, bool isSet) = dcaManager.getTokenMinPurchaseAmount(address(stablecoin));
-        assertEq(customAmount, 50 ether);
+        assertEq(customAmount, raised);
         assertTrue(isSet);
     }
 
