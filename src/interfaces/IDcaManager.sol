@@ -173,9 +173,9 @@ interface IDcaManager {
     error DcaManager__NotScheduleOwner(address token, uint64 scheduleId, address owner);
     /// @notice `deleteDcaSchedule`'s index no longer names this id in the caller's enumeration list.
     /// @dev Not a sign of a missing schedule — `deleteDcaSchedule` already confirmed the id exists and
-    ///      belongs to the caller before checking the index. It means the index is stale: something
-    ///      (the caller's own prior delete in this batch, or another one landing first) moved the id
-    ///      since the caller last read `getDcaSchedules`. Re-read it and retry with the fresh index.
+    ///      belongs to the caller before checking the index. It means the supplied index is wrong or
+    ///      stale: either it never named this id, or another delete moved the id since the caller last
+    ///      read `getDcaSchedules`. Re-read it and retry with the fresh index.
     error DcaManager__ScheduleIdIndexMismatch(address token, uint64 scheduleId, uint256 scheduleIdIndex);
     /// @notice The schedule's remaining principal cannot cover one purchase.
     error DcaManager__ScheduleBalanceNotEnoughForPurchase(address token, uint64 scheduleId, uint256 remainingBalance);

@@ -661,8 +661,13 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
             // The eligibility check above only reaches here once block.timestamp >= nextPurchaseDayStart,
             // and purchasePeriod >= 1 day (enforced at schedule creation) makes nextPurchaseDayStart strictly
             // later than lastPurchaseTimestamp, so block.timestamp > lastPurchaseTimestamp is proven here.
-            // periodsElapsed * purchasePeriod never exceeds that same elapsed time (floor-division property),
-            // so neither it nor the sum below can overflow; `toUint48()` still bounds the stored result.
+            // When the quotient is nonzero, periodsElapsed * purchasePeriod never exceeds the dividend
+            // (block.timestamp - lastPurchaseTimestamp), so the product is bounded by elapsed wall-clock
+            // time and cannot overflow. When the quotient is zero and periodsElapsed is promoted to 1
+            // below, the product can exceed elapsed time (this is what lets the purchase clear on the
+            // UTC-day floor before a full period's worth of seconds has passed) but the sum is then
+            // exactly lastPurchaseTimestamp + purchasePeriod, which cannot overflow since both are stored
+            // as uint48/uint32. Either way, `toUint48()` still bounds the stored result.
             unchecked {
                 uint256 periodsElapsed = (block.timestamp - lastPurchaseTimestamp) / purchasePeriod;
                 if (periodsElapsed == 0) periodsElapsed = 1;
