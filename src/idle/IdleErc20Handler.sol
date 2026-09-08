@@ -99,7 +99,9 @@ abstract contract IdleErc20Handler is TokenHandler, IIdleErc20Handler, Stablecoi
             if (amount > idleBalance) {
                 revert IdleErc20Handler__InsufficientIdleBalance(users[i], amount, idleBalance);
             }
-            s_idleBalances[users[i]] = idleBalance - amount;
+            unchecked {
+                s_idleBalances[users[i]] = idleBalance - amount;
+            }
             totalWithdrawn += amount;
         }
     }
@@ -113,7 +115,10 @@ abstract contract IdleErc20Handler is TokenHandler, IIdleErc20Handler, Stablecoi
             emit IdleErc20Handler__AmountAdjusted(user, amount, idleBalance);
             amount = idleBalance;
         }
-        s_idleBalances[user] = idleBalance - amount;
+        // Clamped above when it would exceed idleBalance, so amount <= idleBalance always holds here.
+        unchecked {
+            s_idleBalances[user] = idleBalance - amount;
+        }
         return amount;
     }
 }
