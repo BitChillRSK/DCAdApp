@@ -95,7 +95,7 @@ contract ScheduleOwnershipTest is DcaDappTest {
         uint64 scheduleId = _scheduleId();
         vm.prank(s_stranger);
         vm.expectRevert(_notOwner(scheduleId));
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, type(uint256).max);
     }
 
     function testAStrangerCannotTopUpAnotherUsersScheduleFromInterest() external {
@@ -150,7 +150,7 @@ contract ScheduleOwnershipTest is DcaDappTest {
         dcaManager.setSchedulePaused(address(stablecoin), ghost, true);
 
         vm.expectRevert(_inexistent(ghost));
-        dcaManager.deleteDcaSchedule(address(stablecoin), ghost);
+        dcaManager.deleteDcaSchedule(address(stablecoin), ghost, type(uint256).max);
 
         vm.expectRevert(_inexistent(ghost));
         dcaManager.topUpFromInterest(address(stablecoin), ghost, 1);

@@ -171,6 +171,10 @@ interface IDcaManager {
     error DcaManager__InexistentSchedule(address token, uint64 scheduleId);
     /// @notice The schedule exists but belongs to somebody else. `owner` is who it belongs to.
     error DcaManager__NotScheduleOwner(address token, uint64 scheduleId, address owner);
+    /// @notice `deleteDcaSchedule`'s index doesn't name this id in the caller's enumeration list.
+    /// @dev The index is wrong or stale, not a sign of a missing schedule — `deleteDcaSchedule` already
+    ///      confirmed the id exists and belongs to the caller. Re-read `getDcaSchedules` and retry.
+    error DcaManager__ScheduleIdIndexMismatch(address token, uint64 scheduleId, uint256 scheduleIdIndex);
     /// @notice The schedule's remaining principal cannot cover one purchase.
     error DcaManager__ScheduleBalanceNotEnoughForPurchase(address token, uint64 scheduleId, uint256 remainingBalance);
     /// @notice Parallel arrays (batch purchase or withdraw-all pairs) have different lengths.
@@ -294,17 +298,19 @@ interface IDcaManager {
      * @notice Delete a schedule and return its remaining principal to the caller.
      * @param token The stablecoin the schedule spends, which is half its storage key.
      * @param scheduleId The schedule to delete. Must belong to the caller.
+     * @param scheduleIdIndex The id's current index in the caller's list returned by getDcaSchedules;
+     *        a mismatch reverts.
      * @dev Clears the schedule and swap-pops its id out of the owner's list for that stablecoin, so the
      *      id is retired rather than reused: ids come from a strictly increasing counter. The deleted
      *      event reports what left the handler, which may be less than `tokenBalance` if the handler
      *      paid out less than it was asked for. Accumulated rBTC and lending interest are not claimed
      *      here — withdraw those first.
      *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
+     *      checked against the caller before the index is: an id that addresses no schedule of that
+     *      stablecoin reverts `DcaManager__InexistentSchedule`, and one that addresses somebody else's
+     *      reverts `DcaManager__NotScheduleOwner`.
      */
-    function deleteDcaSchedule(address token, uint64 scheduleId) external;
+    function deleteDcaSchedule(address token, uint64 scheduleId, uint256 scheduleIdIndex) external;
 
     /**
      * @notice Withdraw stablecoin principal from one schedule.

@@ -61,7 +61,9 @@ abstract contract PurchaseRbtc is IPurchaseRbtc, FeeHandler, DcaManagerAccessCon
             if (totalStablecoinAmountToSpend <= aggregatedFee) {
                 revert PurchaseRbtc__StablecoinRetrievedBelowFee(totalStablecoinAmountToSpend, aggregatedFee);
             }
-            totalStablecoinAmountToSpend -= aggregatedFee;
+            unchecked {
+                totalStablecoinAmountToSpend -= aggregatedFee;
+            }
 
             purchaseToken = _purchaseToken();
             _transferFee(purchaseToken, aggregatedFee);

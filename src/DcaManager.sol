@@ -254,7 +254,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function deleteDcaSchedule(address token, uint64 scheduleId)
+    function deleteDcaSchedule(address token, uint64 scheduleId, uint256 scheduleIdIndex)
         external
         override
         whenUserMutationsAllowed
@@ -268,7 +268,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
         // Both structures drop the schedule before the handler call: the schedule itself, and the id's
         // place in its owner's list for this token.
-        _removeScheduleId(msg.sender, token, scheduleId);
+        _removeScheduleId(msg.sender, token, scheduleId, scheduleIdIndex);
         delete s_dcaSchedules[token][scheduleId];
 
         uint256 amountWithdrawn;
@@ -620,15 +620,19 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         uint256 lastPurchaseTimestamp = dcaSchedule.lastPurchaseTimestamp;
         uint256 purchasePeriod = dcaSchedule.purchasePeriod;
 
-        // After the first purchase, the schedule is eligible once the UTC day of last + period has started
+        // After the first purchase, the schedule is eligible once the UTC day of last + period has started.
+        // Day-floor (`x - x % 1 days`) never underflows; nextDueTimestamp never overflows (both terms fit
+        // uint48/uint32); the final subtraction only runs once nextPurchaseDayStart > block.timestamp is proven.
         if (lastPurchaseTimestamp != 0) {
-            uint256 currentDayStart = block.timestamp - (block.timestamp % 1 days);
-            uint256 nextDueTimestamp = lastPurchaseTimestamp + purchasePeriod;
-            uint256 nextPurchaseDayStart = nextDueTimestamp - (nextDueTimestamp % 1 days);
-            if (currentDayStart < nextPurchaseDayStart) {
-                revert DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(
-                    token, scheduleId, nextPurchaseDayStart - block.timestamp
-                );
+            unchecked {
+                uint256 currentDayStart = block.timestamp - (block.timestamp % 1 days);
+                uint256 nextDueTimestamp = lastPurchaseTimestamp + purchasePeriod;
+                uint256 nextPurchaseDayStart = nextDueTimestamp - (nextDueTimestamp % 1 days);
+                if (currentDayStart < nextPurchaseDayStart) {
+                    revert DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(
+                        token, scheduleId, nextPurchaseDayStart - block.timestamp
+                    );
+                }
             }
         }
 
@@ -637,7 +641,9 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         if (purchaseAmount > tokenBalance) {
             revert DcaManager__ScheduleBalanceNotEnoughForPurchase(token, scheduleId, tokenBalance);
         }
-        tokenBalance -= purchaseAmount;
+        unchecked {
+            tokenBalance -= purchaseAmount;
+        }
         dcaSchedule.tokenBalance = tokenBalance;
         emit DcaManager__TokenBalanceUpdated(token, scheduleId, tokenBalance);
 
@@ -650,10 +656,17 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         if (lastPurchaseTimestamp == 0) {
             newTimestamp = block.timestamp;
         } else {
-            uint256 periodsElapsed = (block.timestamp - lastPurchaseTimestamp) / purchasePeriod;
-            if (periodsElapsed == 0) periodsElapsed = 1;
-            // The last purchase timestamp is anchored to the time of day of the first purchase to avoid drift
-            newTimestamp = lastPurchaseTimestamp + periodsElapsed * purchasePeriod;
+            // block.timestamp > lastPurchaseTimestamp is proven by the eligibility check above (purchasePeriod
+            // is >= 1 day, so nextPurchaseDayStart is strictly later than lastPurchaseTimestamp). With a
+            // nonzero quotient, periodsElapsed * purchasePeriod is bounded by that elapsed time (floor
+            // division). When promoted from zero to 1, the product can exceed elapsed time, but the sum is
+            // then exactly lastPurchaseTimestamp + purchasePeriod, bounded by their uint48/uint32 widths either way.
+            unchecked {
+                uint256 periodsElapsed = (block.timestamp - lastPurchaseTimestamp) / purchasePeriod;
+                if (periodsElapsed == 0) periodsElapsed = 1;
+                // The last purchase timestamp is anchored to the time of day of the first purchase to avoid drift
+                newTimestamp = lastPurchaseTimestamp + periodsElapsed * purchasePeriod;
+            }
         }
         dcaSchedule.lastPurchaseTimestamp = newTimestamp.toUint48();
         emit DcaManager__LastPurchaseTimestampUpdated(token, scheduleId, newTimestamp);
@@ -680,23 +693,23 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     }
 
     /**
-     * @dev Take one id out of its owner's list for a token, by swap-pop. The scan is bounded by the
-     *      max-schedules-per-token setting. Reverting when the id is absent keeps a desync between the
-     *      two structures from popping a live schedule's id instead; it is unreachable while they agree,
-     *      because an owned schedule is always listed under its own owner and token.
+     * @dev Swap-pop the id from the owner's token list. The supplied index must currently contain
+     *      scheduleId.
      */
-    function _removeScheduleId(address user, address token, uint64 scheduleId) private {
+    function _removeScheduleId(address user, address token, uint64 scheduleId, uint256 index) private {
         uint64[] storage scheduleIds = s_scheduleIds[user][token];
         uint256 numOfSchedules = scheduleIds.length;
-        for (uint256 i; i < numOfSchedules; ++i) {
-            if (scheduleIds[i] == scheduleId) {
-                uint256 lastIndex = numOfSchedules - 1;
-                if (i != lastIndex) scheduleIds[i] = scheduleIds[lastIndex];
-                scheduleIds.pop();
-                return;
-            }
+        if (index >= numOfSchedules || scheduleIds[index] != scheduleId) {
+            revert DcaManager__ScheduleIdIndexMismatch(token, scheduleId, index);
         }
-        revert DcaManager__InexistentSchedule(token, scheduleId);
+
+        // numOfSchedules > index >= 0 by the check above, so numOfSchedules >= 1.
+        uint256 lastIndex;
+        unchecked {
+            lastIndex = numOfSchedules - 1;
+        }
+        if (index != lastIndex) scheduleIds[index] = scheduleIds[lastIndex];
+        scheduleIds.pop();
     }
 
     /**
@@ -791,7 +804,10 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
             revert DcaManager__WithdrawalAmountExceedsBalance(token, withdrawalAmount, tokenBalance);
         }
         // Subtract the requested withdrawal amount, not the amount the handler paid out
-        uint256 newTokenBalance = tokenBalance - withdrawalAmount;
+        uint256 newTokenBalance;
+        unchecked {
+            newTokenBalance = tokenBalance - withdrawalAmount;
+        }
         routeIndex = dcaSchedule.routeIndex;
         dcaSchedule.tokenBalance = newTokenBalance.toUint128();
         // Lending success means the external share claim was fully consumed; cash may still be net of

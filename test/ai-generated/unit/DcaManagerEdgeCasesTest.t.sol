@@ -139,7 +139,7 @@ contract DcaManagerEdgeCasesTest is Test {
         
         vm.expectRevert(abi.encodeWithSelector(IDcaManager.DcaManager__InexistentSchedule.selector, address(stablecoin), wrongId));
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), wrongId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), wrongId, type(uint256).max);
     }
     
     function test_deleteDcaSchedule_reverts_deletedId() public {
@@ -156,11 +156,11 @@ contract DcaManagerEdgeCasesTest is Test {
         // Deleting the same schedule twice: the id is retired by the first call
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), 0);
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, 0);
 
         vm.expectRevert(abi.encodeWithSelector(IDcaManager.DcaManager__InexistentSchedule.selector, address(stablecoin), scheduleId));
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, type(uint256).max);
     }
     
     function test_deleteDcaSchedule_reverts_notOwner() public {
@@ -180,7 +180,7 @@ contract DcaManagerEdgeCasesTest is Test {
         address otherUser = address(0x9999);
         vm.expectRevert(abi.encodeWithSelector(IDcaManager.DcaManager__NotScheduleOwner.selector, address(stablecoin), scheduleId, USER));
         vm.prank(otherUser);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, type(uint256).max);
     }
     
     /*//////////////////////////////////////////////////////////////

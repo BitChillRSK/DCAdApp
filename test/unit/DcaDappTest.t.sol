@@ -492,7 +492,7 @@ contract DcaDappTest is Test {
         uint256 purchaseAmount = AMOUNT_TO_SPEND / NUM_OF_SCHEDULES;
         // Delete the schedule created in setUp to have all five schedules with the same amounts
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), 0);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, 0);
         for (uint256 i = 0; i < NUM_OF_SCHEDULES; ++i) {
             uint256 scheduleIndex = SCHEDULE_INDEX + i;
             uint256 purchasePeriod = MIN_PURCHASE_PERIOD + i * 5 days;

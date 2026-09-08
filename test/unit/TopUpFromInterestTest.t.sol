@@ -335,7 +335,7 @@ contract TopUpFromInterestTest is DcaDappTest {
 
         uint64 scheduleId = _scheduleId(SCHEDULE_INDEX);
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, SCHEDULE_INDEX);
 
         assertApproxEqRel(
             stablecoin.balanceOf(USER) - userStablecoinBefore, credited, _lendingRedeemCashRelTol(), "deletion paid less than the ledger"
@@ -464,7 +464,7 @@ contract TopUpFromInterestTest is DcaDappTest {
         uint64 scheduleId = _scheduleId(SCHEDULE_INDEX);
 
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, SCHEDULE_INDEX);
 
         vm.prank(USER);
         vm.expectRevert(abi.encodeWithSelector(IDcaManager.DcaManager__InexistentSchedule.selector, address(stablecoin), scheduleId));

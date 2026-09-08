@@ -98,7 +98,7 @@ contract EventIndexingTest is DcaDappTest {
         vm.prank(USER);
         dcaManager.withdrawRbtcFromTokenHandler(address(stablecoin), s_routeIndex);
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, SCHEDULE_INDEX);
         _assertFirstPartyIndexing(vm.getRecordedLogs());
     }
 
@@ -106,7 +106,7 @@ contract EventIndexingTest is DcaDappTest {
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         vm.prank(USER);
         vm.recordLogs();
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, SCHEDULE_INDEX);
 
         bytes32 sig = keccak256("DcaManager__DcaScheduleDeleted(address,address,uint64,uint256)");
         Vm.Log[] memory logs = vm.getRecordedLogs();
