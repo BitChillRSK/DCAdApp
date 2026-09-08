@@ -15,17 +15,10 @@ import {IPurchaseRbtc} from "src/interfaces/IPurchaseRbtc.sol";
  * @author BitChill team: Antonio Rodríguez-Ynyesto
  * @notice Stores every DCA schedule and routes user and swapper calls to the handler that holds the
  *         funds they name.
- * @dev `s_dcaSchedules` is written only in this contract, and every external function that writes it
- *      carries `nonReentrant`, so the guard is checkable by grep rather than by reading each function.
- *      It is the first modifier everywhere except behind `whenUserMutationsAllowed`, which precedes it
- *      on the seven guarded mutations: that check is a private view over one slot, so refusing there
- *      cannot re-enter anything, and refusing before the guard's `SSTORE` saves the caller ~5,100 gas
- *      on a refused call. Presence, not position, is the invariant. The two `onlySwapper` purchase
- *      paths are the deliberate exception to presence: each is CEI-clean per handler, and only an
- *      allowlisted swapper reaches them. A swapper may also open a five-block protected purchase
- *      window; it temporarily blocks only the user mutations that can invalidate a batch refreshed
- *      after activation, and expires without an administrator call. This prevents (unlikely) DoS 
- *      front-running attacks.
+ * @dev Every external schedule mutator is non-reentrant except the allowlisted-swapper purchase paths,
+ *      which complete schedule effects before calling BitChill-deployed handlers. A swapper can open a
+ *      self-expiring five-block window that blocks only user mutations capable of invalidating a batch
+ *      refreshed after activation. Governance can pause new deposits per route, not purchases or exits.
  */
 contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     using SafeCast for uint256;
@@ -42,26 +35,13 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     ///      would redirect every live schedule and bypass add-only route assignment.
     IOperationsAdmin public immutable override i_operationsAdmin;
 
-    /**
-     * @notice The schedules that spend each stablecoin, addressed by the id each was created with.
-     * @dev Keyed by the stablecoin first because that is how the work arrives: a purchase batch is one
-     *      handler's, so one stablecoin's, and the rows in it are ids. Ids are a protocol-wide creation
-     *      nonce rather than a per-token counter, so the outer key partitions the id space rather than
-     *      namespacing it — no two live schedules share an id, whatever stablecoin they spend.
-     *
-     *      Holding the stablecoin in the key is what keeps the value at two slots, and it makes a batch
-     *      row's stablecoin structural: a row naming a schedule of a different one addresses nothing
-     *      and is refused, rather than being caught by a comparison after the fact. The owner is the
-     *      field that pays for it, and `_callersSchedule` is the single place it is checked.
-     */
+    /// @notice Schedules keyed by their stablecoin and protocol-wide creation id.
+    /// @dev Keeping both outside the value makes it two slots. A batch row named under the wrong token
+    ///      addresses nothing; `_callersSchedule` is the single user-ownership check.
     mapping(address token => mapping(uint64 scheduleId => DcaSchedule dcaSchedule)) private s_dcaSchedules;
 
-    /**
-     * @notice The ids each user holds for each stablecoin.
-     * @dev The enumeration a flat key cannot provide on its own: `getDcaSchedules` and the
-     *      max-schedules-per-token bound both need this list, so create and delete each write two
-     *      structures. Both are cold paths, paid once by the user; the purchase path never reads it.
-     */
+    /// @notice The ids each user holds for each stablecoin.
+    /// @dev Enumeration only: purchases never read it.
     mapping(address user => mapping(address token => uint64[] scheduleIds)) private s_scheduleIds;
 
     ProtocolSettings private s_protocolSettings;
@@ -607,9 +587,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         private
         returns (address, uint256, uint256)
     {
-        // The schedule's fields are read through the storage pointer as they are needed, rather than
-        // copied into a memory struct up front: the copy materialises all seven fields on every row,
-        // while the two slots they live in are read once and reused.
+        // Read the two packed schedule slots through a storage pointer instead of copying every field.
         DcaSchedule storage dcaSchedule = s_dcaSchedules[token][scheduleId];
 
         address buyer = dcaSchedule.user;
@@ -620,9 +598,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         uint256 lastPurchaseTimestamp = dcaSchedule.lastPurchaseTimestamp;
         uint256 purchasePeriod = dcaSchedule.purchasePeriod;
 
+        uint256 newTimestamp = block.timestamp;
         // After the first purchase, the schedule is eligible once the UTC day of last + period has started.
-        // Day-floor (`x - x % 1 days`) never underflows; nextDueTimestamp never overflows (both terms fit
-        // uint48/uint32); the final subtraction only runs once nextPurchaseDayStart > block.timestamp is proven.
         if (lastPurchaseTimestamp != 0) {
             unchecked {
                 uint256 currentDayStart = block.timestamp - (block.timestamp % 1 days);
@@ -633,6 +610,12 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
                         token, scheduleId, nextPurchaseDayStart - block.timestamp
                     );
                 }
+
+                // Advancing through today's end selects the latest cadence anchor whose UTC day has
+                // begun and leaves the next anchor on a later UTC day, skipping every missed slot.
+                uint256 currentDayEnd = currentDayStart + 1 days - 1;
+                uint256 periodsElapsed = (currentDayEnd - lastPurchaseTimestamp) / purchasePeriod;
+                newTimestamp = lastPurchaseTimestamp + periodsElapsed * purchasePeriod;
             }
         }
 
@@ -647,40 +630,13 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         dcaSchedule.tokenBalance = tokenBalance;
         emit DcaManager__TokenBalanceUpdated(token, scheduleId, tokenBalance);
 
-        // Anchor the next due date to the schedule's own cadence, so the wanted periodicity survives
-        // a delayed purchase or a schedule that was paused or ran out of stablecoin and was resumed with
-        // a new deposit. Floor periodsElapsed at 1 so that the purchase isn't blocked when a full period
-        // has elapsed in calendar days but not in seconds. This is fine since the purchase being eligible
-        // was already checked above.
-        uint256 newTimestamp;
-        if (lastPurchaseTimestamp == 0) {
-            newTimestamp = block.timestamp;
-        } else {
-            // block.timestamp > lastPurchaseTimestamp is proven by the eligibility check above (purchasePeriod
-            // is >= 1 day, so nextPurchaseDayStart is strictly later than lastPurchaseTimestamp). With a
-            // nonzero quotient, periodsElapsed * purchasePeriod is bounded by that elapsed time (floor
-            // division). When promoted from zero to 1, the product can exceed elapsed time, but the sum is
-            // then exactly lastPurchaseTimestamp + purchasePeriod, bounded by their uint48/uint32 widths either way.
-            unchecked {
-                uint256 periodsElapsed = (block.timestamp - lastPurchaseTimestamp) / purchasePeriod;
-                if (periodsElapsed == 0) periodsElapsed = 1;
-                // The last purchase timestamp is anchored to the time of day of the first purchase to avoid drift
-                newTimestamp = lastPurchaseTimestamp + periodsElapsed * purchasePeriod;
-            }
-        }
         dcaSchedule.lastPurchaseTimestamp = newTimestamp.toUint48();
         emit DcaManager__LastPurchaseTimestampUpdated(token, scheduleId, newTimestamp);
 
         return (buyer, purchaseAmount, dcaSchedule.routeIndex);
     }
 
-    /**
-     * @dev Resolve one of the caller's schedules. This is the ownership check, and it is the only one
-     *      in this contract: every user-facing mutator reaches a schedule through here, so the check
-     *      cannot be present in one path and forgotten in another. Nothing else may read
-     *      `s_dcaSchedules` on a caller's behalf. A live schedule always has a non-zero `user`, so a
-     *      pair that addresses nothing is refused before the owner is compared.
-     */
+    /// @dev The single owner check for user mutators. A zero owner means the key addresses no schedule.
     function _callersSchedule(address token, uint64 scheduleId)
         private
         view

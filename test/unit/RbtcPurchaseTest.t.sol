@@ -137,6 +137,95 @@ contract RbtcPurchaseTest is DcaDappTest {
         assertEq(schedule.lastPurchaseTimestamp, firstBuy + weeklyPeriod);
     }
 
+    function testMissedWeeklyPurchaseCannotBeRecoveredBySecondBuyOnResumeDay() external {
+        uint256 weeklyPeriod = 7 days;
+        uint256 firstBuy = _nextUtcTimestamp(23 hours);
+        vm.warp(firstBuy);
+        uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        vm.prank(USER);
+        dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, weeklyPeriod);
+        buyRbtcOne(scheduleId);
+
+        // Skip the first due week and resume at 00:00 on the following due day. Although fewer than
+        // two periods have elapsed in raw seconds, this purchase consumes both elapsed UTC-day slots.
+        uint256 resumeDayStart = _utcDayStart(firstBuy) + 2 * weeklyPeriod;
+        vm.warp(resumeDayStart);
+        buyRbtcOne(scheduleId);
+
+        IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        assertEq(schedule.lastPurchaseTimestamp, firstBuy + 2 * weeklyPeriod);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
+                address(stablecoin),
+                scheduleId,
+                weeklyPeriod
+            )
+        );
+        buyRbtcOne(scheduleId);
+    }
+
+    function testWeeklyMondayFailureTuesdayRetryKeepsNextMondayDue() external {
+        uint256 weeklyPeriod = 7 days;
+        uint256 firstBuy = _nextUtcTimestamp(9 hours);
+        vm.warp(firstBuy);
+        uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        vm.prank(USER);
+        dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, weeklyPeriod);
+        buyRbtcOne(scheduleId);
+
+        uint256 missedMondayStart = _utcDayStart(firstBuy) + weeklyPeriod;
+        uint256 tuesdayRetry = missedMondayStart + 1 days + 10 hours;
+        vm.warp(tuesdayRetry);
+        buyRbtcOne(scheduleId);
+
+        IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        assertEq(schedule.lastPurchaseTimestamp, firstBuy + weeklyPeriod);
+
+        uint256 nextMondayStart = missedMondayStart + weeklyPeriod;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
+                address(stablecoin),
+                scheduleId,
+                nextMondayStart - tuesdayRetry
+            )
+        );
+        buyRbtcOne(scheduleId);
+
+        vm.warp(nextMondayStart);
+        buyRbtcOne(scheduleId);
+    }
+
+    function testNoCatchUpWithPurchasePeriodThatIsNotWholeDays() external {
+        uint256 purchasePeriod = 36 hours;
+        uint256 firstBuy = _nextUtcTimestamp(20 hours);
+        vm.warp(firstBuy);
+        uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        vm.prank(USER);
+        dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, purchasePeriod);
+        buyRbtcOne(scheduleId);
+
+        // The second cadence point is at 20:00 three days later; execute at that UTC day's start.
+        uint256 resumeDayStart = _utcDayStart(firstBuy) + 3 days;
+        vm.warp(resumeDayStart);
+        buyRbtcOne(scheduleId);
+
+        IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        assertEq(schedule.lastPurchaseTimestamp, firstBuy + 2 * purchasePeriod);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
+                address(stablecoin),
+                scheduleId,
+                _secondsUntilDueUtcDayStart(schedule.lastPurchaseTimestamp, purchasePeriod)
+            )
+        );
+        buyRbtcOne(scheduleId);
+    }
+
     function testSeveralPurchasesOneSchedule() external {
         uint256 numOfPurchases = 5;
 
@@ -190,11 +279,13 @@ contract RbtcPurchaseTest is DcaDappTest {
         buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertLe(schedule.lastPurchaseTimestamp, block.timestamp);
-        assertGt(schedule.lastPurchaseTimestamp, block.timestamp - MIN_PURCHASE_PERIOD);
         uint256 firstPurchaseTimestamp = s_firstPurchaseTimestampForResumeTest;
-        uint256 periodsElapsed = (block.timestamp - firstPurchaseTimestamp) / MIN_PURCHASE_PERIOD;
+        uint256 currentDayStart = _utcDayStart(block.timestamp);
+        uint256 currentDayEnd = currentDayStart + 1 days - 1;
+        uint256 periodsElapsed = (currentDayEnd - firstPurchaseTimestamp) / MIN_PURCHASE_PERIOD;
         assertEq(schedule.lastPurchaseTimestamp, firstPurchaseTimestamp + periodsElapsed * MIN_PURCHASE_PERIOD);
+        assertLe(_utcDayStart(schedule.lastPurchaseTimestamp), currentDayStart);
+        assertGt(_utcDayStart(schedule.lastPurchaseTimestamp + MIN_PURCHASE_PERIOD), currentDayStart);
     }
 
     /**

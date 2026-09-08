@@ -9,30 +9,24 @@ import {IOperationsAdmin} from "./IOperationsAdmin.sol";
  * @notice User and swapper entry point: create and manage dollar-cost-averaging schedules.
  * @dev Users talk only to this contract. An allowlisted swapper triggers purchases. Handlers custody
  *      both the deposited stablecoin and the rBTC bought with it; this contract holds neither and keeps
- *      only the schedule ledger. What backs a deposit differs by route: the stablecoin itself on an idle
- *      route, the shares minted for it on a lending one.
+ *      only the schedule ledger. User mutators resolve ownership from the `(token, scheduleId)` key.
+ *      Purchases become eligible by UTC day and skip, rather than recover, missed periods.
  */
 interface IDcaManager {
     /*//////////////////////////////////////////////////////////////
                            TYPE DECLARATIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice One user's recurring purchase of rBTC with one stablecoin on one OperationsAdmin route.
-    /// @dev Exactly what storage holds, and exactly what the getters return: there is no second,
-    ///      view-only shape of a schedule to keep in sync. Neither the stablecoin nor the id is a field,
-    ///      because the two of them are the storage key — a caller reading a schedule passed both, and
-    ///      `getDcaSchedules` returns the ids alongside the structs. Two slots:
+    /// @dev The stablecoin and id are the storage key, so neither is repeated in the two-slot value:
     ///
     ///        slot 0  tokenBalance, lastPurchaseTimestamp, paused, purchasePeriod, routeIndex
     ///        slot 1  user, purchaseAmount
     ///
-    ///      Slot 0 holds every field a purchase writes, so a purchase writes one slot; the owner and the
-    ///      amount it also reads sit in slot 1, so a purchase reads two slots and writes one. Pairing the
-    ///      owner with a `uint96 purchaseAmount` is what seats slot 1 in one word; a wider amount would
-    ///      cost a third slot on every schedule. A live schedule always has a non-zero `user`, which is
-    ///      the existence sentinel.
+    ///      The purchase path writes only slot 0. A live schedule has a non-zero `user`, its existence
+    ///      sentinel. `getDcaSchedules` returns ids alongside these values.
     struct DcaSchedule {
         uint128 tokenBalance; // Stablecoin amount deposited by the user
-        uint48 lastPurchaseTimestamp; // Timestamp of the latest purchase
+        uint48 lastPurchaseTimestamp; // Cadence anchor; not necessarily the latest execution time
         bool paused; // Set by the schedule's user: purchases are refused while true, every other path stays open
         uint32 purchasePeriod; // Time between purchases in seconds
         uint32 routeIndex; // OperationsAdmin route that holds this schedule's funds (idle or lending)
@@ -41,25 +35,10 @@ interface IDcaManager {
     }
 
     /// @notice One handler's purchase batch.
-    /// @dev Every row shares this batch's `token` and `routeIndex`, which resolve to one handler. A row
-    ///      is one `uint64` id and nothing else: `scheduleIds` is the only array, and the stablecoin it
-    ///      is paired with completes the storage key for every row at once, so it is sent once for the
-    ///      batch rather than once per row. Neither the buyer nor the amount is passed in — both are
-    ///      read from the schedule about to be debited, so a batch cannot spend an amount the schedule
-    ///      does not hold and cannot credit rBTC to an account the schedule does not name. An id that
-    ///      addresses no live schedule of this stablecoin reads as an empty struct and reverts.
-    ///      `batchBuyRbtc` takes one batch; `batchBuyRbtcAcrossHandlers` takes several.
-    ///      `minRbtcOut` is the caller's minimum for the batch as a whole, in rBTC/WRBTC wei
-    ///      (18 decimals) whatever the stablecoin's decimals, and is compared against the rBTC the
-    ///      handler measures itself receiving, so it binds on every purchase venue. What sits underneath
-    ///      it does not. A Uniswap route applies an oracle floor of its own and swaps at
-    ///      `max(minRbtcOut, that floor)`, so this value can only tighten it. A MoC route has no floor
-    ///      to compose with, because DOC is redeemed at Money on Chain's own price rather than swapped
-    ///      against a pool, leaving no slippage surface for a floor to guard. Either way this is a
-    ///      liveness bound an honest swapper sets against a stale quote or adverse execution, and never
-    ///      a governance limit **on** the swapper: the swapper picks the value, so `0` is always
-    ///      available to it. What still holds when it does is the oracle floor on a Uniswap route, and
-    ///      the redemption price itself on a MoC one.
+    /// @dev Every id shares `token` and `routeIndex`, which resolve to one handler. Buyer and amount come
+    ///      from storage, so caller data cannot redirect or resize a purchase. `minRbtcOut` is a batch-wide
+    ///      minimum in rBTC wei, checked against the handler's measured receipt. Uniswap also enforces its
+    ///      oracle floor; MoC redeems at its protocol price and has no pool-slippage floor.
     struct Batch {
         uint64[] scheduleIds;
         address token;
@@ -244,13 +223,8 @@ interface IDcaManager {
      * @param scheduleId The schedule to fund. Must belong to the caller.
      * @param depositAmount Amount requested from the caller. The handler reverts unless it receives
      *        exactly this amount, so the schedule is credited with the full request.
-     * @dev The route is read from the schedule, not passed in. The stablecoin is: it is half the key.
-     *      Reverts `DcaManager__DepositsPaused` before any transfer if governance paused deposits
-     *      on this schedule's route. Purchases, edits, withdrawals, and deletion ignore that pause.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
+     * @dev The route is read from the schedule. A deposit pause is checked before token transfer and
+     *      does not pause purchases, edits, withdrawals, or deletion.
      */
     function depositToken(address token, uint64 scheduleId, uint256 depositAmount) external;
 
@@ -260,11 +234,7 @@ interface IDcaManager {
      * @param scheduleId The schedule to edit. Must belong to the caller.
      * @param newPurchaseAmount New amount to spend periodically on rBTC. Cannot exceed the schedule's
      *        current `tokenBalance` or fall below the token minimum, and is stored as `uint96`.
-     * @dev Emits `DcaManager__PurchaseAmountUpdated` with the replaced amount and the new one.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
+     * @dev Emits `DcaManager__PurchaseAmountUpdated` only after validation.
      */
     function updatePurchaseAmount(address token, uint64 scheduleId, uint256 newPurchaseAmount) external;
 
@@ -273,11 +243,7 @@ interface IDcaManager {
      * @param token The stablecoin the schedule spends, which is half its storage key.
      * @param scheduleId The schedule to edit. Must belong to the caller.
      * @param newPurchasePeriod New seconds between purchases. Cannot be shorter than the protocol minimum.
-     * @dev Emits `DcaManager__PurchasePeriodUpdated` with the replaced period and the new one.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
+     * @dev Emits `DcaManager__PurchasePeriodUpdated` only after validation.
      */
     function updatePurchasePeriod(address token, uint64 scheduleId, uint256 newPurchasePeriod) external;
 
@@ -305,10 +271,6 @@ interface IDcaManager {
      *      event reports what left the handler, which may be less than `tokenBalance` if the handler
      *      paid out less than it was asked for. Accumulated rBTC and lending interest are not claimed
      *      here — withdraw those first.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller before the index is: an id that addresses no schedule of that
-     *      stablecoin reverts `DcaManager__InexistentSchedule`, and one that addresses somebody else's
-     *      reverts `DcaManager__NotScheduleOwner`.
      */
     function deleteDcaSchedule(address token, uint64 scheduleId, uint256 scheduleIdIndex) external;
 
@@ -333,12 +295,7 @@ interface IDcaManager {
      * @param scheduleId The schedule to withdraw from. Must belong to the caller.
      * @param withdrawalAmount Principal to withdraw, or `type(uint256).max` for this schedule's whole
      *        `tokenBalance`.
-     * @dev Interest is withdrawn from the schedule's stored lending route. An idle schedule reverts
-     *      because that route does not yield.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
+     * @dev Interest is withdrawn from the schedule's stored lending route. An idle schedule reverts.
      */
     function withdrawTokenAndInterest(address token, uint64 scheduleId, uint256 withdrawalAmount) external;
 
@@ -348,21 +305,10 @@ interface IDcaManager {
      * @param scheduleId The schedule to credit. Must belong to the caller.
      * @param amount Interest to credit, at most the spendable accrued-interest ceiling computed at
      *        the market's current rate. `getInterestAccrued` can quote less on a lazily-accruing market.
-     * @dev Interest accrues per user, token, and route rather than per schedule, so the caller chooses
-     *      which of their schedules on that route receives it, and may split it across several by calling
-     *      this more than once. Nothing is redeemed or transferred — the funds already sit in the lending
-     *      protocol and this only raises the schedule's claim over them. A route with deposits paused
-     *      still accepts a top-up, since that pause stops new funds entering the route and this credits
-     *      funds already in it. Reverts
-     *      `DcaManager__TokenDoesNotYieldInterest` on an idle route,
-     *      `DcaManager__NoInterestToTopUpWith` when nothing has accrued,
-     *      `DcaManager__TopUpExceedsAccruedInterest` when `amount` is more than has accrued, and
-     *      `DcaManager__TopUpDoesNotFundAnotherPurchase` when the credit would not fund one more purchase
-     *      than the schedule could already afford, which is what stops interest being swept over in dust.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
+     * @dev Interest belongs to a user-token-route position, so the caller chooses which schedule on that
+     *      route receives it. No tokens move; this raises the schedule's claim over funds already lent and
+     *      remains available while deposits are paused. The amount must be accrued and fund at least one
+     *      additional purchase, preventing dust top-ups.
      */
     function topUpFromInterest(address token, uint64 scheduleId, uint256 amount) external;
 
@@ -395,17 +341,11 @@ interface IDcaManager {
 
     /**
      * @notice Open a five-block window for preparing and submitting purchases against fixed user state.
-     * @dev Only an address currently on the OperationsAdmin swapper allowlist may call. An active
-     *      window cannot be extended or renewed early; once it expires the swapper may activate again
-     *      with no daily budget. Activation in block `N` refuses the user mutations that can invalidate
-     *      a prepared batch through block `N + 4`; they are available again in block `N + 5`. The bot
-     *      must wait for activation to be included, then refresh or simulate against that locked state
-     *      before it submits the purchase.
-     *
-     *      The guarded functions are `updatePurchaseAmount`, `updatePurchasePeriod`,
-     *      `setSchedulePaused`, `deleteDcaSchedule`, `withdrawToken`, `withdrawTokenAndInterest`, and
-     *      `withdrawAllAccumulatedInterest`. Deposits, schedule creation, interest top-ups,
-     *      accumulated-rBTC withdrawals, purchases, reads, and governance setters stay available.
+     * @dev Only an allowlisted swapper may call. Activation in block `N` blocks amount/period/pause edits,
+     *      deletion, principal withdrawal, principal-plus-interest withdrawal, and bulk interest withdrawal
+     *      through `N + 4`; all resume at `N + 5`. Other calls remain available. A live window cannot be
+     *      extended; after expiry another may begin. The bot waits for activation, refreshes or simulates,
+     *      then submits against the locked state.
      */
     function activateProtectedPurchaseWindow() external;
 
@@ -413,16 +353,12 @@ interface IDcaManager {
      * @notice Buy rBTC for every named due schedule on one handler.
      * @param batch One handler's purchase batch. Every row must share `token` and `routeIndex`.
      * @dev Only a swapper on the OperationsAdmin allowlist may call.
-     *      Reverts `DcaManager__SchedulePaused` if any named schedule is paused, which fails the
-     *      whole batch (and, in `batchBuyRbtcAcrossHandlers`, every handler in the bundle): the
-     *      swapper must filter paused schedules out before composing the call.
-     *      A row of another stablecoin cannot be debited here at all: the batch's `token` is half
-     *      the storage key, so such a row addresses no schedule and reverts
-     *      `DcaManager__InexistentSchedule`. A row on another route of the same stablecoin is caught
-     *      by comparison (`DcaManager__RouteIndexMismatch`).
-     *      If the handler measures less rBTC than `batch.minRbtcOut`, it reverts
-     *      `PurchaseRbtc__BelowSwapperMinimum` and the whole batch — schedule debits included —
-     *      rolls back.
+     *      Eligibility starts at 00:00 UTC on the due day. A successful buy advances past every missed
+     *      period whose due day has started, so missed buys are never recovered and the schedule cannot
+     *      buy twice that day. A weekly Monday buy executed Tuesday remains due the following Monday.
+     *      Any paused row fails the whole batch or multi-handler bundle. The token is part of each
+     *      schedule key and the route is checked, so rows cannot cross handlers. A measured receipt below
+     *      `minRbtcOut` reverts the purchase and all schedule debits.
      */
     function batchBuyRbtc(Batch calldata batch) external;
 
