@@ -132,6 +132,64 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
     /**
      * @inheritdoc IDcaManager
+     * @dev Widths and the bumped nonce are checked before the deposit is pulled, so an overflowing
+     *      argument or an exhausted counter reverts with SafeCast data before any token moves.
+     */
+    function createDcaSchedule(
+        address token,
+        uint256 depositAmount,
+        uint256 purchaseAmount,
+        uint256 purchasePeriod,
+        uint256 routeIndex
+    ) external override nonReentrant {
+        if (token == address(0)) revert DcaManager__TokenNotAccepted(token, routeIndex);
+        uint128 deposit = depositAmount.toUint128();
+        uint96 purchase = purchaseAmount.toUint96();
+        uint32 period = purchasePeriod.toUint32();
+        uint32 route = routeIndex.toUint32();
+
+        // One load of the packed scalars, and the id this schedule will carry.
+        ProtocolSettings memory settings = s_protocolSettings;
+        uint64 scheduleId = (uint256(settings.scheduleNonce) + 1).toUint64();
+
+        _validatePurchasePeriod(purchasePeriod);
+        _validateDeposit(depositAmount);
+        _handlerForDeposit(token, route).depositToken(msg.sender, depositAmount);
+        // The remaining two checks sit after the pull: the minimum purchase amount, validated against
+        // the credited request that the handler guarantees equals the amount asked for, and the
+        // max-schedules bound below. Both revert the whole call, so a failure returns the deposit.
+        _validatePurchaseAmount(token, purchaseAmount, depositAmount);
+
+        uint64[] storage scheduleIds = s_scheduleIds[msg.sender][token];
+        if (scheduleIds.length >= settings.maxSchedulesPerToken) {
+            revert DcaManager__MaxSchedulesPerTokenReached(token);
+        }
+
+        s_protocolSettings.scheduleNonce = scheduleId;
+
+        s_dcaSchedules[token][scheduleId] = DcaSchedule({
+            tokenBalance: deposit,
+            lastPurchaseTimestamp: 0,
+            paused: false,
+            purchasePeriod: period,
+            routeIndex: route,
+            user: msg.sender,
+            purchaseAmount: purchase
+        });
+        scheduleIds.push(scheduleId);
+        emit DcaManager__DcaScheduleCreated(
+            msg.sender,
+            token,
+            scheduleId,
+            depositAmount,
+            purchaseAmount,
+            purchasePeriod,
+            routeIndex
+        );
+    }
+
+    /**
+     * @inheritdoc IDcaManager
      * @dev Widths are checked before the handler pull so an overflowing credit cannot move tokens.
      */
     function depositToken(address token, uint64 scheduleId, uint256 depositAmount) external override nonReentrant {
@@ -193,64 +251,6 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
     /**
      * @inheritdoc IDcaManager
-     * @dev Widths and the bumped nonce are checked before the deposit is pulled, so an overflowing
-     *      argument or an exhausted counter reverts with SafeCast data before any token moves.
-     */
-    function createDcaSchedule(
-        address token,
-        uint256 depositAmount,
-        uint256 purchaseAmount,
-        uint256 purchasePeriod,
-        uint256 routeIndex
-    ) external override nonReentrant {
-        if (token == address(0)) revert DcaManager__TokenNotAccepted(token, routeIndex);
-        uint128 deposit = depositAmount.toUint128();
-        uint96 purchase = purchaseAmount.toUint96();
-        uint32 period = purchasePeriod.toUint32();
-        uint32 route = routeIndex.toUint32();
-
-        // One load of the packed scalars, and the id this schedule will carry.
-        ProtocolSettings memory settings = s_protocolSettings;
-        uint64 scheduleId = (uint256(settings.scheduleNonce) + 1).toUint64();
-
-        _validatePurchasePeriod(purchasePeriod);
-        _validateDeposit(depositAmount);
-        _handlerForDeposit(token, route).depositToken(msg.sender, depositAmount);
-        // The remaining two checks sit after the pull: the minimum purchase amount, validated against
-        // the credited request that the handler guarantees equals the amount asked for, and the
-        // max-schedules bound below. Both revert the whole call, so a failure returns the deposit.
-        _validatePurchaseAmount(token, purchaseAmount, depositAmount);
-
-        uint64[] storage scheduleIds = s_scheduleIds[msg.sender][token];
-        if (scheduleIds.length >= settings.maxSchedulesPerToken) {
-            revert DcaManager__MaxSchedulesPerTokenReached(token);
-        }
-
-        s_protocolSettings.scheduleNonce = scheduleId;
-
-        s_dcaSchedules[token][scheduleId] = DcaSchedule({
-            tokenBalance: deposit,
-            lastPurchaseTimestamp: 0,
-            paused: false,
-            purchasePeriod: period,
-            routeIndex: route,
-            user: msg.sender,
-            purchaseAmount: purchase
-        });
-        scheduleIds.push(scheduleId);
-        emit DcaManager__DcaScheduleCreated(
-            msg.sender,
-            token,
-            scheduleId,
-            depositAmount,
-            purchaseAmount,
-            purchasePeriod,
-            routeIndex
-        );
-    }
-
-    /**
-     * @inheritdoc IDcaManager
      */
     function deleteDcaSchedule(address token, uint64 scheduleId)
         external
@@ -288,60 +288,6 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         nonReentrant
     {
         _withdrawToken(token, scheduleId, withdrawalAmount);
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function activateProtectedPurchaseWindow() external override onlySwapper {
-        uint256 userMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
-        if (block.number < userMutationsAllowedFromBlock) {
-            revert DcaManager__ProtectedPurchaseWindowStillActive(userMutationsAllowedFromBlock);
-        }
-
-        userMutationsAllowedFromBlock = block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS;
-        s_userMutationsAllowedFromBlock = userMutationsAllowedFromBlock;
-        emit DcaManager__ProtectedPurchaseWindowActivated(msg.sender, userMutationsAllowedFromBlock);
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function batchBuyRbtc(Batch calldata batch) external override onlySwapper {
-        _batchBuyRbtc(batch);
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function batchBuyRbtcAcrossHandlers(Batch[] calldata batches) external override onlySwapper {
-        uint256 numBatches = batches.length;
-        if (numBatches == 0) revert DcaManager__EmptyHandlerBatches();
-
-        for (uint256 i; i < numBatches; ++i) {
-            _batchBuyRbtc(batches[i]);
-        }
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function withdrawRbtcFromTokenHandler(address token, uint256 routeIndex) external override nonReentrant {
-        IPurchaseRbtc(address(_handler(token, routeIndex))).withdrawAccumulatedRbtc(msg.sender);
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function withdrawAllAccumulatedRbtc(address[] calldata tokens, uint256[] calldata routeIndexes) external override nonReentrant {
-        uint256 numOfPairs = _requirePairedWithdrawalArrays(tokens, routeIndexes);
-        for (uint256 i; i < numOfPairs; ++i) {
-            address tokenHandlerAddress = i_operationsAdmin.getTokenHandler(tokens[i], routeIndexes[i]);
-            if (tokenHandlerAddress == address(0)) continue;
-            IPurchaseRbtc handler = IPurchaseRbtc(tokenHandlerAddress);
-            if (handler.getAccumulatedRbtcBalance(msg.sender) == 0) continue;
-            handler.withdrawAccumulatedRbtc(msg.sender);
-        }
     }
 
     /**
@@ -416,6 +362,60 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
+    function withdrawRbtcFromTokenHandler(address token, uint256 routeIndex) external override nonReentrant {
+        IPurchaseRbtc(address(_handler(token, routeIndex))).withdrawAccumulatedRbtc(msg.sender);
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
+    function withdrawAllAccumulatedRbtc(address[] calldata tokens, uint256[] calldata routeIndexes) external override nonReentrant {
+        uint256 numOfPairs = _requirePairedWithdrawalArrays(tokens, routeIndexes);
+        for (uint256 i; i < numOfPairs; ++i) {
+            address tokenHandlerAddress = i_operationsAdmin.getTokenHandler(tokens[i], routeIndexes[i]);
+            if (tokenHandlerAddress == address(0)) continue;
+            IPurchaseRbtc handler = IPurchaseRbtc(tokenHandlerAddress);
+            if (handler.getAccumulatedRbtcBalance(msg.sender) == 0) continue;
+            handler.withdrawAccumulatedRbtc(msg.sender);
+        }
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
+    function activateProtectedPurchaseWindow() external override onlySwapper {
+        uint256 userMutationsAllowedFromBlock = s_userMutationsAllowedFromBlock;
+        if (block.number < userMutationsAllowedFromBlock) {
+            revert DcaManager__ProtectedPurchaseWindowStillActive(userMutationsAllowedFromBlock);
+        }
+
+        userMutationsAllowedFromBlock = block.number + PROTECTED_PURCHASE_WINDOW_BLOCKS;
+        s_userMutationsAllowedFromBlock = userMutationsAllowedFromBlock;
+        emit DcaManager__ProtectedPurchaseWindowActivated(msg.sender, userMutationsAllowedFromBlock);
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
+    function batchBuyRbtc(Batch calldata batch) external override onlySwapper {
+        _batchBuyRbtc(batch);
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
+    function batchBuyRbtcAcrossHandlers(Batch[] calldata batches) external override onlySwapper {
+        uint256 numBatches = batches.length;
+        if (numBatches == 0) revert DcaManager__EmptyHandlerBatches();
+
+        for (uint256 i; i < numBatches; ++i) {
+            _batchBuyRbtc(batches[i]);
+        }
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
     function modifyMinPurchasePeriod(uint256 minPurchasePeriod)
         external
         override
@@ -478,6 +478,40 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
+    function getSchedulesCreatedCount() external view override returns (uint256) {
+        return s_protocolSettings.scheduleNonce;
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
+    function getAccumulatedRbtcBalance(address user, address token, uint256 routeIndex)
+        external
+        view
+        override
+        returns (uint256)
+    {
+        return IPurchaseRbtc(address(_handler(token, routeIndex))).getAccumulatedRbtcBalance(user);
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
+    function getInterestAccrued(address user, address token, uint256 routeIndex)
+        external
+        view
+        override
+        returns (uint256)
+    {
+        _checkTokenYieldsInterest(token, routeIndex);
+        return ITokenLending(address(_handler(token, routeIndex))).quoteAccruedInterest(
+            user, _lockedPrincipal(user, token, routeIndex)
+        );
+    }
+
+    /**
+     * @inheritdoc IDcaManager
+     */
     function getUserMutationsAllowedFromBlock() external view override returns (uint256) {
         return s_userMutationsAllowedFromBlock;
     }
@@ -506,42 +540,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function getSchedulesCreatedCount() external view override returns (uint256) {
-        return s_protocolSettings.scheduleNonce;
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
     function getTokenMinPurchaseAmount(address token) external view override returns (uint256) {
         return s_tokenMinPurchaseAmounts[token];
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function getAccumulatedRbtcBalance(address user, address token, uint256 routeIndex)
-        external
-        view
-        override
-        returns (uint256)
-    {
-        return IPurchaseRbtc(address(_handler(token, routeIndex))).getAccumulatedRbtcBalance(user);
-    }
-
-    /**
-     * @inheritdoc IDcaManager
-     */
-    function getInterestAccrued(address user, address token, uint256 routeIndex)
-        external
-        view
-        override
-        returns (uint256)
-    {
-        _checkTokenYieldsInterest(token, routeIndex);
-        return ITokenLending(address(_handler(token, routeIndex))).quoteAccruedInterest(
-            user, _lockedPrincipal(user, token, routeIndex)
-        );
     }
 
     /*//////////////////////////////////////////////////////////////
