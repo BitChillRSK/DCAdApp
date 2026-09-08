@@ -1,6 +1,6 @@
 # R75 — Final audit: no-catch-up cadence and concise source documentation
 
-Status: **in progress** · Assigned: yes · Optional/further-review: no · Order: stack on the current
+Status: **implemented; PR pending** · Assigned: yes · Optional/further-review: no · Order: stack on the current
 source tip after R73 and the three review follow-ups (#131–#133), before any deployment
 
 ## Objective
@@ -37,21 +37,21 @@ multi-paragraph form.
 
 ## Scope
 
-- [ ] Change `DcaManager._rBtcPurchaseChecksEffects` so one successful purchase consumes all cadence
+- [x] Change `DcaManager._rBtcPurchaseChecksEffects` so one successful purchase consumes all cadence
       slots whose due UTC day has started and the next due UTC day is strictly later than today.
-- [ ] Prove the missed-cycle/early-day counterexample, same-day rejection, multiple missed periods,
+- [x] Prove the missed-cycle/early-day counterexample, same-day rejection, multiple missed periods,
       and the weekly Monday-failure/Tuesday-success/next-Monday sequence with focused tests.
-- [ ] Document `lastPurchaseTimestamp` as a cadence anchor, not necessarily the execution timestamp;
+- [x] Document `lastPurchaseTimestamp` as a cadence anchor, not necessarily the execution timestamp;
       state the no-catch-up policy on `IDcaManager` without mentioning another protocol version.
-- [ ] Audit all first-party `src/` comments/NatSpec. Remove version-history/ticket language, replace
+- [x] Audit all first-party `src/` comments/NatSpec. Remove version-history/ticket language, replace
       Tropykus “legacy” labels with production-deployment facts, correct generic leaf “same bytecode”
       claims, and trim repetition while retaining durable security, accounting, authority, rounding,
       constructor-order, and external-integration reasons.
-- [ ] Remove the production-dead `_calculateFee` wrapper and have test harnesses call the existing
+- [x] Remove the production-dead `_calculateFee` wrapper and have test harnesses call the existing
       loaded-settings helper directly. This has no ABI or deployed-runtime behavior effect.
-- [ ] Strengthen the canonical deployment test's assertions for immutable manager, stablecoin,
+- [x] Strengthen the canonical deployment test's assertions for immutable manager, stablecoin,
       venue, oracle/router, and receipt-token wiring where the current test checks only a subset.
-- [ ] Re-run Slither and Aderyn and update the release record only if their triage changes.
+- [x] Re-run Slither and Aderyn and update the release record only if their triage changes.
 
 ## Out of scope
 
@@ -98,16 +98,20 @@ make fork-dex-path
 The cadence tests must fail against the pre-R75 formula. Fork tests add no cadence-specific assertion;
 they remain the live integration gate before push.
 
+All required commands passed. Slither exited with its expected nonzero finding status after reporting
+89 triaged findings; Aderyn completed with the same retained categories. The two focused missed-cadence
+regressions fail against the parent formula and pass with the corrected advancement.
+
 ## Success criteria
 
-- [ ] No schedule can complete two purchases in one UTC day, including after one or many missed slots.
-- [ ] A weekly schedule missed on Monday and bought Tuesday remains due the following Monday; no
+- [x] No schedule can complete two purchases in one UTC day, including after one or many missed slots.
+- [x] A weekly schedule missed on Monday and bought Tuesday remains due the following Monday; no
       schedule drift or extra skip is introduced.
-- [ ] The verified source states that missed purchases are skipped and never recovered later.
-- [ ] First-party source comments contain no BitChill version comparison, relaunch wording, R-item id,
+- [x] The verified source states that missed purchases are skipped and never recovered later.
+- [x] First-party source comments contain no BitChill version comparison, relaunch wording, R-item id,
       or “legacy only” label, and the retained rationale is concise and accurate.
-- [ ] Audit/static-analysis findings are either fixed or explicitly retained with a current reason.
-- [ ] ABI and storage layout are unchanged; deployment wiring assertions and all gates pass.
+- [x] Audit/static-analysis findings are either fixed or explicitly retained with a current reason.
+- [x] ABI and storage layout are unchanged; deployment wiring assertions and all gates pass.
 
 ## Reviewer checklist
 
