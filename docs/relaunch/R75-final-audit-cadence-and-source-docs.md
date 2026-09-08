@@ -1,6 +1,7 @@
 # R75 — Final audit: no-catch-up cadence and concise source documentation
 
-Status: **implemented; PR pending** · Assigned: yes · Optional/further-review: no · Order: stack on the current
+Status: **implemented** · GitHub [#134](https://github.com/BitChillRSK/dca-contracts/pull/134) ·
+Assigned: yes · Optional/further-review: no · Order: stack on the current
 source tip after R73 and the three review follow-ups (#131–#133), before any deployment
 
 ## Objective
