@@ -298,11 +298,8 @@ interface IDcaManager {
      * @notice Delete a schedule and return its remaining principal to the caller.
      * @param token The stablecoin the schedule spends, which is half its storage key.
      * @param scheduleId The schedule to delete. Must belong to the caller.
-     * @param scheduleIdIndex The id's exact position in the caller's `getDcaSchedules(caller, token)`
-     *        id list, read fresh immediately before submitting. Checked directly against storage — no
-     *        scan, no fallback — so a stale index (moved by an intervening delete, the caller's own
-     *        prior one in the same block included) reverts `DcaManager__ScheduleIdIndexMismatch` rather
-     *        than being silently absorbed; re-read the list and retry.
+     * @param scheduleIdIndex The id's current index in the caller's list returned by getDcaSchedules;
+     *        a mismatch reverts.
      * @dev Clears the schedule and swap-pops its id out of the owner's list for that stablecoin, so the
      *      id is retired rather than reused: ids come from a strictly increasing counter. The deleted
      *      event reports what left the handler, which may be less than `tokenBalance` if the handler

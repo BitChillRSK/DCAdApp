@@ -621,10 +621,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         uint256 purchasePeriod = dcaSchedule.purchasePeriod;
 
         // After the first purchase, the schedule is eligible once the UTC day of last + period has started.
-        // Day-floor via `x - (x % 1 days)` can never underflow (a modulus never exceeds its dividend);
-        // `nextDueTimestamp` can never overflow (lastPurchaseTimestamp and purchasePeriod are stored as
-        // uint48/uint32); and `nextPurchaseDayStart - block.timestamp` only runs once the branch above has
-        // proven nextPurchaseDayStart falls on a later day than block.timestamp's.
+        // Day-floor (`x - x % 1 days`) never underflows; nextDueTimestamp never overflows (both terms fit
+        // uint48/uint32); the final subtraction only runs once nextPurchaseDayStart > block.timestamp is proven.
         if (lastPurchaseTimestamp != 0) {
             unchecked {
                 uint256 currentDayStart = block.timestamp - (block.timestamp % 1 days);
@@ -658,16 +656,11 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         if (lastPurchaseTimestamp == 0) {
             newTimestamp = block.timestamp;
         } else {
-            // The eligibility check above only reaches here once block.timestamp >= nextPurchaseDayStart,
-            // and purchasePeriod >= 1 day (enforced at schedule creation) makes nextPurchaseDayStart strictly
-            // later than lastPurchaseTimestamp, so block.timestamp > lastPurchaseTimestamp is proven here.
-            // When the quotient is nonzero, periodsElapsed * purchasePeriod never exceeds the dividend
-            // (block.timestamp - lastPurchaseTimestamp), so the product is bounded by elapsed wall-clock
-            // time and cannot overflow. When the quotient is zero and periodsElapsed is promoted to 1
-            // below, the product can exceed elapsed time (this is what lets the purchase clear on the
-            // UTC-day floor before a full period's worth of seconds has passed) but the sum is then
-            // exactly lastPurchaseTimestamp + purchasePeriod, which cannot overflow since both are stored
-            // as uint48/uint32. Either way, `toUint48()` still bounds the stored result.
+            // block.timestamp > lastPurchaseTimestamp is proven by the eligibility check above (purchasePeriod
+            // is >= 1 day, so nextPurchaseDayStart is strictly later than lastPurchaseTimestamp). With a
+            // nonzero quotient, periodsElapsed * purchasePeriod is bounded by that elapsed time (floor
+            // division). When promoted from zero to 1, the product can exceed elapsed time, but the sum is
+            // then exactly lastPurchaseTimestamp + purchasePeriod, bounded by their uint48/uint32 widths either way.
             unchecked {
                 uint256 periodsElapsed = (block.timestamp - lastPurchaseTimestamp) / purchasePeriod;
                 if (periodsElapsed == 0) periodsElapsed = 1;
@@ -700,12 +693,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     }
 
     /**
-     * @dev Take one id out of its owner's list for a token, by swap-pop at the caller-supplied index.
-     *      `deleteDcaSchedule` has already confirmed the id exists and belongs to the caller by this
-     *      point, so a mismatch here means only one thing: the index is stale relative to storage.
-     *      There is no scan and no fallback — a wrong index reverts rather than being absorbed, so a
-     *      caller building the index off a stale read finds out immediately instead of silently paying
-     *      for a scan it should not need.
+     * @dev Swap-pop the id from the owner's token list. The supplied index must currently contain
+     *      scheduleId.
      */
     function _removeScheduleId(address user, address token, uint64 scheduleId, uint256 index) private {
         uint64[] storage scheduleIds = s_scheduleIds[user][token];
