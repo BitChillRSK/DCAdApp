@@ -21,7 +21,7 @@ PROBE_VERBOSITY ?= -vv
 PROBE_MATCH ?=
 
 # Targets
-.PHONY: all test moc dex help check ci check-deploy build build-deploy patch-deps slither moc-none moc-layerbank moc-tropykus moc-sovryn dex-none dex-tropykus dex-sovryn dex-layerbank invariants invariants-sovryn fork fork-none fork-tropykus fork-sovryn fork-layerbank fork-dex-path probe-sovryn-exit-fee probe-moc-redeem-free-doc probe-dex-quote-floor coverage license-check
+.PHONY: all test moc dex help check ci check-deploy build build-deploy slither moc-none moc-layerbank moc-tropykus moc-sovryn dex-none dex-tropykus dex-sovryn dex-layerbank invariants invariants-sovryn fork fork-none fork-tropykus fork-sovryn fork-layerbank fork-dex-path probe-sovryn-exit-fee probe-moc-redeem-free-doc probe-dex-quote-floor coverage license-check
 
 all: help
 
@@ -90,21 +90,13 @@ check-deploy: build-deploy
 	FOUNDRY_PROFILE=deploy STABLECOIN_TYPE=USDT0 $(MAKE) dex-layerbank
 	FOUNDRY_PROFILE=deploy $(MAKE) invariants-sovryn
 
-build-deploy: patch-deps
+build-deploy:
 	FOUNDRY_PROFILE=deploy forge --version
 	FOUNDRY_PROFILE=deploy forge build
 
-build: patch-deps
+build:
 	forge --version
 	forge build
-
-patch-deps:
-	@echo "Applying Solidity pragma compatibility patch to vendored Uniswap dependencies..."
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		find lib/ -type f -name "*.sol" -exec sed -i '' 's/pragma solidity =0.7.6;/pragma solidity >=0.7.6 <0.9.0;/g' {} \; ; \
-	else \
-		find lib/ -type f -name "*.sol" -exec sed -i 's/pragma solidity =0.7.6;/pragma solidity >=0.7.6 <0.9.0;/g' {} \; ; \
-	fi
 
 slither:
 	@command -v slither >/dev/null 2>&1 || { echo "slither is not installed. pipx install slither-analyzer"; exit 1; }
@@ -271,7 +263,6 @@ help:
 	@echo "  make check                     # Build + moc-* + dex-none/sovryn/layerbank + invariants-sovryn"
 	@echo "  make ci                        # Build + required CI lanes (dex-none and dex-layerbank each on USDRIF and USDT0)"
 	@echo "  make check-deploy              # Same lanes as check, compiled via_ir=true (R60) — slow; run before deploying"
-	@echo "  make patch-deps                # Apply vendored Uniswap pragma compatibility patch"
 	@echo "  make slither                   # Run slither (must be installed)"
 	@echo "  make test SWAP_TYPE=mocSwaps LENDING_PROTOCOL=sovryn STABLECOIN_TYPE=DOC"
 	@echo ""
