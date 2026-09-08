@@ -110,6 +110,11 @@ slither:
 	@command -v slither >/dev/null 2>&1 || { echo "slither is not installed. pipx install slither-analyzer"; exit 1; }
 	slither . --config-file slither.config.json
 
+# Same first-party src/ scope as slither (aderyn.toml). Not part of make check.
+aderyn:
+	@command -v aderyn >/dev/null 2>&1 || { echo "aderyn is not installed. See https://github.com/cyfrin/aderyn"; exit 1; }
+	aderyn --skip-update-check -o report.md
+
 # MocSwaps specific tests
 # EXPECTED_LENDING_PROTOCOL is a canary: tests assert LENDING_PROTOCOL was not overwritten by vm.setEnv.
 moc:
