@@ -23,9 +23,8 @@ import "./Constants.sol";
  *         `ComparePurchaseMethods`. Not a live deploy path.
  * @dev Reverts when `REAL_DEPLOYMENT=true`. Do not add Safe handoff here — nested
  *      `DeployMocSwaps` / `DeployDexSwaps` helper instances would split ownership.
- *      A one-shot live script (idle, Sovryn DOC, LayerBank DOC, LayerBank USDRIF,
- *      LayerBank USDT0 on one admin/manager) belongs as an extension of
- *      `DeployMocSwaps` / `DeployDexSwaps`, now that the production map is final.
+ *      The canonical one-shot live path is `DeployFinal` (one admin/manager, seven
+ *      handlers). Keep this harness for `ComparePurchaseMethods` only.
  */
 contract DeployMocAndUniswap is DeployBase {
     error DeployMocAndUniswap__NotALivePath();
