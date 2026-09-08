@@ -150,7 +150,12 @@ abstract contract FeeHandler is IFeeHandler, BitChillOwnable {
             uint256 fee = _calculateFeeWithParams(amount, feeSettings);
             aggregatedFee += fee;
 
-            uint256 net = amount - fee;
+            // maxFeeRate is capped at MAX_FEE_RATE_CAP (5%) by `_validateFeeSettings`, the only write path
+            // for the fee rates, so `_calculateFeeWithParams` can never return a fee above its input amount.
+            uint256 net;
+            unchecked {
+                net = amount - fee;
+            }
             netAmountsToSpend[i] = net;
             totalAmountToSpend += net;
         }
