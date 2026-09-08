@@ -8,7 +8,8 @@ import {PurchaseMoc} from "src/PurchaseMoc.sol";
  * @title IdleDocHandlerMoc
  * @author BitChill team: Antonio Rodríguez-Ynyesto
  * @notice Idle DOC + MoC: deposits stay on the handler; buys redeem DOC for rBTC at Money on Chain.
- * @dev Default OperationsAdmin route index 0 is pre-registered as idle, not as a lending protocol.
+ * @dev Constructor-only leaf. Only its immutable DcaManager moves principal, buys, or withdraws rBTC;
+ *      the owner controls fee settings and collection. It has no pause or owner rescue path.
  */
 contract IdleDocHandlerMoc is IdleErc20Handler, PurchaseMoc {
     /**

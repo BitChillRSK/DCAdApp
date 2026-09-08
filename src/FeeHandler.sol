@@ -121,15 +121,6 @@ abstract contract FeeHandler is IFeeHandler, BitChillOwnable {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Calculates the fee based on the purchase amount.
-     * @param purchaseAmount The amount of stablecoin to be swapped for rBTC in each purchase.
-     * @return The fee amount to be deducted from the purchase amount.
-     */
-    function _calculateFee(uint256 purchaseAmount) internal view returns (uint256) {
-        return _calculateFeeWithParams(purchaseAmount, _feeSettings());
-    }
-
-    /**
      * @notice Calculate the fee and net amounts for a batch of purchase amounts.
      * @param purchaseAmounts The array with the raw purchase amounts specified by users.
      * @return aggregatedFee      The total fee to be collected for all purchases.

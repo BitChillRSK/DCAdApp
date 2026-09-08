@@ -13,13 +13,9 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
  * @author BitChill team: Antonio Rodríguez-Ynyesto
  * @notice Registry through which every route class, handler assignment, and swapper check is
  *         resolved.
- * @dev Governance surface, stated here so the deployed contract is readable on its own;
- *      `IOperationsAdmin` carries the same rules with the reasoning behind them. Every write but one
- *      is irreversible: a route index is classified once, a `(token, routeIndex)` pair is assigned a
- *      handler once, and a handler address is accepted for at most one pair. Nothing is deregistered
- *      or remapped, so a retired route stays resolvable and its users keep an exit. The single
- *      mutable flag is the per-pair deposit pause, which blocks new inflows and leaves purchases and
- *      every exit path open.
+ * @dev The owner registers route classes and assigns each token-route pair once; neither can be
+ *      remapped, preserving exits through retired routes. Per-pair deposit pauses are reversible and
+ *      block only new inflows. The owner also manages the swapper allowlist.
  */
 contract OperationsAdmin is IOperationsAdmin, BitChillOwnable {
     using SafeCast for uint256;
@@ -71,14 +67,9 @@ contract OperationsAdmin is IOperationsAdmin, BitChillOwnable {
 
     /**
      * @inheritdoc IOperationsAdmin
-     * @dev Recovery from a mistaken assignment is a new `(token, index)`, even when this
-     *      handler has never held funds: this contract cannot prove a handler is empty.
-     *      Lending routes require ERC-165 `ITokenLending`; idle routes reject it so a
-     *      lending handler cannot be parked at an idle index (including constructor index 0).
-     *      A handler address that already backs a pair is rejected before the interface checks:
-     *      it passed them on its first assignment, and re-running them would not make the second
-     *      pair safe. Only a successful assignment marks the address as used, so a handler whose
-     *      assignment reverted stays available.
+     * @dev Recovery from a mistaken assignment uses a new route because this registry cannot prove a
+     *      handler is empty. ERC-165 separates lending from idle handlers, and one handler address may
+     *      back only one pair.
      */
     function assignTokenHandler(address token, uint256 routeIndex, address handler) external onlyOwner {
         uint32 route = routeIndex.toUint32();

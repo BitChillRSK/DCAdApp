@@ -8,10 +8,9 @@ import {PurchaseMoc} from "src/PurchaseMoc.sol";
  * @title LayerBankDocHandlerMoc
  * @author BitChill team: Antonio Rodríguez-Ynyesto
  * @notice LayerBank-lent DOC + MoC: deposits supply aTokens; buys redeem DOC for rBTC at Money on Chain.
- * @dev Constructor-only leaf: the funding base supplies the deposit and share accounting, and
- *      `PurchaseMoc` the purchase route. DOC is redeemed at Money on Chain's own price rather
- *      than swapped against a pool, so no oracle floor or slippage bound applies here — the
- *      redemption price itself is the whole of the execution guarantee.
+ * @dev Constructor-only leaf. Only its immutable DcaManager moves principal, buys, or withdraws rBTC;
+ *      the owner controls fee settings and collection. MoC redeems at its protocol price, so this
+ *      route has no pool-slippage floor.
  */
 contract LayerBankDocHandlerMoc is LayerBankErc20Handler, PurchaseMoc {
     /**

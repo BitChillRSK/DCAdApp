@@ -10,9 +10,8 @@ import {ILayerBankPool} from "./ILayerBankPool.sol";
  * @title LayerBankErc20Handler
  * @author BitChill team: Antonio Rodríguez-Ynyesto
  * @notice LayerBank adapter: Aave-v3 Pool supply/withdraw. Share accounting lives on LendingErc20Handler.
- * @dev Live LayerBank DOC is an Aave-v3 aToken. Supply and withdraw go through the Pool.
- *      Shares in this contract are aToken **scaled** amounts; the rebasing `balanceOf` is never
- *      read, because mixing the two breaks the round-up solvency invariant.
+ * @dev Supply and withdraw go through the Pool. Shares are aToken scaled amounts; rebasing
+ *      `balanceOf` is never mixed into their accounting.
  */
 abstract contract LayerBankErc20Handler is LendingErc20Handler, ILayerBankErc20Handler {
     /*//////////////////////////////////////////////////////////////

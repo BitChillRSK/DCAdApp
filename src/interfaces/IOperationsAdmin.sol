@@ -5,14 +5,9 @@ pragma solidity 0.8.36;
  * @title IOperationsAdmin
  * @author BitChill team: Antonio Rodríguez-Ynyesto
  * @notice Governance registry for route classes, token handlers, swappers, and per-pair deposit pause.
- * @dev One owner. Route indexes are add-only: a class is recorded once and is never mutated or
- *      deregistered, so an old route stays resolvable and a user can always exit the handler that
- *      holds their funds. `(token, routeIndex)` handler assignment is add-only for the same reason,
- *      and a handler address may be assigned at most once: none of a handler's per-user accounting is
- *      route-keyed, so sharing one instance across two pairs would let one route's principal be read
- *      as another's yield. There is no cooperative migration on these handler versions. The per-pair
- *      deposit pause is the one mutable flag here, a circuit breaker that blocks new inflows without
- *      touching purchases or any exit path.
+ * @dev The owner registers route classes and token-route handlers once, preserving exits through
+ *      retired routes. One handler address may back only one pair because its accounting is keyed by
+ *      user alone. Deposit pauses affect only inflows; the swapper allowlist remains mutable.
  */
 interface IOperationsAdmin {
     /**
@@ -93,12 +88,8 @@ interface IOperationsAdmin {
      * @param token The stablecoin whose handler is being assigned.
      * @param routeIndex The registered route index (idle or lending). Must fit `uint32`.
      * @param handler The TokenHandler for that token and route, not yet assigned anywhere in this admin.
-     * @dev Requires ERC-165 `ITokenHandler`. Lending routes also require `ITokenLending`;
-     *      idle routes reject it. A lending handler at an idle index would strand
-     *      `withdrawInterest` (`DcaManager` gates it on `isLendingRoute`). One handler address
-     *      backs at most one pair: a handler is built for one stablecoin and keys its per-user
-     *      accounting by user alone, so a second pair sharing it reverts with
-     *      `OperationsAdmin__HandlerAddressAlreadyInUse` whatever its token or route class.
+     * @dev Requires ERC-165 `ITokenHandler`; lending routes also require `ITokenLending`, while idle
+     *      routes reject it. One handler address may back only one pair.
      */
     function assignTokenHandler(address token, uint256 routeIndex, address handler) external;
 
@@ -107,13 +98,9 @@ interface IOperationsAdmin {
      * @param token The stablecoin whose deposits are being paused.
      * @param routeIndex The route index whose deposits are being paused. Must fit `uint32`.
      * @param paused True to block new deposits, false to allow them again.
-     * @dev Incident control only: `DcaManager` consults this before `createDcaSchedule` and
-     *      `depositToken` move cash, and nowhere else. Purchases, schedule edits, deletion, and
-     *      every withdrawal (stablecoin, rBTC, interest) ignore it, so a paused route can always
-     *      be exited. The pair must already have a handler, and the flag must change, so every
-     *      emitted event is a real transition. There is no multi-pair form: closing a token across
-     *      several routes is one transaction per pair, and a pair already paused reverts, so a sweep
-     *      must read `areDepositsPaused` first rather than firing blind.
+     * @dev Checked only before schedule creation and deposit move cash. Purchases, edits, deletion,
+     *      and every withdrawal remain available. The pair must be assigned and the flag must change;
+     *      each pair is updated separately.
      */
     function setDepositsPaused(address token, uint256 routeIndex, bool paused) external;
 
