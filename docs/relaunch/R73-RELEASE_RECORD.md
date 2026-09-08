@@ -103,6 +103,17 @@ Recorded at PR open on this branch tip:
 | Storage layouts | Unchanged vs R72 tip for `src/` (this PR does not touch Solidity behavior) |
 | ABI | None — scripts/docs/static-analysis only |
 
+## Known via_ir stack-too-deep carve-outs
+
+`[profile.deploy]` (`via_ir = true`) excludes two test files via
+`compilation_restrictions` (built under legacy codegen instead, assertions still run as part of
+`make check-deploy`):
+
+| File | Cause |
+|---|---|
+| `test/unit/ZeroTokenPurchaseUniswapTest.sol` | solc error 1284: always-reverting constructor's immutable assignment is dead-code-eliminated before a later checker expects it assigned. See [R55](./R55-solx-and-ir-evaluation.md). |
+| `test/ai-generated/unit/layerbank/LayerBankErc20HandlerDexTest.t.sol` | Yul stack-too-deep ("Variable size is 1 too deep in the stack"): the one `HandlerTestHarness` subclass that is both a Dex and a LayerBank lending handler overflows the Yul optimizer's stack allocator when via_ir compiles its full inherited call graph. Pre-existing (confirmed via `git worktree` against this branch's base, unrelated to R73); found and carved out here. |
+
 ## License
 
 BUSL-1.1 on `src/` per [R72](./R72-licensing.md); Additional Use Grant for non-production use;
