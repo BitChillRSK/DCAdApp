@@ -211,36 +211,7 @@ interface IDcaManager {
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Deposit more stablecoin into an existing schedule.
-     * @param token The stablecoin the schedule spends, which is half its storage key.
-     * @param scheduleId The schedule to fund. Must belong to the caller.
-     * @param depositAmount Amount requested from the caller. The handler reverts unless it receives
-     *        exactly this amount, so the schedule is credited with the full request.
-     * @dev The route is read from the schedule, not passed in. The stablecoin is: it is half the key.
-     *      Reverts `DcaManager__DepositsPaused` before any transfer if governance paused deposits
-     *      on this schedule's route. Purchases, edits, withdrawals, and deletion ignore that pause.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
-     */
-    function depositToken(address token, uint64 scheduleId, uint256 depositAmount) external;
-
-    /**
-     * @notice Withdraw stablecoin principal from one schedule.
-     * @param token The stablecoin the schedule spends, which is half its storage key.
-     * @param scheduleId The schedule to withdraw from. Must belong to the caller.
-     * @param withdrawalAmount Amount to withdraw. Pass `type(uint256).max` for this schedule's
-     *        whole `tokenBalance`.
-     * @dev Principal is reduced by the requested amount, not by what the handler paid out. On a lending
-     *      route a successful handler call guarantees the external receipt-share claim for that request
-     *      was fully consumed, so a cash shortfall is a fee or realized loss with nothing left to
-     *      re-credit: restoring it would invent principal this route can no longer redeem. An idle route
-     *      pays short only if the handler's own ledger disagrees with this one, which is a condition to
-     *      surface rather than to paper over.
-     */
-    function withdrawToken(address token, uint64 scheduleId, uint256 withdrawalAmount) external;
+    // User operations: schedule lifecycle, funding, withdrawals, and rBTC claims.
 
     /**
      * @notice Create a new schedule and fund it in the same call.
@@ -264,20 +235,20 @@ interface IDcaManager {
     ) external;
 
     /**
-     * @notice Delete a schedule and return its remaining principal to the caller.
+     * @notice Deposit more stablecoin into an existing schedule.
      * @param token The stablecoin the schedule spends, which is half its storage key.
-     * @param scheduleId The schedule to delete. Must belong to the caller.
-     * @dev Clears the schedule and swap-pops its id out of the owner's list for that stablecoin, so the
-     *      id is retired rather than reused: ids come from a strictly increasing counter. The deleted
-     *      event reports what left the handler, which may be less than `tokenBalance` if the handler
-     *      paid out less than it was asked for. Accumulated rBTC and lending interest are not claimed
-     *      here — withdraw those first.
+     * @param scheduleId The schedule to fund. Must belong to the caller.
+     * @param depositAmount Amount requested from the caller. The handler reverts unless it receives
+     *        exactly this amount, so the schedule is credited with the full request.
+     * @dev The route is read from the schedule, not passed in. The stablecoin is: it is half the key.
+     *      Reverts `DcaManager__DepositsPaused` before any transfer if governance paused deposits
+     *      on this schedule's route. Purchases, edits, withdrawals, and deletion ignore that pause.
      *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
      *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
      *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
      *      `DcaManager__NotScheduleOwner`.
      */
-    function deleteDcaSchedule(address token, uint64 scheduleId) external;
+    function depositToken(address token, uint64 scheduleId, uint256 depositAmount) external;
 
     /**
      * @notice Replace the periodic purchase amount on an existing schedule.
@@ -318,6 +289,103 @@ interface IDcaManager {
      *      `batchBuyRbtcAcrossHandlers` reverts every handler in the bundle.
      */
     function setSchedulePaused(address token, uint64 scheduleId, bool paused) external;
+
+    /**
+     * @notice Delete a schedule and return its remaining principal to the caller.
+     * @param token The stablecoin the schedule spends, which is half its storage key.
+     * @param scheduleId The schedule to delete. Must belong to the caller.
+     * @dev Clears the schedule and swap-pops its id out of the owner's list for that stablecoin, so the
+     *      id is retired rather than reused: ids come from a strictly increasing counter. The deleted
+     *      event reports what left the handler, which may be less than `tokenBalance` if the handler
+     *      paid out less than it was asked for. Accumulated rBTC and lending interest are not claimed
+     *      here — withdraw those first.
+     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
+     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
+     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
+     *      `DcaManager__NotScheduleOwner`.
+     */
+    function deleteDcaSchedule(address token, uint64 scheduleId) external;
+
+    /**
+     * @notice Withdraw stablecoin principal from one schedule.
+     * @param token The stablecoin the schedule spends, which is half its storage key.
+     * @param scheduleId The schedule to withdraw from. Must belong to the caller.
+     * @param withdrawalAmount Amount to withdraw. Pass `type(uint256).max` for this schedule's
+     *        whole `tokenBalance`.
+     * @dev Principal is reduced by the requested amount, not by what the handler paid out. On a lending
+     *      route a successful handler call guarantees the external receipt-share claim for that request
+     *      was fully consumed, so a cash shortfall is a fee or realized loss with nothing left to
+     *      re-credit: restoring it would invent principal this route can no longer redeem. An idle route
+     *      pays short only if the handler's own ledger disagrees with this one, which is a condition to
+     *      surface rather than to paper over.
+     */
+    function withdrawToken(address token, uint64 scheduleId, uint256 withdrawalAmount) external;
+
+    /**
+     * @notice Withdraw principal from one schedule and all lending interest that token has earned on that route.
+     * @param token The stablecoin the schedule spends, which is half its storage key.
+     * @param scheduleId The schedule to withdraw from. Must belong to the caller.
+     * @param withdrawalAmount Principal to withdraw, or `type(uint256).max` for this schedule's whole
+     *        `tokenBalance`.
+     * @dev Interest is withdrawn from the schedule's stored lending route. An idle schedule reverts
+     *      because that route does not yield.
+     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
+     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
+     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
+     *      `DcaManager__NotScheduleOwner`.
+     */
+    function withdrawTokenAndInterest(address token, uint64 scheduleId, uint256 withdrawalAmount) external;
+
+    /**
+     * @notice Credit lending interest the caller has accrued to one schedule's spendable balance.
+     * @param token The stablecoin the schedule spends, which is half its storage key.
+     * @param scheduleId The schedule to credit. Must belong to the caller.
+     * @param amount Interest to credit, at most the spendable accrued-interest ceiling computed at
+     *        the market's current rate. `getInterestAccrued` can quote less on a lazily-accruing market.
+     * @dev Interest accrues per user, token, and route rather than per schedule, so the caller chooses
+     *      which of their schedules on that route receives it, and may split it across several by calling
+     *      this more than once. Nothing is redeemed or transferred — the funds already sit in the lending
+     *      protocol and this only raises the schedule's claim over them. A route with deposits paused
+     *      still accepts a top-up, since that pause stops new funds entering the route and this credits
+     *      funds already in it. Reverts
+     *      `DcaManager__TokenDoesNotYieldInterest` on an idle route,
+     *      `DcaManager__NoInterestToTopUpWith` when nothing has accrued,
+     *      `DcaManager__TopUpExceedsAccruedInterest` when `amount` is more than has accrued, and
+     *      `DcaManager__TopUpDoesNotFundAnotherPurchase` when the credit would not fund one more purchase
+     *      than the schedule could already afford, which is what stops interest being swept over in dust.
+     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
+     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
+     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
+     *      `DcaManager__NotScheduleOwner`.
+     */
+    function topUpFromInterest(address token, uint64 scheduleId, uint256 amount) external;
+
+    /**
+     * @notice Withdraw lending interest the caller has accrued on each named token×route pair.
+     * @param tokens The token of each pair.
+     * @param routeIndexes The route of each pair. Idle routes are skipped.
+     * @dev The two arrays are positional pairs: `tokens[i]` is only withdrawn from `routeIndexes[i]`.
+     *      The arrays must be the same length and non-empty; an unassigned or non-lending pair is skipped.
+     */
+    function withdrawAllAccumulatedInterest(address[] calldata tokens, uint256[] calldata routeIndexes) external;
+
+    /**
+     * @notice Withdraw all rBTC the caller has accumulated on one token×route handler.
+     * @param token The stablecoin whose handler holds the rBTC.
+     * @param routeIndex The route whose handler holds the rBTC.
+     */
+    function withdrawRbtcFromTokenHandler(address token, uint256 routeIndex) external;
+
+    /**
+     * @notice Withdraw all rBTC the caller has accumulated on each named token×route pair.
+     * @param tokens The token of each pair.
+     * @param routeIndexes The route of each pair.
+     * @dev The two arrays are positional pairs: `tokens[i]` is only withdrawn from `routeIndexes[i]`.
+     *      The arrays must be the same length and non-empty; an unassigned or zero-balance pair is skipped.
+     */
+    function withdrawAllAccumulatedRbtc(address[] calldata tokens, uint256[] calldata routeIndexes) external;
+
+    // Swapper-only operations: protected-window activation and batch execution.
 
     /**
      * @notice Open a five-block window for preparing and submitting purchases against fixed user state.
@@ -363,69 +431,7 @@ interface IDcaManager {
      */
     function batchBuyRbtcAcrossHandlers(Batch[] calldata batches) external;
 
-    /**
-     * @notice Withdraw lending interest the caller has accrued on each named token×route pair.
-     * @param tokens The token of each pair.
-     * @param routeIndexes The route of each pair. Idle routes are skipped.
-     * @dev The two arrays are positional pairs: `tokens[i]` is only withdrawn from `routeIndexes[i]`.
-     *      The arrays must be the same length and non-empty; an unassigned or non-lending pair is skipped.
-     */
-    function withdrawAllAccumulatedInterest(address[] calldata tokens, uint256[] calldata routeIndexes) external;
-
-    /**
-     * @notice Withdraw principal from one schedule and all lending interest that token has earned on that route.
-     * @param token The stablecoin the schedule spends, which is half its storage key.
-     * @param scheduleId The schedule to withdraw from. Must belong to the caller.
-     * @param withdrawalAmount Principal to withdraw, or `type(uint256).max` for this schedule's whole
-     *        `tokenBalance`.
-     * @dev Interest is withdrawn from the schedule's stored lending route. An idle schedule reverts
-     *      because that route does not yield.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
-     */
-    function withdrawTokenAndInterest(address token, uint64 scheduleId, uint256 withdrawalAmount) external;
-
-    /**
-     * @notice Credit lending interest the caller has accrued to one schedule's spendable balance.
-     * @param token The stablecoin the schedule spends, which is half its storage key.
-     * @param scheduleId The schedule to credit. Must belong to the caller.
-     * @param amount Interest to credit, at most the spendable accrued-interest ceiling computed at
-     *        the market's current rate. `getInterestAccrued` can quote less on a lazily-accruing market.
-     * @dev Interest accrues per user, token, and route rather than per schedule, so the caller chooses
-     *      which of their schedules on that route receives it, and may split it across several by calling
-     *      this more than once. Nothing is redeemed or transferred — the funds already sit in the lending
-     *      protocol and this only raises the schedule's claim over them. A route with deposits paused
-     *      still accepts a top-up, since that pause stops new funds entering the route and this credits
-     *      funds already in it. Reverts
-     *      `DcaManager__TokenDoesNotYieldInterest` on an idle route,
-     *      `DcaManager__NoInterestToTopUpWith` when nothing has accrued,
-     *      `DcaManager__TopUpExceedsAccruedInterest` when `amount` is more than has accrued, and
-     *      `DcaManager__TopUpDoesNotFundAnotherPurchase` when the credit would not fund one more purchase
-     *      than the schedule could already afford, which is what stops interest being swept over in dust.
-     *      The stablecoin and the id are the schedule's storage key, and the owner it stores is
-     *      checked against the caller: an id that addresses no schedule of that stablecoin reverts
-     *      `DcaManager__InexistentSchedule`, and one that addresses somebody else's reverts
-     *      `DcaManager__NotScheduleOwner`.
-     */
-    function topUpFromInterest(address token, uint64 scheduleId, uint256 amount) external;
-
-    /**
-     * @notice Withdraw all rBTC the caller has accumulated on one token×route handler.
-     * @param token The stablecoin whose handler holds the rBTC.
-     * @param routeIndex The route whose handler holds the rBTC.
-     */
-    function withdrawRbtcFromTokenHandler(address token, uint256 routeIndex) external;
-
-    /**
-     * @notice Withdraw all rBTC the caller has accumulated on each named token×route pair.
-     * @param tokens The token of each pair.
-     * @param routeIndexes The route of each pair.
-     * @dev The two arrays are positional pairs: `tokens[i]` is only withdrawn from `routeIndexes[i]`.
-     *      The arrays must be the same length and non-empty; an unassigned or zero-balance pair is skipped.
-     */
-    function withdrawAllAccumulatedRbtc(address[] calldata tokens, uint256[] calldata routeIndexes) external;
+    // Owner-only operations: protocol configuration.
 
     /**
      * @notice Set the protocol minimum purchase period. Cannot be below one UTC day.
@@ -450,6 +456,12 @@ interface IDcaManager {
     /*//////////////////////////////////////////////////////////////
                                 GETTERS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice The OperationsAdmin this manager is permanently pinned to.
+     * @return The constructor-supplied OperationsAdmin.
+     */
+    function i_operationsAdmin() external view returns (IOperationsAdmin);
 
     /**
      * @notice One DCA schedule, by the stablecoin it spends and its id.
@@ -479,23 +491,24 @@ interface IDcaManager {
         returns (uint64[] memory scheduleIds, DcaSchedule[] memory schedules);
 
     /**
-     * @notice The OperationsAdmin this manager is permanently pinned to.
-     * @return The constructor-supplied OperationsAdmin.
+     * @notice Lifetime count of schedules created across all users and tokens.
+     * @dev Equals the last `scheduleId` assigned, since ids are that counter. Never decreases;
+     *      deletions do not decrement it.
+     * @return The creation nonce (last assigned id, or 0 before the first create).
      */
-    function i_operationsAdmin() external view returns (IOperationsAdmin);
+    function getSchedulesCreatedCount() external view returns (uint256);
 
     /**
-     * @notice Block from which guarded user mutations are allowed after the latest protected window.
-     * @return The latest activation block plus five, or zero before the first activation.
-     * @dev Compare with `block.number`: mutations are locked while the current block is lower.
+     * @notice rBTC a user has accumulated on the handler for a token and route.
+     * @param user Account to query.
+     * @param token Stablecoin of the handler.
+     * @param routeIndex Route of the handler.
+     * @return Accumulated rBTC balance in wei.
      */
-    function getUserMutationsAllowedFromBlock() external view returns (uint256);
-
-    /**
-     * @notice Whether an authorized swapper could activate a protected purchase window now.
-     * @return True when no window is currently active.
-     */
-    function canActivateProtectedPurchaseWindow() external view returns (bool);
+    function getAccumulatedRbtcBalance(address user, address token, uint256 routeIndex)
+        external
+        view
+        returns (uint256);
 
     /**
      * @notice Lending interest a user has accrued on one token and route, above locked principal.
@@ -513,16 +526,17 @@ interface IDcaManager {
         returns (uint256);
 
     /**
-     * @notice rBTC a user has accumulated on the handler for a token and route.
-     * @param user Account to query.
-     * @param token Stablecoin of the handler.
-     * @param routeIndex Route of the handler.
-     * @return Accumulated rBTC balance in wei.
+     * @notice Block from which guarded user mutations are allowed after the latest protected window.
+     * @return The latest activation block plus five, or zero before the first activation.
+     * @dev Compare with `block.number`: mutations are locked while the current block is lower.
      */
-    function getAccumulatedRbtcBalance(address user, address token, uint256 routeIndex)
-        external
-        view
-        returns (uint256);
+    function getUserMutationsAllowedFromBlock() external view returns (uint256);
+
+    /**
+     * @notice Whether an authorized swapper could activate a protected purchase window now.
+     * @return True when no window is currently active.
+     */
+    function canActivateProtectedPurchaseWindow() external view returns (bool);
 
     /**
      * @notice Protocol minimum purchase period in seconds.
@@ -535,14 +549,6 @@ interface IDcaManager {
      * @return The current cap.
      */
     function getMaxSchedulesPerToken() external view returns (uint256);
-
-    /**
-     * @notice Lifetime count of schedules created across all users and tokens.
-     * @dev Equals the last `scheduleId` assigned, since ids are that counter. Never decreases;
-     *      deletions do not decrement it.
-     * @return The creation nonce (last assigned id, or 0 before the first create).
-     */
-    function getSchedulesCreatedCount() external view returns (uint256);
 
     /**
      * @notice Minimum purchase amount configured for `token`.
