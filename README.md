@@ -1,7 +1,18 @@
 # BitChill - Smart Contracts
 
 ## Introduction
-BitChill is a decentralized protocol on Rootstock that enables users to automate their BTC purchases with Dollar-Cost Averaging (DCA) strategies. The protocol currently supports stablecoins DOC and USDRIF and integrates with Tropykus and Sovryn lending protocols, allowing users to create, update, and delete DCA schedules while earning yield on their deposits.
+
+BitChill is a decentralized protocol on Rootstock that enables users to automate BTC purchases with
+Dollar-Cost Averaging (DCA). Users deposit listed stablecoins into handlers (idle custody or lending),
+create schedules on `DcaManager`, and a swapper bot triggers purchases. The **relaunch** production map is:
+
+| Stablecoin | Routes | Venue |
+|---|---|---|
+| DOC | idle (0), LayerBank (1), Sovryn (2) | Money on Chain |
+| USDRIF | idle (0), LayerBank (1) | Uniswap V3 |
+| USDT0 | idle (0), LayerBank (1) | Uniswap V3 |
+
+Tropykus remains in-repo for legacy local/fork tests only; it is not on either live map.
 
 ## Protocol Architecture
 
@@ -21,12 +32,9 @@ BitChill is a decentralized protocol on Rootstock that enables users to automate
    - Handles deposits and withdrawals of stablecoins
 
 3. **Lending Integration**
-   - `TokenLending` abstract contract
-      - Manages conversion of balances from stablecoins to lending tokens and viceversa
-   - Supports multiple lending protocols (Tropykus, Sovryn)
-   - `TropykusErc20Handler` and `SovrynErc20Handler`
-      - Implement deposits and withdrawals overriding `TokenHandler` to deposit to and withdraw from lending protocols
-      - Handle withdrawal of accrued interests
+   - `TokenLending` / `LendingErc20Handler`: share ↔ underlying conversion and per-user virtual shares
+   - Production lending adapters: LayerBank (index 1), Sovryn (index 2 for DOC)
+   - Idle handlers (index 0) hold the stablecoin without lending
 
 4. **Purchase Methods**
    - `PurchaseMoc`: Direct redemption through Money on Chain (for DOC)
@@ -66,9 +74,9 @@ The current architecture balances extensibility with gas efficiency:
    - Automatic yield generation on deposits
 
 2. **Token Management**
-   - Support for multiple stablecoins (DOC, USDRIF)
-   - Integration with lending protocols
-   - Interest accrual and withdrawal
+   - Support for DOC, USDRIF, and USDT0 on the relaunch map
+   - Integration with LayerBank and Sovryn (DOC); idle custody where chosen
+   - Interest accrual and withdrawal on lending routes
    - Fee management system
 
 3. **Security Features**
@@ -83,10 +91,9 @@ The current architecture balances extensibility with gas efficiency:
 ## Security Considerations
 
 ### Access Control
-- Role-based access control for all critical functions
-- Owner and admin roles with specific permissions
-- Swapper role for purchase operations
-- DCA manager contract as central authority
+- Owner governance via `Ownable2Step` (Safe after cutover accept)
+- Swapper allowlist on `OperationsAdmin` for purchase operations
+- `DcaManager` as the only user-facing entry for schedules and withdrawals
 
 ### Reentrancy Protection
 - ReentrancyGuard implementation
@@ -100,10 +107,11 @@ The current architecture balances extensibility with gas efficiency:
 - Balance checks before operations
 
 ### Contract Dependencies
-- Rootstock-compatible compiler version (v0.8.36, EVM cancun)
-- OpenZeppelin Contracts v4.9.3
-- Money on Chain Protocol (for DOC)
-- Uniswap V3 Protocol (for other stablecoins)
+- Rootstock-compatible compiler: solc **0.8.36**, EVM **cancun**
+- OpenZeppelin Contracts **v5.7.0**
+- Money on Chain (DOC redemptions)
+- Uniswap V3 SwapRouter02 (Dex stables)
+- Deployment profile: `FOUNDRY_PROFILE=deploy` (`via_ir = true`) — see below
 
 ### Key Security Assumptions
 1. Money on Chain protocol security (for DOC)
@@ -118,15 +126,14 @@ The current architecture balances extensibility with gas efficiency:
 
 ### Audit and Testing
 
-BitChill's smart-contracts have undergone a manual audit by **[Ivan Fitro](https://github.com/IvanFitro)**.  
+Two published reviews by Ivan Fitro (April and June 2025) cover the **pre-relaunch** codebase. Details and
+the boundary with the 2026 relaunch are in [`audits/README.md`](./audits/README.md). The relaunch stack has
+not claimed a separate independent audit in that file unless a new report is added.
 
-Also, we used an extensive automation pipeline:
+Local automation includes unit tests, fuzz/invariants, and fork probes. Static analysis at cutover:
+`make slither`, `make aderyn` (triage in [`docs/relaunch/R73-RELEASE_RECORD.md`](./docs/relaunch/R73-RELEASE_RECORD.md)).
 
-* 100 % branch-level test-coverage on core contracts, with > 94 % line coverage overall.  
-  – Hundreds of AI-generated unit tests exercise edge-cases that were missed in the original hand-written suite.
-* Property-based fuzzing & invariant testing.
-
-Despite these measures **no audit or test-suite can guarantee absolute safety**. You should always perform your own due-diligence and only risk funds you can afford to lose.
+**No audit or test suite guarantees absolute safety.** Do your own diligence and only risk funds you can afford to lose.
 
 ## Getting Started
 
@@ -137,10 +144,11 @@ Despite these measures **no audit or test-suite can guarantee absolute safety**.
 
 ### Installation
 ```bash
-git clone git@github.com:BitChillRSK/DCAdApp.git
-cd bitchill-contracts
-git checkout smart-contracts
-./setup.sh
+git clone git@github.com:BitChillRSK/dca-contracts.git
+cd dca-contracts
+git submodule update --init --recursive
+make patch-deps   # Uniswap pragma compatibility for solc 0.8.36
+forge build
 ```
 
 ### Testing
@@ -205,19 +213,19 @@ Keystores encrypt your private keys and are much more secure than plain text pri
 
 2. **Use keystore in deployment commands:**
    ```bash
-   # FOUNDRY_PROFILE=deploy is required (see "Compilation profile for deployment" below) — it is what
-   # compiles and broadcasts the via_ir bytecode. Run `make check-deploy` green on this commit first.
+   # Canonical one-shot stack. FOUNDRY_PROFILE=deploy required.
+   # Precondition: make check-deploy green on this commit. See docs/relaunch/CUTOVER_RUNBOOK.md.
+   REAL_DEPLOYMENT=true \
+   INITIAL_SWAPPER=<bot-eoa> \
    FOUNDRY_PROFILE=deploy \
-   forge script script/DeployMocSwaps.s.sol \
-     --rpc-url $RSK_TESTNET_RPC_URL \
-     --account dev_wallet \
+   forge script script/DeployFinal.s.sol:DeployFinal \
+     --rpc-url $RSK_MAINNET_RPC_URL \
+     --account <deployer> \
      --broadcast \
      --verify \
      --verifier blockscout \
      --verifier-url $BLOCKSCOUT_API_URL \
      --legacy
-
-   # Enter password when prompted
    ```
 
 **Using Hardware Wallets (Most Secure):**
@@ -250,48 +258,30 @@ forge script script/DeployMocSwaps.s.sol \
 
 #### Deployment Steps
 
-1. Set up your environment variables in `.env`:
-```bash
-# Required variables
-RSK_TESTNET_RPC_URL=your_rsk_testnet_rpc_url
-BLOCKSCOUT_API_KEY=your_blockscout_api_key
-BLOCKSCOUT_API_URL=https://rootstock-testnet.blockscout.com/api
+1. Set up environment variables in `.env` (RPC URLs, Blockscout). For the canonical stack:
 
-# Deployment configuration
-export SWAP_TYPE=mocSwaps  # for DOC, or dexSwaps for other stablecoins
-export STABLECOIN_TYPE=DOC  # or USDRIF
-export REAL_DEPLOYMENT=true  # Set to true for actual deployment on a live network
+```bash
+export REAL_DEPLOYMENT=true
+export INITIAL_SWAPPER=<production-bot-eoa>
+export FOUNDRY_PROFILE=deploy
 ```
 
-2. Deploy the contracts:
+2. Deploy on Rootstock **mainnet** (fail-closed: `DeployFinal.run()` rejects non-mainnet and incomplete maps):
+
 ```bash
-# FOUNDRY_PROFILE=deploy is required on every broadcast below — see "Compilation profile for
-# deployment". Precondition: `make check-deploy` passes green on the exact commit being deployed.
-
-# Deploy to Rootstock Testnet
 REAL_DEPLOYMENT=true \
+INITIAL_SWAPPER=<bot-eoa> \
 FOUNDRY_PROFILE=deploy \
-forge script script/DeployMocSwaps.s.sol \
-  --rpc-url $RSK_TESTNET_RPC_URL \
-  --account dev_wallet \
-  --broadcast \
-  --verify \
-  --verifier blockscout \
-  --verifier-url $BLOCKSCOUT_API_URL \
-  --legacy
-
-# Deploy to Rootstock Mainnet
-REAL_DEPLOYMENT=true \
-FOUNDRY_PROFILE=deploy \
-forge script script/DeployMocSwaps.s.sol \
+forge script script/DeployFinal.s.sol:DeployFinal \
   --rpc-url $RSK_MAINNET_RPC_URL \
-  --account dev_wallet \
-  --broadcast \
-  --verify \
-  --verifier blockscout \
-  --verifier-url $BLOCKSCOUT_API_URL \
-  --legacy
+  --account <deployer-eoa> \
+  --broadcast --legacy \
+  --verify --verifier blockscout --verifier-url $BLOCKSCOUT_API_URL
 ```
+
+Full checklist: [`docs/relaunch/CUTOVER_RUNBOOK.md`](./docs/relaunch/CUTOVER_RUNBOOK.md).
+Lane scripts (`DeployMocSwaps`, `DeployDexSwaps`, add-ons) remain for local/fork tests and incremental
+additions; they are not the one-shot cutover path.
 
 #### Ownership after deploy
 
@@ -326,7 +316,10 @@ Add-on scripts (`DeployIdleHandler`, `DeployLayerBankHandler`, `DeployUsdrifHand
 
 `DeployDexSwaps` live full-stack sets that min in the same broadcast because that script owns the new admin. The add-on does not.
 
-`DeployMocAndUniswap` is a local/fork comparison harness (two independent stacks) and **reverts** on `REAL_DEPLOYMENT=true`. It is not the live deploy. A later one-shot live script — idle, Sovryn DOC, LayerBank DOC, LayerBank USDRIF, LayerBank USDT0 on a single `OperationsAdmin` / `DcaManager` — belongs as a follow-up now that the production map is final. Until then use `DeployMocSwaps` / `DeployDexSwaps` plus the add-ons.
+`DeployMocAndUniswap` is a local/fork comparison harness (two independent stacks) and **reverts** on
+`REAL_DEPLOYMENT=true`. The canonical one-shot live script is **`DeployFinal`**: idle / LayerBank /
+Sovryn DOC (MoC) plus idle / LayerBank for USDRIF and USDT0 (Uniswap) on a single `OperationsAdmin` /
+`DcaManager`. See [`docs/relaunch/CUTOVER_RUNBOOK.md`](./docs/relaunch/CUTOVER_RUNBOOK.md).
 
 Later ownership changes (new Safe, recovered wallet) are the same two steps: current owner `transferOwnership(new)`, incoming owner `acceptOwnership()`. `renounceOwnership` always reverts.
 
@@ -381,20 +374,26 @@ REAL_DEPLOYMENT=true forge script script/DeployOptimizerProof.s.sol:DeployOptimi
 
 ## Dependency Management
 
-This project uses Git submodules for dependency management. The following dependencies are included:
+This project uses Git submodules for dependency management:
 
-- OpenZeppelin Contracts v4.9.3
-- Uniswap V3 Core v1.0.0
-- Uniswap V3 Periphery v1.3.0
-- Uniswap Swap Router Contracts v1.3.0
+- OpenZeppelin Contracts **v5.7.0**
+- Uniswap V3 Core / Periphery / Swap Router Contracts (vendored; pragma patched via `make patch-deps`)
 
 Uniswap V3 sources still declare `pragma solidity =0.7.6`. Local builds and CI patch those pragmas so they compile with first-party solc 0.8.36. Details: [DEPENDENCY_MODIFICATIONS.md](./DEPENDENCY_MODIFICATIONS.md).
 
-For a complete list of contract addresses used in the protocol (including both mainnet and testnet), please refer to [ADDRESSES.md](./ADDRESSES.md).
+For contract addresses after cutover, publish from the `DeployFinal` log; historical lists may live in [ADDRESSES.md](./ADDRESSES.md).
+
+## License
+
+- `src/`: [BUSL-1.1](./LICENSE) (Additional Use Grant for non-production use; Change License `GPL-2.0-or-later`)
+- `script/` / `test/`: MIT
+- See [R72](./docs/relaunch/R72-licensing.md) and `SECURITY.md`.
 
 ## Contact
 For audit-related inquiries or security concerns, please contact:
 - Smart Contract Developer: [Antonio Rodríguez-Ynyesto](https://www.linkedin.com/in/antonio-maria-rodriguez-ynyesto-sanchez/)
 
 ## Disclaimer
-This protocol has been audited but could still have bugs. Use at your own risk. Always perform due diligence before interacting with smart contracts.
+
+Smart contracts involve risk. The historical 2025 reviews and the relaunch test suite do not guarantee
+safety. Always perform your own diligence before interacting with the protocol.
