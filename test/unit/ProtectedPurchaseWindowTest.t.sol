@@ -72,7 +72,8 @@ contract ProtectedPurchaseWindowTest is DcaDappTest {
             abi.encodeCall(IDcaManager.setSchedulePaused, (address(stablecoin), scheduleId, true)), expectedRevert
         );
         _assertUserCallRevertsLocked(
-            abi.encodeCall(IDcaManager.deleteDcaSchedule, (address(stablecoin), scheduleId)), expectedRevert
+            abi.encodeCall(IDcaManager.deleteDcaSchedule, (address(stablecoin), scheduleId, type(uint256).max)),
+            expectedRevert
         );
         _assertUserCallRevertsLocked(
             abi.encodeCall(IDcaManager.withdrawToken, (address(stablecoin), scheduleId, 1)), expectedRevert

@@ -40,3 +40,19 @@ function scheduleCount(IDcaManager dcaManager, address user, address token) view
     (uint64[] memory scheduleIds,) = dcaManager.getDcaSchedules(user, token);
     return scheduleIds.length;
 }
+
+/**
+ * @notice An id's current position in an owner's list for a token, the way a caller sources the index
+ *         `deleteDcaSchedule` requires: read the list fresh, then find the id in it.
+ * @dev Reverts if the id is not present, mirroring `deleteDcaSchedule` finding no match.
+ */
+function scheduleIndexOf(IDcaManager dcaManager, address user, address token, uint64 scheduleId)
+    view
+    returns (uint256)
+{
+    (uint64[] memory scheduleIds,) = dcaManager.getDcaSchedules(user, token);
+    for (uint256 i; i < scheduleIds.length; ++i) {
+        if (scheduleIds[i] == scheduleId) return i;
+    }
+    revert("scheduleIndexOf: id not found");
+}

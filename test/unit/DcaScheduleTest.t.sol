@@ -8,7 +8,7 @@ import {IDcaManager} from "../../src/interfaces/IDcaManager.sol";
 import {UNUSED_SCHEDULE_ID} from "../utils/BatchBuyOne.sol";
 import "../Constants.sol";
 import {DummyTokenHandler} from "./TestsHelper.t.sol";
-import {scheduleAt, scheduleIdAt, scheduleCount} from "test/utils/ScheduleAt.sol";
+import {scheduleAt, scheduleIdAt, scheduleCount, scheduleIndexOf} from "test/utils/ScheduleAt.sol";
 
 contract DcaScheduleTest is DcaDappTest {
     // Events
@@ -31,8 +31,9 @@ contract DcaScheduleTest is DcaDappTest {
      * amount is what the handler paid, compared with a rounding tolerance.
      */
     function _deleteAndAssertEvent(uint64 scheduleId, uint256 expectedRefund) private {
+        uint256 scheduleIdIndex = scheduleIndexOf(dcaManager, USER, address(stablecoin), scheduleId);
         vm.recordLogs();
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, scheduleIdIndex);
 
         bytes32 sig = keccak256("DcaManager__DcaScheduleDeleted(address,address,uint64,uint256)");
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -143,7 +144,10 @@ contract DcaScheduleTest is DcaDappTest {
         assertEq(dcaManager.getSchedulesCreatedCount(), countAfterSetUp + 1);
 
         // deleting must not decrement: the count is a lifetime total for indexer cross-checks
-        dcaManager.deleteDcaSchedule(address(stablecoin), _lastScheduleId());
+        uint64 lastScheduleId = _lastScheduleId();
+        dcaManager.deleteDcaSchedule(
+            address(stablecoin), lastScheduleId, scheduleIndexOf(dcaManager, USER, address(stablecoin), lastScheduleId)
+        );
         assertEq(dcaManager.getSchedulesCreatedCount(), countAfterSetUp + 1);
         assertEq(scheduleCount(dcaManager, USER, address(stablecoin)), 1);
         vm.stopPrank();
@@ -231,9 +235,11 @@ contract DcaScheduleTest is DcaDappTest {
     function testDeleteSeveraldcaSchedules() external {
         super.createSeveralDcaSchedules();
         vm.startPrank(USER);
+        // Deleting from the highest index down never disturbs an earlier one's position (swap-pop only
+        // ever moves the *last* element), so each iteration's own index is still valid at delete time.
         for (int256 i = int256(NUM_OF_SCHEDULES) - 1; i >= 0; --i) {
             uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), uint256(i));
-            dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+            dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, uint256(i));
         }
         vm.stopPrank();
     }
@@ -264,6 +270,42 @@ contract DcaScheduleTest is DcaDappTest {
         vm.stopPrank();
     }
 
+    /// @dev The index must name exactly `scheduleId`'s current slot. Naming another live schedule's
+    ///      slot, or a slot past the end of the list, reverts and leaves both schedules untouched —
+    ///      there is no scan to fall back on.
+    function testDeleteRevertsOnAWrongOrOutOfRangeScheduleIdIndex() external {
+        vm.startPrank(USER);
+        stablecoin.approve(address(stablecoinHandler), AMOUNT_TO_DEPOSIT * 5);
+        dcaManager.createDcaSchedule(
+            address(stablecoin), AMOUNT_TO_DEPOSIT * 2, AMOUNT_TO_SPEND, MIN_PURCHASE_PERIOD, s_routeIndex
+        );
+        uint64 scheduleId = _lastScheduleId();
+        uint256 correctIndex = scheduleIndexOf(dcaManager, USER, address(stablecoin), scheduleId);
+        uint256 wrongIndex = correctIndex == 0 ? 1 : 0; // the setUp schedule's slot, not this one's
+        uint256 outOfRangeIndex = scheduleCount(dcaManager, USER, address(stablecoin));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__ScheduleIdIndexMismatch.selector, address(stablecoin), scheduleId, wrongIndex
+            )
+        );
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, wrongIndex);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDcaManager.DcaManager__ScheduleIdIndexMismatch.selector,
+                address(stablecoin),
+                scheduleId,
+                outOfRangeIndex
+            )
+        );
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, outOfRangeIndex);
+
+        assertEq(scheduleCount(dcaManager, USER, address(stablecoin)), 2);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, correctIndex);
+        vm.stopPrank();
+    }
+
     function testCreateSeveralDcaSchedules() external {
         super.createSeveralDcaSchedules();
     }
@@ -291,18 +333,19 @@ contract DcaScheduleTest is DcaDappTest {
     function testCannotDeleteAScheduleTwice() external {
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), 0);
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, 0);
 
+        // Existence is checked before the index, so the stale index here is irrelevant to the revert.
         vm.expectRevert(abi.encodeWithSelector(IDcaManager.DcaManager__InexistentSchedule.selector, address(stablecoin), scheduleId));
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, type(uint256).max);
     }
 
     function testCannotDeleteAScheduleThatDoesNotExist() external {
         uint64 wrongScheduleId = UNUSED_SCHEDULE_ID;
         vm.expectRevert(abi.encodeWithSelector(IDcaManager.DcaManager__InexistentSchedule.selector, address(stablecoin), wrongScheduleId));
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), wrongScheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), wrongScheduleId, type(uint256).max);
     }
 
     /// @dev The schedule stores its owner, so another account's id is refused as one they do not own.
@@ -311,7 +354,7 @@ contract DcaScheduleTest is DcaDappTest {
         address stranger = makeAddr("notTheOwner");
         vm.expectRevert(abi.encodeWithSelector(IDcaManager.DcaManager__NotScheduleOwner.selector, address(stablecoin), scheduleId, USER));
         vm.prank(stranger);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, type(uint256).max);
     }
 
 }

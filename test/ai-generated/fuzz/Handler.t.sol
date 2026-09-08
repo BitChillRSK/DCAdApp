@@ -411,7 +411,7 @@ contract Handler is Test {
 
         scheduleIndex = bound(scheduleIndex, 0, schedules.length - 1);
         
-        try dcaManager.deleteDcaSchedule(address(stablecoin), schedulesIds[scheduleIndex]) {
+        try dcaManager.deleteDcaSchedule(address(stablecoin), schedulesIds[scheduleIndex], scheduleIndex) {
             // Success
         } catch {
             // Ignore failures

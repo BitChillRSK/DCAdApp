@@ -111,7 +111,7 @@ contract SchedulePauseTest is DcaDappTest {
 
         uint64 deletedScheduleId = _scheduleId(SCHEDULE_INDEX);
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), deletedScheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), deletedScheduleId, SCHEDULE_INDEX);
 
         IDcaManager.DcaSchedule memory moved = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         assertEq(scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX), movedScheduleId, "swap-pop did not move the last schedule here");
@@ -307,7 +307,7 @@ contract SchedulePauseTest is DcaDappTest {
         uint256 userStablecoinBefore = stablecoin.balanceOf(USER);
 
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, SCHEDULE_INDEX);
 
         assertEq(scheduleCount(dcaManager, USER, address(stablecoin)), 0);
         assertGt(stablecoin.balanceOf(USER), userStablecoinBefore, "the refund never reached the user");

@@ -151,7 +151,7 @@ contract NetRedemptionTest is DcaDappTest {
 
         vm.recordLogs();
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, SCHEDULE_INDEX);
 
         uint256 paid = stablecoin.balanceOf(USER) - userDocBefore;
         assertLt(paid, AMOUNT_TO_DEPOSIT, "the exit fee should have produced a shortfall");

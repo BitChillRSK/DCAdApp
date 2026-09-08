@@ -33,7 +33,7 @@ contract ReentrantDepositor is ITransferFromHook {
     function onTransferFrom(address, address, uint256) external {
         if (!attack) return;
         attack = false;
-        dca.deleteDcaSchedule(token, deleteId);
+        dca.deleteDcaSchedule(token, deleteId, type(uint256).max);
     }
 
     function createSchedule(uint256 depositAmount, uint256 purchaseAmount, uint256 period, uint256 lendingIndex)
@@ -43,7 +43,12 @@ contract ReentrantDepositor is ITransferFromHook {
     }
 
     function remove(uint64 scheduleId) external {
-        dca.deleteDcaSchedule(token, scheduleId);
+        (uint64[] memory ids,) = dca.getDcaSchedules(address(this), token);
+        uint256 index;
+        for (uint256 i; i < ids.length; ++i) {
+            if (ids[i] == scheduleId) index = i;
+        }
+        dca.deleteDcaSchedule(token, scheduleId, index);
     }
 
     function deposit(uint64 scheduleId, uint256 amount) external {

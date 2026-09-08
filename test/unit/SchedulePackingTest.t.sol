@@ -431,7 +431,7 @@ contract SchedulePackingTest is DcaDappTest {
         uint64 survivorId = scheduleIdAt(dcaManager, USER, address(stablecoin), lastIndex);
 
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), deletedId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), deletedId, SCHEDULE_INDEX);
 
         // The survivor now sits at index 0 carrying its own nonce; the deleted id must not open it.
         assertEq(scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX), survivorId);
@@ -500,7 +500,7 @@ contract SchedulePackingTest is DcaDappTest {
         uint64 deletedId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
 
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), deletedId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), deletedId, SCHEDULE_INDEX);
 
         // The survivor moved into the freed position in the list, and is otherwise untouched.
         IDcaManager.DcaSchedule memory moved = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
@@ -533,7 +533,7 @@ contract SchedulePackingTest is DcaDappTest {
         assertTrue(_load(base) != 0, "the schedule was empty before the delete");
 
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), deletedId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), deletedId, SCHEDULE_INDEX);
 
         assertEq(_load(base), 0, "slot 0 survived the delete");
         assertEq(_load(base + 1), 0, "slot 1 survived the delete");

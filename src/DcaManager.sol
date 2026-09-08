@@ -254,7 +254,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /**
      * @inheritdoc IDcaManager
      */
-    function deleteDcaSchedule(address token, uint64 scheduleId)
+    function deleteDcaSchedule(address token, uint64 scheduleId, uint256 scheduleIdIndex)
         external
         override
         whenUserMutationsAllowed
@@ -268,7 +268,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
         // Both structures drop the schedule before the handler call: the schedule itself, and the id's
         // place in its owner's list for this token.
-        _removeScheduleId(msg.sender, token, scheduleId);
+        _removeScheduleId(msg.sender, token, scheduleId, scheduleIdIndex);
         delete s_dcaSchedules[token][scheduleId];
 
         uint256 amountWithdrawn;
@@ -680,23 +680,23 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     }
 
     /**
-     * @dev Take one id out of its owner's list for a token, by swap-pop. The scan is bounded by the
-     *      max-schedules-per-token setting. Reverting when the id is absent keeps a desync between the
-     *      two structures from popping a live schedule's id instead; it is unreachable while they agree,
-     *      because an owned schedule is always listed under its own owner and token.
+     * @dev Take one id out of its owner's list for a token, by swap-pop at the caller-supplied index.
+     *      `deleteDcaSchedule` has already confirmed the id exists and belongs to the caller by this
+     *      point, so a mismatch here means only one thing: the index is stale relative to storage.
+     *      There is no scan and no fallback — a wrong index reverts rather than being absorbed, so a
+     *      caller building the index off a stale read finds out immediately instead of silently paying
+     *      for a scan it should not need.
      */
-    function _removeScheduleId(address user, address token, uint64 scheduleId) private {
+    function _removeScheduleId(address user, address token, uint64 scheduleId, uint256 index) private {
         uint64[] storage scheduleIds = s_scheduleIds[user][token];
         uint256 numOfSchedules = scheduleIds.length;
-        for (uint256 i; i < numOfSchedules; ++i) {
-            if (scheduleIds[i] == scheduleId) {
-                uint256 lastIndex = numOfSchedules - 1;
-                if (i != lastIndex) scheduleIds[i] = scheduleIds[lastIndex];
-                scheduleIds.pop();
-                return;
-            }
+        if (index >= numOfSchedules || scheduleIds[index] != scheduleId) {
+            revert DcaManager__ScheduleIdIndexMismatch(token, scheduleId, index);
         }
-        revert DcaManager__InexistentSchedule(token, scheduleId);
+
+        uint256 lastIndex = numOfSchedules - 1;
+        if (index != lastIndex) scheduleIds[index] = scheduleIds[lastIndex];
+        scheduleIds.pop();
     }
 
     /**

@@ -282,7 +282,7 @@ contract R64BatchGasBenchmarkTest is Test {
         uint64 scheduleId = _lastCreatedId(design, user, token);
 
         deleteGas = gasleft();
-        if (design == 0) s_designA.deleteDcaSchedule(token, scheduleId);
+        if (design == 0) s_designA.deleteDcaSchedule(token, scheduleId, 0);
         else if (design == 1) s_designB.deleteDcaSchedule(token, 0, scheduleId);
         else if (design == 2) s_designC.deleteDcaSchedule(scheduleId);
         else if (design == 3) s_designD.deleteDcaSchedule(scheduleId);

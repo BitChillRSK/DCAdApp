@@ -214,7 +214,7 @@ contract DepositsPauseTest is DcaDappTest {
         uint256 userStablecoinBefore = stablecoin.balanceOf(USER);
 
         vm.prank(USER);
-        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId);
+        dcaManager.deleteDcaSchedule(address(stablecoin), scheduleId, SCHEDULE_INDEX);
 
         assertEq(scheduleCount(dcaManager, USER, address(stablecoin)), 0);
         assertGt(stablecoin.balanceOf(USER), userStablecoinBefore, "the refund never reached the user");
