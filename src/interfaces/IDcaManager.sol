@@ -211,6 +211,8 @@ interface IDcaManager {
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    // User operations: schedule lifecycle, funding, withdrawals, and rBTC claims.
+
     /**
      * @notice Create a new schedule and fund it in the same call.
      * @param token The stablecoin to deposit.
@@ -383,6 +385,8 @@ interface IDcaManager {
      */
     function withdrawAllAccumulatedRbtc(address[] calldata tokens, uint256[] calldata routeIndexes) external;
 
+    // Swapper-only operations: protected-window activation and batch execution.
+
     /**
      * @notice Open a five-block window for preparing and submitting purchases against fixed user state.
      * @dev Only an address currently on the OperationsAdmin swapper allowlist may call. An active
@@ -426,6 +430,8 @@ interface IDcaManager {
      *      retries (same `Batch` type).
      */
     function batchBuyRbtcAcrossHandlers(Batch[] calldata batches) external;
+
+    // Owner-only operations: protocol configuration.
 
     /**
      * @notice Set the protocol minimum purchase period. Cannot be below one UTC day.
