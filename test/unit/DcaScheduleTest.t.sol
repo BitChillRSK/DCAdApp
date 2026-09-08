@@ -244,7 +244,9 @@ contract DcaScheduleTest is DcaDappTest {
         vm.stopPrank();
     }
 
-    /// @dev Id-based deletion is independent of a schedule's current position in the enumeration list.
+    /// @dev Deletion is by id, but the caller still owes the id's current index: `_deleteAndAssertEvent`
+    ///      re-resolves it via `scheduleIndexOf` before each call, since the first delete's swap-pop moves
+    ///      the second id's position in the enumeration list.
     function testCanDeleteTwoSchedulesByIdInTheSameBlock() external {
         vm.startPrank(USER);
         stablecoin.approve(address(stablecoinHandler), AMOUNT_TO_DEPOSIT * 5);
