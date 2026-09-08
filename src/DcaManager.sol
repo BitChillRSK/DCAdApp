@@ -637,7 +637,9 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         if (purchaseAmount > tokenBalance) {
             revert DcaManager__ScheduleBalanceNotEnoughForPurchase(token, scheduleId, tokenBalance);
         }
-        tokenBalance -= purchaseAmount;
+        unchecked {
+            tokenBalance -= purchaseAmount;
+        }
         dcaSchedule.tokenBalance = tokenBalance;
         emit DcaManager__TokenBalanceUpdated(token, scheduleId, tokenBalance);
 
@@ -694,7 +696,11 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
             revert DcaManager__ScheduleIdIndexMismatch(token, scheduleId, index);
         }
 
-        uint256 lastIndex = numOfSchedules - 1;
+        // numOfSchedules > index >= 0 by the check above, so numOfSchedules >= 1.
+        uint256 lastIndex;
+        unchecked {
+            lastIndex = numOfSchedules - 1;
+        }
         if (index != lastIndex) scheduleIds[index] = scheduleIds[lastIndex];
         scheduleIds.pop();
     }
@@ -791,7 +797,10 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
             revert DcaManager__WithdrawalAmountExceedsBalance(token, withdrawalAmount, tokenBalance);
         }
         // Subtract the requested withdrawal amount, not the amount the handler paid out
-        uint256 newTokenBalance = tokenBalance - withdrawalAmount;
+        uint256 newTokenBalance;
+        unchecked {
+            newTokenBalance = tokenBalance - withdrawalAmount;
+        }
         routeIndex = dcaSchedule.routeIndex;
         dcaSchedule.tokenBalance = newTokenBalance.toUint128();
         // Lending success means the external share claim was fully consumed; cash may still be net of
