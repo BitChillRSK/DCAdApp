@@ -620,15 +620,21 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         uint256 lastPurchaseTimestamp = dcaSchedule.lastPurchaseTimestamp;
         uint256 purchasePeriod = dcaSchedule.purchasePeriod;
 
-        // After the first purchase, the schedule is eligible once the UTC day of last + period has started
+        // After the first purchase, the schedule is eligible once the UTC day of last + period has started.
+        // Day-floor via `x - (x % 1 days)` can never underflow (a modulus never exceeds its dividend);
+        // `nextDueTimestamp` can never overflow (lastPurchaseTimestamp and purchasePeriod are stored as
+        // uint48/uint32); and `nextPurchaseDayStart - block.timestamp` only runs once the branch above has
+        // proven nextPurchaseDayStart falls on a later day than block.timestamp's.
         if (lastPurchaseTimestamp != 0) {
-            uint256 currentDayStart = block.timestamp - (block.timestamp % 1 days);
-            uint256 nextDueTimestamp = lastPurchaseTimestamp + purchasePeriod;
-            uint256 nextPurchaseDayStart = nextDueTimestamp - (nextDueTimestamp % 1 days);
-            if (currentDayStart < nextPurchaseDayStart) {
-                revert DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(
-                    token, scheduleId, nextPurchaseDayStart - block.timestamp
-                );
+            unchecked {
+                uint256 currentDayStart = block.timestamp - (block.timestamp % 1 days);
+                uint256 nextDueTimestamp = lastPurchaseTimestamp + purchasePeriod;
+                uint256 nextPurchaseDayStart = nextDueTimestamp - (nextDueTimestamp % 1 days);
+                if (currentDayStart < nextPurchaseDayStart) {
+                    revert DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(
+                        token, scheduleId, nextPurchaseDayStart - block.timestamp
+                    );
+                }
             }
         }
 
@@ -652,10 +658,17 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         if (lastPurchaseTimestamp == 0) {
             newTimestamp = block.timestamp;
         } else {
-            uint256 periodsElapsed = (block.timestamp - lastPurchaseTimestamp) / purchasePeriod;
-            if (periodsElapsed == 0) periodsElapsed = 1;
-            // The last purchase timestamp is anchored to the time of day of the first purchase to avoid drift
-            newTimestamp = lastPurchaseTimestamp + periodsElapsed * purchasePeriod;
+            // The eligibility check above only reaches here once block.timestamp >= nextPurchaseDayStart,
+            // and purchasePeriod >= 1 day (enforced at schedule creation) makes nextPurchaseDayStart strictly
+            // later than lastPurchaseTimestamp, so block.timestamp > lastPurchaseTimestamp is proven here.
+            // periodsElapsed * purchasePeriod never exceeds that same elapsed time (floor-division property),
+            // so neither it nor the sum below can overflow; `toUint48()` still bounds the stored result.
+            unchecked {
+                uint256 periodsElapsed = (block.timestamp - lastPurchaseTimestamp) / purchasePeriod;
+                if (periodsElapsed == 0) periodsElapsed = 1;
+                // The last purchase timestamp is anchored to the time of day of the first purchase to avoid drift
+                newTimestamp = lastPurchaseTimestamp + periodsElapsed * purchasePeriod;
+            }
         }
         dcaSchedule.lastPurchaseTimestamp = newTimestamp.toUint48();
         emit DcaManager__LastPurchaseTimestampUpdated(token, scheduleId, newTimestamp);
