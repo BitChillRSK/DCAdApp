@@ -147,7 +147,6 @@ Local automation includes unit tests, fuzz/invariants, and fork probes. Static a
 git clone git@github.com:BitChillRSK/dca-contracts.git
 cd dca-contracts
 git submodule update --init --recursive
-make patch-deps   # Uniswap pragma compatibility for solc 0.8.36
 forge build
 ```
 
@@ -377,9 +376,6 @@ REAL_DEPLOYMENT=true forge script script/DeployOptimizerProof.s.sol:DeployOptimi
 This project uses Git submodules for dependency management:
 
 - OpenZeppelin Contracts **v5.7.0**
-- Uniswap V3 Core / Periphery / Swap Router Contracts (vendored; pragma patched via `make patch-deps`)
-
-Uniswap V3 sources still declare `pragma solidity =0.7.6`. Local builds and CI patch those pragmas so they compile with first-party solc 0.8.36. Details: [DEPENDENCY_MODIFICATIONS.md](./DEPENDENCY_MODIFICATIONS.md).
 
 For contract addresses after cutover, publish from the `DeployFinal` log; historical lists may live in [ADDRESSES.md](./ADDRESSES.md).
 

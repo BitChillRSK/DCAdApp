@@ -77,4 +77,4 @@ jobs:
       - name: Run ${{ matrix.target }}
         env:
           STABLECOIN_TYPE: ${{ matrix.stablecoin }}
-        run: make patch-deps && make ${{ matrix.target }}
+        run: make ${{ matrix.target }}
