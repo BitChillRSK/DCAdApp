@@ -98,10 +98,11 @@ contract DeployBase is Script {
     /**
      * @notice Get the appropriate maximum fee rate based on deployment type
      * @return maxFeeRate The maximum fee rate to use (production has flat 1% fee, test has variable 2% max fee)
+     * @dev Uses the resolved `environment`, not `REAL_DEPLOYMENT` alone, so a live-style harness
+     *      (MAINNET/TESTNET on Anvil) gets the production flat rate the same way USDT0 fee bounds do.
      */
     function getMaxFeeRate() public view returns (uint16 maxFeeRate) {
-        bool isRealDeployment = vm.envOr("REAL_DEPLOYMENT", false);
-        return isRealDeployment ? MAX_FEE_RATE_PRODUCTION : MAX_FEE_RATE_TEST;
+        return _isLiveEnvironment() ? MAX_FEE_RATE_PRODUCTION : MAX_FEE_RATE_TEST;
     }
 
     function _isLiveEnvironment() internal view returns (bool) {

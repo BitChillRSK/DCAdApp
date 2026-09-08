@@ -34,8 +34,9 @@ string constant OWNER_STRING = "owner";
 string constant FEE_COLLECTOR_STRING = "feeCollector";
 
 // Production route indexes (fresh relaunch map) and LENDING_PROTOCOL env strings.
-// `DeployMocSwaps` and `DeployDexSwaps` each deploy their own `OperationsAdmin`, so the MoC
-// map below and the dex map are independent; an index means nothing across the two admins.
+// Lane scripts `DeployMocSwaps` and `DeployDexSwaps` each build their own admin for
+// local/fork tests; the canonical live cutover is `DeployFinal`, which registers both
+// MoC and Dex handlers on one admin. Index meanings are shared across that one admin.
 uint256 constant IDLE_INDEX = 0; // constructor pre-registers this as idle
 string constant NONE_STRING = "none";
 string constant LAYERBANK_STRING = "layerbank";

@@ -1,28 +1,42 @@
 # Security Policy
+
 ## Reporting a Vulnerability
-Security vulnerabilities should be reported to the BitChill team through the following methods:
+
+Security vulnerabilities should be reported to the BitChill team:
 
 - Email: arynyestos@gmail.com
-  
-## Bug Bounty
-We appreciate the responsible disclosure of security vulnerabilities. Although we do not currently have a formal bug bounty program, we encourage researchers to report vulnerabilities to us, and we will acknowledge and reward significant contributions.
 
-## Security Patches
-Security vulnerabilities will be patched as soon as responsibly possible and published as advisories on this repository.
+Please include enough detail to reproduce the issue. Do not open a public GitHub issue for an unfixed vulnerability in a live deployment.
+
+## Bug Bounty
+
+We appreciate responsible disclosure. There is **no formal bug-bounty program** and **no guaranteed reward amount**. Significant, good-faith reports may be acknowledged and rewarded at BitChill's discretion.
+
+## Immutable deployments — no patch / backport promise
+
+Production BitChill contracts are **immutable** (no proxies, no upgradeability). A vulnerability in a deployed
+bytecode cannot be patched in place. Incident response is:
+
+1. Operational containment (revoke swapper, pause deposits per route, disable bot routes).
+2. Deploy fixed contracts at **new** route indexes where needed.
+3. Users exit the old handlers and re-enter on the new routes (manual exit/re-entry; no owner migration of user funds).
+
+There is therefore **no** “security patch for version 1.x” or “backport to past major releases” for on-chain
+code. Off-chain consumers (front-end, bot, monitoring) may still receive updates.
 
 ## Supported Versions
-Security patches will be released for the latest version of the protocol. Critical severity bug fixes will be backported to past major releases.
 
-| Version | Critical Security Fixes | Other Security Fixes |
-| ------- | ----------------------- | -------------------- |
-| 1.x     |    :white_check_mark:   |  :white_check_mark:  |
+| Artifact | What “support” means |
+| -------- | -------------------- |
+| Current relaunch deployment (post-cutover) | Incident response as above; consumer updates |
+| Pre-relaunch mainnet contracts | Users should exit; no further on-chain patches |
 
-Note as well that the Solidity language itself only guarantees security updates for the latest release.
+## Legal / license
 
-## Legal
-Smart contracts are a nascent technology and carry a high level of technical risk and uncertainty. The BitChill dApp is made available under the MIT License, which disclaims all warranties in relation to the project and limits the liability of those that contribute and maintain the project. Your use of the project is at your own risk.
+First-party `src/` is licensed under **Business Source License 1.1** (see [`LICENSE`](./LICENSE)), with an
+Additional Use Grant for non-production use and a Change License of `GPL-2.0-or-later` after the Change Date.
+`script/` and `test/` remain MIT. Smart contracts carry technical risk; use is at your own risk.
 
 ---
-For any further questions or issues, please contact the BitChill team at arynyestos@gmail.com.
 
-
+For questions: arynyestos@gmail.com.

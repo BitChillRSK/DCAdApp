@@ -995,16 +995,15 @@ flatten inheritance, reopen licensing, or pad the freed `ProtocolSettings` bytes
 
 ### R71 - final pre-deployment hardening and release truthfulness ([spec](./R71-final-predeployment-hardening.md))
 
-The last implementation item before any final deployment. First settle every source-affecting gate with
-the human: license/SPDX; keep the Dex admin traversal or pin the manager-resolved admin after measuring
-both; remove, post-redeem allocate, or distinctly replace the ambiguous batch-row `SharesRedeemed`; and, only after
-authoritative/live MoC research, choose the minimum necessary redemption calls and whether downstream
-reverts bubble or retain a stage wrapper. Complete and test **all `src/` work first**. Only after that
-source phase is frozen, add and test the fail-closed final-stack deployment script, run Slither and final
-ABI/storage/size/release-profile comparisons, then correct README, audit, security, runbook, and consumer
-records. Keep `minRbtcOut == 0` valid, add no purchase pause, and do not refactor the handler diamond.
-Lands after R70 and before the R60 testnet/Blockscout proof is
-treated as complete for the final commit.
+The last **source** implementation item before any final deployment. Source phase shipped in
+[#128](https://github.com/BitChillRSK/dca-contracts/pull/128). Phases 3–5 (deploy script, Slither/
+Aderyn, public-doc truthfulness) are [R73](./R73-deploy-slither-release-docs.md).
+
+### R73 - deploy script, static analysis, release docs ([spec](./R73-deploy-slither-release-docs.md))
+
+Canonical `DeployFinal` one-shot stack, deployment tests, Slither + Aderyn triage, size/storage
+gates, README/SECURITY/audits truthfulness, cutover runbook and release record. No further `src/`
+behavior change. Ask: none.
 
 ## Closed non-implementation decisions
 
