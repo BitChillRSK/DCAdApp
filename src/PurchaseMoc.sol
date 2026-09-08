@@ -43,10 +43,9 @@ abstract contract PurchaseMoc is PurchaseRbtc {
     {
         uint256 balancePrev = address(this).balance;
         i_mocProxy.redeemFreeDoc(stablecoinAmount);
-        uint256 balancePost = address(this).balance;
-        if (balancePost > balancePrev) {
+        if (address(this).balance > balancePrev) {
             unchecked {
-                rbtcReceived = balancePost - balancePrev;
+                rbtcReceived = address(this).balance - balancePrev;
             }
         }
     }

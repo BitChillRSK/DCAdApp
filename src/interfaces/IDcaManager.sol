@@ -171,11 +171,9 @@ interface IDcaManager {
     error DcaManager__InexistentSchedule(address token, uint64 scheduleId);
     /// @notice The schedule exists but belongs to somebody else. `owner` is who it belongs to.
     error DcaManager__NotScheduleOwner(address token, uint64 scheduleId, address owner);
-    /// @notice `deleteDcaSchedule`'s index no longer names this id in the caller's enumeration list.
-    /// @dev Not a sign of a missing schedule — `deleteDcaSchedule` already confirmed the id exists and
-    ///      belongs to the caller before checking the index. It means the supplied index is wrong or
-    ///      stale: either it never named this id, or another delete moved the id since the caller last
-    ///      read `getDcaSchedules`. Re-read it and retry with the fresh index.
+    /// @notice `deleteDcaSchedule`'s index doesn't name this id in the caller's enumeration list.
+    /// @dev The index is wrong or stale, not a sign of a missing schedule — `deleteDcaSchedule` already
+    ///      confirmed the id exists and belongs to the caller. Re-read `getDcaSchedules` and retry.
     error DcaManager__ScheduleIdIndexMismatch(address token, uint64 scheduleId, uint256 scheduleIdIndex);
     /// @notice The schedule's remaining principal cannot cover one purchase.
     error DcaManager__ScheduleBalanceNotEnoughForPurchase(address token, uint64 scheduleId, uint256 remainingBalance);

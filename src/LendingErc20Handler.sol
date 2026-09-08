@@ -180,12 +180,9 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
         if (sharesToRedeem == 0) {
             return 0;
         }
-        // Clamped above when it would exceed usersShares, so sharesToRedeem <= usersShares always holds here.
-        uint256 remainingShares;
         unchecked {
-            remainingShares = usersShares - sharesToRedeem;
+            _setUserShares(user, usersShares, usersShares - sharesToRedeem);
         }
-        _setUserShares(user, usersShares, remainingShares);
         stablecoinReceived = _measuredProtocolRedeem(sharesToRedeem, exchangeRate);
         if (stablecoinReceived == 0) {
             revert TokenLending__ZeroStablecoinReceived(stablecoinAmount);
@@ -215,11 +212,9 @@ abstract contract LendingErc20Handler is TokenHandler, TokenLending, StablecoinS
             if (usersSharesToRedeem > usersShares) {
                 revert TokenLending__InsufficientShares(users[i], usersSharesToRedeem, usersShares);
             }
-            uint256 remainingShares;
             unchecked {
-                remainingShares = usersShares - usersSharesToRedeem;
+                _setUserShares(users[i], usersShares, usersShares - usersSharesToRedeem);
             }
-            _setUserShares(users[i], usersShares, remainingShares);
             totalSharesToRedeem += usersSharesToRedeem;
             // Per-user facts on this path are `UserSharesUpdated` (exact virtual debit) and, after
             // the protocol call, one measured `SharesRedeemedBatch`. Do not emit `SharesRedeemed`

@@ -115,7 +115,6 @@ abstract contract IdleErc20Handler is TokenHandler, IIdleErc20Handler, Stablecoi
             emit IdleErc20Handler__AmountAdjusted(user, amount, idleBalance);
             amount = idleBalance;
         }
-        // Clamped above when it would exceed idleBalance, so amount <= idleBalance always holds here.
         unchecked {
             s_idleBalances[user] = idleBalance - amount;
         }
