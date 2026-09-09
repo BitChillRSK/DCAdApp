@@ -417,9 +417,9 @@ contract InvariantTest is StdInvariant, Test {
     }
 
     /**
-     * @notice A paused schedule never buys (R19)
+     * @notice A paused schedule never buys.
      * @dev Only a purchase writes `cadenceAnchor` — deposits, withdrawals, and both edit
-     *      mutators leave it alone — so an unchanged timestamp across a pause window is the
+     *      mutators leave it alone — so an unchanged anchor across a pause window is the
      *      accounting-independent statement of "this schedule did not buy while paused".
      *      Ids, not indexes: `deleteDcaSchedule` swap-pops, so a paused schedule can legitimately
      *      move. A schedule whose id is gone was deleted, which is an allowed exit while paused.
@@ -429,7 +429,7 @@ contract InvariantTest is StdInvariant, Test {
 
         for (uint256 i = 0; i < trackedCount; i++) {
             uint64 scheduleId = fuzzHandler.s_everPausedScheduleIds(i);
-            (address user, uint256 timestampAtPause, bool pausedNow) = fuzzHandler.s_pauseGhost(scheduleId);
+            (address user, uint256 cadenceAnchorAtPause, bool pausedNow) = fuzzHandler.s_pauseGhost(scheduleId);
             if (!pausedNow) continue;
 
             uint64[] memory schedulesIds;
@@ -449,8 +449,8 @@ contract InvariantTest is StdInvariant, Test {
                 assertTrue(schedules[j].paused, "a schedule the ghost holds paused is active on-chain");
                 assertEq(
                     schedules[j].cadenceAnchor,
-                    timestampAtPause,
-                    "a paused schedule advanced its purchase timestamp"
+                    cadenceAnchorAtPause,
+                    "a paused schedule advanced its cadence anchor"
                 );
                 break;
             }

@@ -33,18 +33,15 @@ contract SchedulePackingTest is DcaDappTest {
         return abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, bits, value);
     }
 
-    /// @dev The widest purchase period that is both a whole number of UTC days and a `uint32`.
     function _maxWholeDayUint32Period() private pure returns (uint256) {
         return (uint256(type(uint32).max) / 1 days) * 1 days;
     }
 
-    /// @dev The last UTC midnight a `uint48` anchor can hold. Because a purchase stamps the day start
-    ///      rather than the execution instant, this — not `type(uint48).max` — is the widest anchor.
+    /// @dev Purchases store day starts, so this is the widest usable uint48 anchor.
     function _maxUint48DayStart() private pure returns (uint256) {
         return (uint256(type(uint48).max) / 1 days) * 1 days;
     }
 
-    /// @dev The first UTC midnight that no longer fits, which is where the anchor cast starts failing.
     function _firstUnrepresentableDayStart() private pure returns (uint256) {
         return _maxUint48DayStart() + 1 days;
     }
@@ -72,7 +69,7 @@ contract SchedulePackingTest is DcaDappTest {
         // Slot 1 pairs the owner with the purchase amount, which is `uint96` so that the pair fits.
         uint256 slot1 = uint256(uint160(schedule.user)) | (uint256(uint96(schedule.purchaseAmount)) << 160);
 
-        assertEq(_load(base), slot0, "slot 0 is not tokenBalance|timestamp|paused|period|route");
+        assertEq(_load(base), slot0, "slot 0 is not tokenBalance|anchor|paused|period|route");
         assertEq(_load(base + 1), slot1, "slot 1 is not user|purchaseAmount");
         // Neither half of the key is repeated in storage, so nothing follows.
         assertEq(_load(base + 2), 0, "a third slot was written");
@@ -387,7 +384,7 @@ contract SchedulePackingTest is DcaDappTest {
 
         vm.warp(_firstUnrepresentableDayStart());
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        uint256 timestampBefore =
+        uint256 anchorBefore =
             scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).cadenceAnchor;
         uint256 balanceBefore = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).tokenBalance;
 
@@ -396,11 +393,11 @@ contract SchedulePackingTest is DcaDappTest {
 
         IDcaManager.DcaSchedule memory schedule =
             scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.cadenceAnchor, timestampBefore, "a timestamp overflow consumed a period");
-        assertEq(schedule.tokenBalance, balanceBefore, "a timestamp overflow debited the schedule");
+        assertEq(schedule.cadenceAnchor, anchorBefore, "an anchor overflow consumed a period");
+        assertEq(schedule.tokenBalance, balanceBefore, "an anchor overflow debited the schedule");
     }
 
-    function testSubsequentPurchaseRevertsWhenTimestampWouldOverflowUint48() external {
+    function testSubsequentPurchaseRevertsWhenAnchorWouldOverflowUint48() external {
         if (block.chainid != ANVIL_CHAIN_ID) return;
 
         vm.warp(type(uint48).max);
@@ -408,10 +405,10 @@ contract SchedulePackingTest is DcaDappTest {
         super.buyRbtcOne(scheduleId);
 
         vm.warp(_firstUnrepresentableDayStart());
-        uint256 overflowingTimestamp = _firstUnrepresentableDayStart();
+        uint256 overflowingAnchor = _firstUnrepresentableDayStart();
         uint256 balanceBefore = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).tokenBalance;
 
-        vm.expectRevert(_safeCastOverflow(48, overflowingTimestamp));
+        vm.expectRevert(_safeCastOverflow(48, overflowingAnchor));
         super.buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule =
@@ -529,7 +526,7 @@ contract SchedulePackingTest is DcaDappTest {
         assertEq(moved.tokenBalance, expected.tokenBalance, "swap-pop dropped tokenBalance");
         assertEq(moved.purchaseAmount, expected.purchaseAmount, "swap-pop dropped purchaseAmount");
         assertEq(moved.purchasePeriod, expected.purchasePeriod, "swap-pop dropped purchasePeriod");
-        assertEq(moved.cadenceAnchor, expected.cadenceAnchor, "swap-pop dropped timestamp");
+        assertEq(moved.cadenceAnchor, expected.cadenceAnchor, "swap-pop dropped cadence anchor");
         assertEq(moved.routeIndex, expected.routeIndex, "swap-pop dropped routeIndex");
         assertEq(moved.user, expected.user, "swap-pop dropped the owner");
         assertTrue(moved.paused, "swap-pop dropped paused");

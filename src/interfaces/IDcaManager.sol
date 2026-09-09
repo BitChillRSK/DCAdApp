@@ -29,7 +29,7 @@ interface IDcaManager {
         uint128 tokenBalance; // Stablecoin amount deposited by the user
         uint48 cadenceAnchor; // UTC midnight of the newest consumed cadence slot; zero before the first purchase
         bool paused; // Set by the schedule's user: purchases are refused while true, every other path stays open
-        uint32 purchasePeriod; // Time between purchases in seconds
+        uint32 purchasePeriod; // Time between cadence slots in seconds; always whole UTC days
         uint32 routeIndex; // OperationsAdmin route that holds this schedule's funds (idle or lending)
         address user; // The account that owns this schedule and receives what it buys
         uint96 purchaseAmount; // Stablecoin amount to spend periodically on rBTC
@@ -112,10 +112,8 @@ interface IDcaManager {
     event DcaManager__MaxSchedulesPerTokenModified(uint256 newMaxSchedulesPerToken);
     /// @notice Owner changed the protocol minimum purchase period (whole UTC days, never below one).
     event DcaManager__MinPurchasePeriodModified(uint256 newMinPurchasePeriod);
-    /// @notice A purchase consumed one or more cadence slots and moved the schedule's anchor.
-    /// @dev Always a UTC midnight, and never in the future. This is not when the purchase executed:
-    ///      a buy made late in its due day, or on a later day after missed slots, still reports the
-    ///      midnight of the slot it consumed. The execution time is this log's block timestamp.
+    /// @notice A purchase moved the schedule's anchor to its newest consumed cadence slot.
+    /// @dev This is a past-or-current UTC midnight, not the execution time; use the log's block timestamp for that.
     event DcaManager__CadenceAnchorUpdated(address indexed token, uint64 indexed scheduleId, uint256 cadenceAnchor);
     /// @notice Owner set a per-token minimum purchase amount. Zero is not allowed.
     event DcaManager__TokenMinPurchaseAmountSet(address indexed token, uint256 minPurchaseAmount);
@@ -141,12 +139,11 @@ interface IDcaManager {
     error DcaManager__PurchasePeriodMustBeGreaterThanMinimum();
     /// @notice Protocol minimum purchase period cannot be set below one UTC day.
     error DcaManager__MinPurchasePeriodMustBeAtLeastOneDay();
-    /// @notice Purchase period must be a whole number of UTC days, so that a schedule anchored to a
-    ///         UTC midnight stays on that grid for its whole life.
+    /// @notice Purchase period must be a whole number of UTC days.
     error DcaManager__PurchasePeriodMustBeWholeDays();
     /// @notice Purchase amount exceeds the schedule's current `tokenBalance`.
     error DcaManager__PurchaseAmountExceedsBalance(address token, uint256 purchaseAmount, uint256 tokenBalance);
-    /// @notice The UTC day `cadenceAnchor + purchasePeriod` has not started.
+    /// @notice The next cadence boundary has not been reached.
     /// @dev Names the row like every other purchase-path revert, so a batch that a mid-flight
     ///      `updatePurchasePeriod` unwound tells the caller which schedule to drop before retrying.
     error DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(address token, uint64 scheduleId, uint256 timeRemaining);
@@ -208,8 +205,8 @@ interface IDcaManager {
      *        exactly this amount, so the schedule is credited with the full request.
      * @param purchaseAmount Stablecoin to spend periodically on rBTC. Validated against the credited
      *        balance, which equals `depositAmount` once the handler pull succeeds.
-     * @param purchasePeriod Seconds between purchases. Must be at least the protocol minimum (one UTC day
-     *        or higher if the owner raised it).
+     * @param purchasePeriod Seconds between purchases. Must be a whole number of UTC days and at least
+     *        the protocol minimum.
      * @param routeIndex OperationsAdmin route that will hold the funds (idle or lending).
      * @dev Ids are the creation nonce, starting at 1. Reverts `DcaManager__DepositsPaused` before any
      *      transfer if governance paused deposits on `token` × `routeIndex`.
@@ -247,7 +244,8 @@ interface IDcaManager {
      * @notice Replace the purchase period on an existing schedule.
      * @param token The stablecoin the schedule spends, which is half its storage key.
      * @param scheduleId The schedule to edit. Must belong to the caller.
-     * @param newPurchasePeriod New seconds between purchases. Cannot be shorter than the protocol minimum.
+     * @param newPurchasePeriod New seconds between purchases. Must be a whole number of UTC days and at
+     *        least the protocol minimum.
      * @dev Emits `DcaManager__PurchasePeriodUpdated` only after validation.
      */
     function updatePurchasePeriod(address token, uint64 scheduleId, uint256 newPurchasePeriod) external;
@@ -358,10 +356,9 @@ interface IDcaManager {
      * @notice Buy rBTC for every named due schedule on one handler.
      * @param batch One handler's purchase batch. Every row must share `token` and `routeIndex`.
      * @dev Only a swapper on the OperationsAdmin allowlist may call.
-     *      Eligibility starts at 00:00 UTC on the due day, so a swapper running at a fixed time of day
-     *      has that whole day to succeed or retry. A successful buy consumes its own slot and every slot
-     *      missed before it, so missed buys are never recovered and the schedule cannot buy twice in one
-     *      UTC day. A weekly Monday buy executed Tuesday remains due the following Monday.
+     *      Eligibility starts at 00:00 UTC on the due day, leaving that day for retries. A buy consumes
+     *      its due slot and skips earlier missed slots, preventing catch-up or a second buy that UTC day.
+     *      A weekly Monday buy executed Tuesday remains due the following Monday.
      *      Any paused row fails the whole batch or multi-handler bundle. The token is part of each
      *      schedule key and the route is checked, so rows cannot cross handlers. A measured receipt below
      *      `minRbtcOut` reverts the purchase and all schedule debits.
@@ -382,8 +379,8 @@ interface IDcaManager {
     // Owner-only operations: protocol configuration.
 
     /**
-     * @notice Set the protocol minimum purchase period. Cannot be below one UTC day.
-     * @param minPurchasePeriod New minimum in seconds. Must be a whole number of UTC days, at least one.
+     * @notice Set the protocol minimum purchase period.
+     * @param minPurchasePeriod New minimum in seconds; at least one whole UTC day.
      */
     function modifyMinPurchasePeriod(uint256 minPurchasePeriod) external;
 

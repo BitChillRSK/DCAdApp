@@ -111,8 +111,6 @@ contract ModifiersTest is DcaDappTest {
         new DcaManager(address(operationsAdmin), 1 days - 1, MAX_SCHEDULES_PER_TOKEN, OWNER);
     }
 
-    /// @dev A minimum above one day but not a whole number of days would let a schedule be created on
-    ///      a period that walks off the UTC-midnight grid its anchor sits on.
     function testModifyMinPurchasePeriodRevertsOnPartialDay() external {
         vm.prank(OWNER);
         vm.expectRevert(IDcaManager.DcaManager__PurchasePeriodMustBeWholeDays.selector);

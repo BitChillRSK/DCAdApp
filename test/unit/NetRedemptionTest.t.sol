@@ -410,7 +410,7 @@ contract NetRedemptionTest is DcaDappTest {
 
     /**
      * @notice A batch purchase with a partial iToken burn reverts the whole tick and rolls back
-     *         schedule balances/timestamps, fee transfer, share books, stablecoin, and rBTC credits.
+     *         schedule balances/anchors, fee transfer, share books, stablecoin, and rBTC credits.
      * @dev The EVM already undoes everything on revert; these assertions document the fields the
      *      R68 spec named so a weaker helper cannot silently leave one of them unchecked.
      */
@@ -421,12 +421,12 @@ contract NetRedemptionTest is DcaDappTest {
         (,, uint64[] memory scheduleIds,) = _batchArrays();
         uint256 n = scheduleIds.length;
         uint256[] memory balancesBefore = new uint256[](n);
-        uint256[] memory timestampsBefore = new uint256[](n);
+        uint256[] memory anchorsBefore = new uint256[](n);
         for (uint256 i; i < n; ++i) {
             IDcaManager.DcaSchedule memory schedule =
                 scheduleAt(dcaManager, USER, address(stablecoin), i);
             balancesBefore[i] = schedule.tokenBalance;
-            timestampsBefore[i] = schedule.cadenceAnchor;
+            anchorsBefore[i] = schedule.cadenceAnchor;
         }
 
         address feeCollector = IFeeHandler(address(stablecoinHandler)).getFeeCollectorAddress();
@@ -445,7 +445,7 @@ contract NetRedemptionTest is DcaDappTest {
             IDcaManager.DcaSchedule memory schedule =
                 scheduleAt(dcaManager, USER, address(stablecoin), i);
             assertEq(schedule.tokenBalance, balancesBefore[i], "schedule balance rolled back");
-            assertEq(schedule.cadenceAnchor, timestampsBefore[i], "schedule timestamp rolled back");
+            assertEq(schedule.cadenceAnchor, anchorsBefore[i], "schedule cadence anchor rolled back");
         }
         assertEq(stablecoin.balanceOf(feeCollector), feeCollectorBefore, "fee collector rolled back");
         assertEq(ITokenLending(address(stablecoinHandler)).getUserShares(USER), userSharesBefore);

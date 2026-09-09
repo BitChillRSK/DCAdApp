@@ -53,12 +53,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
-    /**
-     * @dev Protocol minimum purchase period is a whole number of UTC days, and at least one. Both
-     *      halves are what keep every schedule's cadence on the UTC-midnight grid: the floor stops a
-     *      sub-day period, and the whole-day requirement stops a period that would walk a schedule off
-     *      the grid it was anchored to.
-     */
+    /// @dev The minimum is at least one whole UTC day to preserve the midnight cadence grid.
     modifier validateMinPurchasePeriod(uint256 minPurchasePeriod) {
         if (minPurchasePeriod < 1 days) revert DcaManager__MinPurchasePeriodMustBeAtLeastOneDay();
         if (minPurchasePeriod % 1 days != 0) revert DcaManager__PurchasePeriodMustBeWholeDays();
@@ -89,8 +84,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
 
     /**
      * @param operationsAdminAddress The OperationsAdmin this manager is permanently pinned to.
-     * @param minPurchasePeriod Minimum time between purchases, in seconds. A whole number of UTC days,
-     *        and at least one.
+     * @param minPurchasePeriod Minimum time between purchases, in seconds; at least one whole UTC day.
      * @param maxSchedulesPerToken Maximum number of schedules a user may hold per token.
      * @param initialOwner Address that owns this contract immediately after deploy.
      */
@@ -603,22 +597,15 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         uint256 cadenceAnchor = dcaSchedule.cadenceAnchor;
         uint256 purchasePeriod = dcaSchedule.purchasePeriod;
 
-        // The first purchase anchors the schedule to the UTC day it lands on, not to the time of day
-        // its transaction happened to be mined at. Every later anchor is a whole number of periods
-        // from that one, and the period is itself a whole number of days, so the schedule's cadence
-        // is a grid of UTC midnights and stays on it for the schedule's whole life.
+        // Whole-day periods keep the initial midnight anchor and every later due date on the same grid.
         uint256 newAnchor;
         unchecked {
-            // `block.timestamp % 1 days` is at most `block.timestamp`, so the day floor cannot
-            // underflow. Every term below is a whole number of days, so the due date needs no
-            // flooring of its own and each comparison is exact rather than rounded.
+            // Safe: modulo cannot exceed the timestamp and uint48 + uint32 cannot overflow uint256.
+            // A future midnight exceeds block.timestamp; after eligibility, all results are at most today.
             uint256 currentDayStart = block.timestamp - (block.timestamp % 1 days);
             newAnchor = currentDayStart;
 
             if (cadenceAnchor != 0) {
-                // `cadenceAnchor + purchasePeriod` fits their uint48/uint32 widths. The revert's
-                // subtraction runs only once `nextDue > currentDayStart` is proven, which puts
-                // `nextDue` at tomorrow 00:00 or later, hence strictly after `block.timestamp`.
                 uint256 nextDue = cadenceAnchor + purchasePeriod;
                 if (currentDayStart < nextDue) {
                     revert DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed(
@@ -626,10 +613,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
                     );
                 }
 
-                // Eligibility proves `currentDayStart - cadenceAnchor >= purchasePeriod`, so the
-                // quotient is at least one: a purchase always consumes its own slot, plus every slot
-                // missed before it. The new anchor is the newest grid point that is not in the future,
-                // so the one after it is at least a full day away and today holds no second purchase.
+                // Advance to the newest due slot, skipping every missed one.
                 uint256 periodsElapsed = (currentDayStart - cadenceAnchor) / purchasePeriod;
                 newAnchor = cadenceAnchor + periodsElapsed * purchasePeriod;
             }
@@ -705,11 +689,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @dev Purchase period must be at least the protocol minimum and a whole number of UTC days.
-     *      Clearing the minimum does not imply the second: the minimum is whole days, but a period
-     *      above it need not be.
-     */
+    /// @dev The period must meet the protocol minimum and preserve the midnight cadence grid.
     function _validatePurchasePeriod(uint256 purchasePeriod) private view {
         if (purchasePeriod < s_protocolSettings.minPurchasePeriod) {
             revert DcaManager__PurchasePeriodMustBeGreaterThanMinimum();

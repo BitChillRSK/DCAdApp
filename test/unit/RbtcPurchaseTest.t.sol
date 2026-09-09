@@ -205,8 +205,7 @@ contract RbtcPurchaseTest is DcaDappTest {
         dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, 36 hours);
     }
 
-    /// @dev A period that is a whole number of days but not a whole number of weeks still lands every
-    ///      anchor on a UTC midnight, so the no-catch-up rule holds for it exactly as it does weekly.
+    /// @dev The no-catch-up rule also holds for whole-day periods that are not whole weeks.
     function testNoCatchUpWithThreeDayPeriod() external {
         uint256 purchasePeriod = 3 days;
         uint256 firstBuy = _nextUtcTimestamp(20 hours);
