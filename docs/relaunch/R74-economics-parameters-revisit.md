@@ -37,7 +37,8 @@ Current production defaults, all deploy-time configuration rather than hardcoded
   one unless that constant is changed before cutover.** The front end currently offers only weekly,
   2-weekly and 4-weekly, so the gap is invisible until a caller goes direct. The on-chain floor is
   also 1 day (`DcaManager.validateMinPurchasePeriod`), and since
-  [R76](./R76-utc-day-cadence-anchor.md) every period must additionally be a whole number of days.
+  [R75](./R75-final-audit-cadence-and-source-docs.md#same-pr-follow-up-utc-midnight-cadence-grid-and-cadenceanchor-rename)
+  every period must additionally be a whole number of days.
   Deciding the deployed default is therefore part of this item, not a given — see the sub-weekly
   cadence note below.
 
@@ -76,7 +77,7 @@ purchases needs no code change; enabling sub-daily would).
      storage and a new eligibility rule, not a parameter change.
 
    So the realistic sub-weekly options are a fixed whole-day period with accepted weekday drift, or
-   `7 days` staying the floor. The intermediate frequency does not otherwise interact with R76's grid:
+   `7 days` staying the floor. The intermediate frequency does not otherwise interact with R75's grid:
    any whole-day period keeps one purchase per UTC day and skips missed slots identically.
 
 ## Scope

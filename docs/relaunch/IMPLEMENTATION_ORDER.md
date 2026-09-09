@@ -1010,13 +1010,11 @@ behavior change. Ask: none.
 Direct final-audit request after R73 and review follow-ups #131–#133. Fix the UTC-day edge where a
 missed-cycle purchase can leave the same schedule immediately eligible again, prove a Tuesday retry
 keeps the following Monday due date, and make verified-source rationale concise and stand-alone.
-No ABI, storage, route-map, or economics change. R74 remains an independent post-cutover product revisit.
+R74 remains an independent post-cutover product revisit.
 
-### R76 - UTC-midnight cadence grid and `cadenceAnchor` rename ([spec](./R76-utc-day-cadence-anchor.md))
-
-Follow-up review of R75's cadence fix. The fix was correct but subtle, because the anchor carried a
-time of day that eligibility never reads. Snap the anchor to UTC midnight, require whole-day periods,
-and the one-purchase-per-UTC-day rule becomes true by construction instead of by proof. Rename
+Same-PR follow-up review: the fix was correct but subtle, because the anchor carried a time of day
+that eligibility never reads. Snap the anchor to UTC midnight, require whole-day periods, and the
+one-purchase-per-UTC-day rule becomes true by construction instead of by proof. Rename
 `lastPurchaseTimestamp` to `cadenceAnchor`, since the field is a grid point that is never in the
 future and never the execution time. Reaffirms skip-don't-recover — the policy has been intended
 since `6335994` — and records the reasoning, which had never been written down. **ABI-affecting, so
