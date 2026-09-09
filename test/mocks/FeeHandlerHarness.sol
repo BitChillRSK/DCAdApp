@@ -11,7 +11,7 @@ contract FeeHandlerHarness is FeeHandler {
     {}
 
     function exposedCalculateFee(uint256 amount) external view returns (uint256) {
-        return _calculateFee(amount);
+        return _calculateFeeWithParams(amount, _feeSettings());
     }
 
     function exposedCalculateFeeAndNetAmounts(uint256[] memory purchaseAmounts)

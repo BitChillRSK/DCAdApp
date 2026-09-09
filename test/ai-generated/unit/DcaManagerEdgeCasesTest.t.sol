@@ -201,7 +201,7 @@ contract DcaManagerEdgeCasesTest is Test {
             TROPYKUS_INDEX       // routeIndex
         );
         
-        // This test would require a successful first purchase to set lastPurchaseTimestamp
+        // This test would require a successful first purchase to set cadenceAnchor
         // Then test that immediate second purchase fails due to time period validation
         // However, this requires complex Uniswap mock setup that's already covered
         // in the DcaDappTest integration tests where the full environment is set up properly

@@ -138,7 +138,7 @@ contract DcaManagerBatchHandlersTest is DcaDappTest {
         IDcaManager.DcaSchedule memory firstAfter =
             scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         assertEq(firstAfter.tokenBalance, firstBefore.tokenBalance);
-        assertEq(firstAfter.lastPurchaseTimestamp, firstBefore.lastPurchaseTimestamp);
+        assertEq(firstAfter.cadenceAnchor, firstBefore.cadenceAnchor);
         assertEq(IPurchaseRbtc(address(stablecoinHandler)).getAccumulatedRbtcBalance(USER), firstRbtcBefore);
     }
 
@@ -161,7 +161,7 @@ contract DcaManagerBatchHandlersTest is DcaDappTest {
         IDcaManager.DcaSchedule memory firstAfter =
             scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         assertEq(firstAfter.tokenBalance, firstBefore.tokenBalance);
-        assertEq(firstAfter.lastPurchaseTimestamp, firstBefore.lastPurchaseTimestamp);
+        assertEq(firstAfter.cadenceAnchor, firstBefore.cadenceAnchor);
         assertEq(IPurchaseRbtc(address(stablecoinHandler)).getAccumulatedRbtcBalance(USER), 0);
     }
 
@@ -197,9 +197,9 @@ contract DcaManagerBatchHandlersTest is DcaDappTest {
         IDcaManager.DcaSchedule memory secondAfter =
             scheduleAt(dcaManager, USER, address(stablecoin), SECOND_SCHEDULE_INDEX);
         assertEq(firstAfter.tokenBalance, firstBefore.tokenBalance);
-        assertEq(firstAfter.lastPurchaseTimestamp, firstBefore.lastPurchaseTimestamp);
+        assertEq(firstAfter.cadenceAnchor, firstBefore.cadenceAnchor);
         assertEq(secondAfter.tokenBalance, secondBefore.tokenBalance);
-        assertEq(secondAfter.lastPurchaseTimestamp, secondBefore.lastPurchaseTimestamp);
+        assertEq(secondAfter.cadenceAnchor, secondBefore.cadenceAnchor);
         assertEq(IPurchaseRbtc(address(stablecoinHandler)).getAccumulatedRbtcBalance(USER), firstRbtcBefore);
         assertEq(IPurchaseRbtc(secondHandler).getAccumulatedRbtcBalance(USER), secondRbtcBefore);
     }
@@ -229,9 +229,9 @@ contract DcaManagerBatchHandlersTest is DcaDappTest {
         IDcaManager.DcaSchedule memory secondAfter =
             scheduleAt(dcaManager, USER, address(stablecoin), SECOND_SCHEDULE_INDEX);
         assertEq(firstAfter.tokenBalance, firstBefore.tokenBalance, "the earlier handler's debit rolls back");
-        assertEq(firstAfter.lastPurchaseTimestamp, firstBefore.lastPurchaseTimestamp);
+        assertEq(firstAfter.cadenceAnchor, firstBefore.cadenceAnchor);
         assertEq(secondAfter.tokenBalance, secondBefore.tokenBalance);
-        assertEq(secondAfter.lastPurchaseTimestamp, secondBefore.lastPurchaseTimestamp);
+        assertEq(secondAfter.cadenceAnchor, secondBefore.cadenceAnchor);
         assertEq(
             IPurchaseRbtc(address(stablecoinHandler)).getAccumulatedRbtcBalance(USER),
             firstRbtcBefore,
@@ -292,20 +292,20 @@ contract DcaManagerBatchHandlersTest is DcaDappTest {
         vm.expectRevert(abi.encodeWithSelector(IDcaManager.DcaManager__UnauthorizedSwapper.selector, attacker));
         dcaManager.batchBuyRbtcAcrossHandlers(batches);
 
-        assertEq(scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).lastPurchaseTimestamp, 0);
+        assertEq(scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).cadenceAnchor, 0);
     }
 
     function testAllowlistedSwapperCanBuyOneHandler() external {
         IDcaManager.Batch[] memory batches = new IDcaManager.Batch[](1);
         batches[0] = _oneRow(SCHEDULE_INDEX, s_routeIndex);
         _batchBuy(batches);
-        assertGt(scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).lastPurchaseTimestamp, 0);
+        assertGt(scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).cadenceAnchor, 0);
     }
 
     function testBotEoaCanStillCallOriginalBatchBuyRbtc() external {
         IDcaManager.Batch memory batch = _oneRow(SCHEDULE_INDEX, s_routeIndex);
         vm.prank(SWAPPER);
         dcaManager.batchBuyRbtc(batch);
-        assertGt(scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).lastPurchaseTimestamp, 0);
+        assertGt(scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).cadenceAnchor, 0);
     }
 }

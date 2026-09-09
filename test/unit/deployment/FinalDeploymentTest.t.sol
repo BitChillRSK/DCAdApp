@@ -8,15 +8,17 @@ import {OperationsAdmin} from "../../../src/OperationsAdmin.sol";
 import {DcaManager} from "../../../src/DcaManager.sol";
 import {IOperationsAdmin} from "../../../src/interfaces/IOperationsAdmin.sol";
 import {IFeeHandler} from "../../../src/interfaces/IFeeHandler.sol";
-import {IPurchaseUniswap} from "../../../src/interfaces/IPurchaseUniswap.sol";
 import {ITokenLending} from "../../../src/interfaces/ITokenLending.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {BitChillOwnable} from "../../../src/BitChillOwnable.sol";
-import {IdleDocHandlerMoc} from "../../../src/idle/IdleDocHandlerMoc.sol";
 import {LayerBankDocHandlerMoc} from "../../../src/layerbank/LayerBankDocHandlerMoc.sol";
 import {SovrynDocHandlerMoc} from "../../../src/sovryn/SovrynDocHandlerMoc.sol";
-import {IdleErc20HandlerDex} from "../../../src/idle/IdleErc20HandlerDex.sol";
 import {LayerBankErc20HandlerDex} from "../../../src/layerbank/LayerBankErc20HandlerDex.sol";
+import {DcaManagerAccessControl} from "../../../src/DcaManagerAccessControl.sol";
+import {TokenHandler} from "../../../src/TokenHandler.sol";
+import {PurchaseMoc} from "../../../src/PurchaseMoc.sol";
+import {PurchaseUniswap} from "../../../src/PurchaseUniswap.sol";
+import {LayerBankErc20Handler} from "../../../src/layerbank/LayerBankErc20Handler.sol";
 import {MockStablecoin} from "../../mocks/MockStablecoin.sol";
 import {MockIsusdToken} from "../../mocks/MockIsusdToken.sol";
 import {MockMocProxy} from "../../mocks/MockMocProxy.sol";
@@ -144,24 +146,31 @@ contract FinalDeploymentTest is Test {
         _assertHandlerOwnerPending(stack.usdt0Idle, SAFE);
         _assertHandlerOwnerPending(stack.usdt0LayerBank, SAFE);
 
-        assertEq(address(IdleDocHandlerMoc(payable(stack.docIdle)).i_stableToken()), address(doc));
+        _assertCommonHandlerWiring(stack.docIdle, address(stack.dcaManager), address(doc));
+        _assertCommonHandlerWiring(stack.docLayerBank, address(stack.dcaManager), address(doc));
+        _assertCommonHandlerWiring(stack.docSovryn, address(stack.dcaManager), address(doc));
+        _assertCommonHandlerWiring(stack.usdrifIdle, address(stack.dcaManager), address(usdrif));
+        _assertCommonHandlerWiring(stack.usdrifLayerBank, address(stack.dcaManager), address(usdrif));
+        _assertCommonHandlerWiring(stack.usdt0Idle, address(stack.dcaManager), address(usdt0));
+        _assertCommonHandlerWiring(stack.usdt0LayerBank, address(stack.dcaManager), address(usdt0));
+
         assertEq(address(LayerBankDocHandlerMoc(payable(stack.docLayerBank)).i_aToken()), address(docAToken));
         assertEq(address(SovrynDocHandlerMoc(payable(stack.docSovryn)).i_iSusdToken()), address(iSusd));
-        assertEq(address(IdleErc20HandlerDex(payable(stack.usdrifIdle)).i_stableToken()), address(usdrif));
         assertEq(address(LayerBankErc20HandlerDex(payable(stack.usdrifLayerBank)).i_aToken()), address(usdrifAToken));
-        assertEq(address(IdleErc20HandlerDex(payable(stack.usdt0Idle)).i_stableToken()), address(usdt0));
         assertEq(address(LayerBankErc20HandlerDex(payable(stack.usdt0LayerBank)).i_aToken()), address(usdt0AToken));
 
-        assertTrue(
-            IPurchaseUniswap(stack.usdrifIdle).isPurchasePathAllowed(
-                keccak256(IPurchaseUniswap(stack.usdrifIdle).getSwapPath())
-            )
-        );
-        assertTrue(
-            IPurchaseUniswap(stack.usdt0LayerBank).isPurchasePathAllowed(
-                keccak256(IPurchaseUniswap(stack.usdt0LayerBank).getSwapPath())
-            )
-        );
+        assertEq(address(LayerBankErc20Handler(stack.docLayerBank).i_pool()), docAToken.POOL());
+        assertEq(address(LayerBankErc20Handler(stack.usdrifLayerBank).i_pool()), usdrifAToken.POOL());
+        assertEq(address(LayerBankErc20Handler(stack.usdt0LayerBank).i_pool()), usdt0AToken.POOL());
+
+        _assertMocWiring(stack.docIdle);
+        _assertMocWiring(stack.docLayerBank);
+        _assertMocWiring(stack.docSovryn);
+
+        _assertDexWiring(stack.usdrifIdle);
+        _assertDexWiring(stack.usdrifLayerBank);
+        _assertDexWiring(stack.usdt0Idle);
+        _assertDexWiring(stack.usdt0LayerBank);
 
         IFeeHandler.FeeSettings memory usdt0Fees = IFeeHandler(stack.usdt0LayerBank).getFeeSettings();
         assertEq(usdt0Fees.feePurchaseLowerBound, USDT0_FEE_PURCHASE_LOWER_BOUND);
@@ -178,7 +187,7 @@ contract FinalDeploymentTest is Test {
         assertFalse(IERC165(stack.docIdle).supportsInterface(type(ITokenLending).interfaceId));
         assertFalse(IERC165(stack.usdt0Idle).supportsInterface(type(ITokenLending).interfaceId));
 
-        // Seven distinct handler addresses (R47 uniqueness is enforced by assign).
+        // Handler addresses must be unique because each may back only one token-route pair.
         address[7] memory handlers = [
             stack.docIdle,
             stack.docLayerBank,
@@ -244,6 +253,24 @@ contract FinalDeploymentTest is Test {
     function _assertHandlerOwnerPending(address handler, address pending) internal {
         assertEq(Ownable(handler).owner(), address(this));
         assertEq(BitChillOwnable(handler).pendingOwner(), pending);
+    }
+
+    function _assertCommonHandlerWiring(address handler, address manager, address stablecoin) internal {
+        assertEq(DcaManagerAccessControl(handler).i_dcaManager(), manager);
+        assertEq(address(TokenHandler(handler).i_stableToken()), stablecoin);
+    }
+
+    function _assertMocWiring(address handler) internal {
+        assertEq(address(PurchaseMoc(payable(handler)).i_mocProxy()), address(mocProxy));
+    }
+
+    function _assertDexWiring(address handler) internal {
+        PurchaseUniswap purchase = PurchaseUniswap(payable(handler));
+        assertEq(address(purchase.i_wrBtcToken()), address(wrbtc));
+        assertEq(address(purchase.i_swapRouter02()), address(router));
+        assertEq(address(purchase.getMocOracle()), address(oracle));
+        bytes memory path = purchase.getSwapPath();
+        assertTrue(purchase.isPurchasePathAllowed(keccak256(path)));
     }
 
     function _mockConfig(address feeCollector) internal view returns (DeployFinal.FinalNetworkConfig memory config) {

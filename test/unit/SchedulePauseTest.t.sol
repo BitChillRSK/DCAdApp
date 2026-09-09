@@ -136,8 +136,8 @@ contract SchedulePauseTest is DcaDappTest {
             scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         assertEq(unchangedSchedule.tokenBalance, before.tokenBalance, "a paused schedule was debited");
         assertEq(
-            unchangedSchedule.lastPurchaseTimestamp,
-            before.lastPurchaseTimestamp,
+            unchangedSchedule.cadenceAnchor,
+            before.cadenceAnchor,
             "a paused schedule consumed a period"
         );
         assertEq(
@@ -173,8 +173,8 @@ contract SchedulePauseTest is DcaDappTest {
         for (uint256 i; i < NUM_OF_SCHEDULES; ++i) {
             assertEq(afterSchedules[i].tokenBalance, before[i].tokenBalance, "a batch row kept its debit");
             assertEq(
-                afterSchedules[i].lastPurchaseTimestamp,
-                before[i].lastPurchaseTimestamp,
+                afterSchedules[i].cadenceAnchor,
+                before[i].cadenceAnchor,
                 "a batch row kept its timestamp"
             );
         }

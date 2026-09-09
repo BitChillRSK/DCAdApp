@@ -33,6 +33,19 @@ contract SchedulePackingTest is DcaDappTest {
         return abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, bits, value);
     }
 
+    function _maxWholeDayUint32Period() private pure returns (uint256) {
+        return (uint256(type(uint32).max) / 1 days) * 1 days;
+    }
+
+    /// @dev Purchases store day starts, so this is the widest usable uint48 anchor.
+    function _maxUint48DayStart() private pure returns (uint256) {
+        return (uint256(type(uint48).max) / 1 days) * 1 days;
+    }
+
+    function _firstUnrepresentableDayStart() private pure returns (uint256) {
+        return _maxUint48DayStart() + 1 days;
+    }
+
     /// @dev `s_dcaSchedules[token][scheduleId]`: the stablecoin picks the inner mapping, the id the value.
     function _scheduleBase(address token, uint64 scheduleId) private pure returns (uint256) {
         bytes32 inner = keccak256(abi.encode(token, SCHEDULES_MAPPING_SLOT));
@@ -51,12 +64,12 @@ contract SchedulePackingTest is DcaDappTest {
 
         // Slot 0 is every field a purchase reads or writes, so the whole update is one SSTORE.
         uint256 slot0 = uint256(uint128(schedule.tokenBalance))
-            | (uint256(uint48(schedule.lastPurchaseTimestamp)) << 128) | (uint256(schedule.paused ? 1 : 0) << 176)
+            | (uint256(uint48(schedule.cadenceAnchor)) << 128) | (uint256(schedule.paused ? 1 : 0) << 176)
             | (uint256(uint32(schedule.purchasePeriod)) << 184) | (uint256(uint32(schedule.routeIndex)) << 216);
         // Slot 1 pairs the owner with the purchase amount, which is `uint96` so that the pair fits.
         uint256 slot1 = uint256(uint160(schedule.user)) | (uint256(uint96(schedule.purchaseAmount)) << 160);
 
-        assertEq(_load(base), slot0, "slot 0 is not tokenBalance|timestamp|paused|period|route");
+        assertEq(_load(base), slot0, "slot 0 is not tokenBalance|anchor|paused|period|route");
         assertEq(_load(base + 1), slot1, "slot 1 is not user|purchaseAmount");
         // Neither half of the key is repeated in storage, so nothing follows.
         assertEq(_load(base + 2), 0, "a third slot was written");
@@ -104,7 +117,7 @@ contract SchedulePackingTest is DcaDappTest {
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
 
         vm.startPrank(USER);
-        dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, type(uint32).max);
+        dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, _maxWholeDayUint32Period());
         vm.stopPrank();
 
         vm.warp(type(uint48).max);
@@ -115,8 +128,8 @@ contract SchedulePackingTest is DcaDappTest {
 
         IDcaManager.DcaSchedule memory schedule =
             scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.purchasePeriod, type(uint32).max);
-        assertEq(schedule.lastPurchaseTimestamp, type(uint48).max);
+        assertEq(schedule.purchasePeriod, _maxWholeDayUint32Period());
+        assertEq(schedule.cadenceAnchor, _maxUint48DayStart());
         assertTrue(schedule.paused);
         _assertPackedAgainstGetter(SCHEDULE_INDEX);
     }
@@ -183,16 +196,16 @@ contract SchedulePackingTest is DcaDappTest {
         assertEq(stablecoin.balanceOf(address(stablecoinHandler)), handlerBefore);
     }
 
-    function testCreateAcceptsUint32MaxPeriod() external {
+    function testCreateAcceptsWidestWholeDayPeriod() external {
         vm.startPrank(USER);
         stablecoin.approve(address(stablecoinHandler), AMOUNT_TO_DEPOSIT);
         dcaManager.createDcaSchedule(
-            address(stablecoin), AMOUNT_TO_DEPOSIT, AMOUNT_TO_SPEND, type(uint32).max, s_routeIndex
+            address(stablecoin), AMOUNT_TO_DEPOSIT, AMOUNT_TO_SPEND, _maxWholeDayUint32Period(), s_routeIndex
         );
         vm.stopPrank();
 
         assertEq(
-            scheduleAt(dcaManager, USER, address(stablecoin), 1).purchasePeriod, type(uint32).max
+            scheduleAt(dcaManager, USER, address(stablecoin), 1).purchasePeriod, _maxWholeDayUint32Period()
         );
     }
 
@@ -326,19 +339,20 @@ contract SchedulePackingTest is DcaDappTest {
         );
     }
 
-    function testUpdatePurchasePeriodAcceptsUint32Max() external {
+    function testUpdatePurchasePeriodAcceptsWidestWholeDayPeriod() external {
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
 
         vm.prank(USER);
-        dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, type(uint32).max);
+        dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, _maxWholeDayUint32Period());
 
         assertEq(
-            scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).purchasePeriod, type(uint32).max
+            scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).purchasePeriod,
+            _maxWholeDayUint32Period()
         );
     }
 
-    function testUpdatePurchasePeriodRevertsUint32MaxPlusOne() external {
-        uint256 overflowing = uint256(type(uint32).max) + 1;
+    function testUpdatePurchasePeriodRevertsAboveUint32() external {
+        uint256 overflowing = _maxWholeDayUint32Period() + 1 days;
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         uint256 periodBefore = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).purchasePeriod;
 
@@ -351,7 +365,7 @@ contract SchedulePackingTest is DcaDappTest {
         );
     }
 
-    function testFirstPurchaseAcceptsUint48MaxTimestamp() external {
+    function testFirstPurchaseAcceptsLastRepresentableUtcDayStart() external {
         // Same as testMaxWidthsPackIntoTwoSlots: live LayerBank cannot accrue to uint48.max.
         if (block.chainid != ANVIL_CHAIN_ID) return;
 
@@ -360,46 +374,46 @@ contract SchedulePackingTest is DcaDappTest {
         super.buyRbtcOne(scheduleId);
 
         assertEq(
-            scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).lastPurchaseTimestamp,
-            type(uint48).max
+            scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).cadenceAnchor,
+            _maxUint48DayStart()
         );
     }
 
-    function testFirstPurchaseRevertsUint48MaxPlusOneTimestamp() external {
+    function testFirstPurchaseRevertsPastLastRepresentableUtcDayStart() external {
         if (block.chainid != ANVIL_CHAIN_ID) return;
 
-        vm.warp(uint256(type(uint48).max) + 1);
+        vm.warp(_firstUnrepresentableDayStart());
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        uint256 timestampBefore =
-            scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).lastPurchaseTimestamp;
+        uint256 anchorBefore =
+            scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).cadenceAnchor;
         uint256 balanceBefore = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).tokenBalance;
 
-        vm.expectRevert(_safeCastOverflow(48, uint256(type(uint48).max) + 1));
+        vm.expectRevert(_safeCastOverflow(48, _firstUnrepresentableDayStart()));
         super.buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule =
             scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.lastPurchaseTimestamp, timestampBefore, "a timestamp overflow consumed a period");
-        assertEq(schedule.tokenBalance, balanceBefore, "a timestamp overflow debited the schedule");
+        assertEq(schedule.cadenceAnchor, anchorBefore, "an anchor overflow consumed a period");
+        assertEq(schedule.tokenBalance, balanceBefore, "an anchor overflow debited the schedule");
     }
 
-    function testSubsequentPurchaseRevertsWhenTimestampWouldOverflowUint48() external {
+    function testSubsequentPurchaseRevertsWhenAnchorWouldOverflowUint48() external {
         if (block.chainid != ANVIL_CHAIN_ID) return;
 
         vm.warp(type(uint48).max);
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         super.buyRbtcOne(scheduleId);
 
-        vm.warp(uint256(type(uint48).max) + MIN_PURCHASE_PERIOD);
-        uint256 overflowingTimestamp = uint256(type(uint48).max) + MIN_PURCHASE_PERIOD;
+        vm.warp(_firstUnrepresentableDayStart());
+        uint256 overflowingAnchor = _firstUnrepresentableDayStart();
         uint256 balanceBefore = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).tokenBalance;
 
-        vm.expectRevert(_safeCastOverflow(48, overflowingTimestamp));
+        vm.expectRevert(_safeCastOverflow(48, overflowingAnchor));
         super.buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule =
             scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.lastPurchaseTimestamp, type(uint48).max);
+        assertEq(schedule.cadenceAnchor, _maxUint48DayStart());
         assertEq(schedule.tokenBalance, balanceBefore);
     }
 
@@ -512,7 +526,7 @@ contract SchedulePackingTest is DcaDappTest {
         assertEq(moved.tokenBalance, expected.tokenBalance, "swap-pop dropped tokenBalance");
         assertEq(moved.purchaseAmount, expected.purchaseAmount, "swap-pop dropped purchaseAmount");
         assertEq(moved.purchasePeriod, expected.purchasePeriod, "swap-pop dropped purchasePeriod");
-        assertEq(moved.lastPurchaseTimestamp, expected.lastPurchaseTimestamp, "swap-pop dropped timestamp");
+        assertEq(moved.cadenceAnchor, expected.cadenceAnchor, "swap-pop dropped cadence anchor");
         assertEq(moved.routeIndex, expected.routeIndex, "swap-pop dropped routeIndex");
         assertEq(moved.user, expected.user, "swap-pop dropped the owner");
         assertTrue(moved.paused, "swap-pop dropped paused");

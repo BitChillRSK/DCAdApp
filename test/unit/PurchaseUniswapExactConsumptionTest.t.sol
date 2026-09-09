@@ -25,7 +25,7 @@ contract PurchaseUniswapExactConsumptionTest is DcaDappTest {
     /// @dev What a reverted purchase must leave untouched.
     struct PurchaseState {
         uint256 scheduleBalance;
-        uint256 lastPurchaseTimestamp;
+        uint256 cadenceAnchor;
         uint256 handlerStablecoin;
         uint256 routerStablecoin;
         uint256 feeCollectorStablecoin;
@@ -186,7 +186,7 @@ contract PurchaseUniswapExactConsumptionTest is DcaDappTest {
     function _assertRolledBack(PurchaseState memory before) private {
         PurchaseState memory afterRevert = _snapshot();
         assertEq(afterRevert.scheduleBalance, before.scheduleBalance);
-        assertEq(afterRevert.lastPurchaseTimestamp, before.lastPurchaseTimestamp);
+        assertEq(afterRevert.cadenceAnchor, before.cadenceAnchor);
         assertEq(afterRevert.handlerStablecoin, before.handlerStablecoin);
         assertEq(afterRevert.routerStablecoin, before.routerStablecoin);
         assertEq(afterRevert.feeCollectorStablecoin, before.feeCollectorStablecoin);
@@ -197,7 +197,7 @@ contract PurchaseUniswapExactConsumptionTest is DcaDappTest {
     function _snapshot() private view returns (PurchaseState memory state) {
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         state.scheduleBalance = schedule.tokenBalance;
-        state.lastPurchaseTimestamp = schedule.lastPurchaseTimestamp;
+        state.cadenceAnchor = schedule.cadenceAnchor;
         state.handlerStablecoin = stablecoin.balanceOf(address(stablecoinHandler));
         state.routerStablecoin = stablecoin.balanceOf(_routerAddress());
         state.feeCollectorStablecoin = stablecoin.balanceOf(FEE_COLLECTOR);

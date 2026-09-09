@@ -68,6 +68,8 @@ contract DcaDappTest is Test {
 
     uint256 constant SCHEDULE_INDEX = 0;
     uint256 constant NUM_OF_SCHEDULES = 5;
+    /// @dev Monday 2026-01-05 09:00 UTC exercises weekday cadence and non-midnight execution.
+    uint256 internal constant UTC_FIXTURE_START = 1767603600;
     
     string swapType = vm.envString("SWAP_TYPE");
     bool isMocSwaps = keccak256(abi.encodePacked(swapType)) == keccak256(abi.encodePacked("mocSwaps"));
@@ -128,7 +130,7 @@ contract DcaDappTest is Test {
         uint256 purchasePeriod,
         uint256 routeIndex
     );
-    event DcaManager__LastPurchaseTimestampUpdated(address indexed token, uint64 indexed scheduleId, uint256 timestamp);
+    event DcaManager__CadenceAnchorUpdated(address indexed token, uint64 indexed scheduleId, uint256 cadenceAnchor);
 
     // TokenHandler
     event TokenHandler__TokenDeposited(address indexed token, address indexed user, uint256 amount);
@@ -201,6 +203,9 @@ contract DcaDappTest is Test {
                             UNIT TESTS SETUP
     //////////////////////////////////////////////////////////////*/
     function setUp() public virtual {
+        // Avoid the local day-zero timestamp without rewinding live forks.
+        if (block.chainid == ANVIL_CHAIN_ID) vm.warp(UTC_FIXTURE_START);
+
         // Initialize stablecoin type from environment or use default
         try vm.envString("STABLECOIN_TYPE") returns (string memory coinType) {
             stablecoinType = coinType;
@@ -531,6 +536,18 @@ contract DcaDappTest is Test {
         batchBuyOne(dcaManager, address(stablecoin), scheduleId, s_routeIndex);
     }
 
+    /// @dev The UTC midnight at or before `timestamp`.
+    function _utcDayStart(uint256 timestamp) internal pure returns (uint256) {
+        return timestamp - (timestamp % 1 days);
+    }
+
+    /// @dev Returns today's midnight for a first buy, otherwise the newest due cadence slot.
+    function _expectedCadenceAnchor(uint256 anchor, uint256 period) internal view returns (uint256) {
+        uint256 currentDayStart = _utcDayStart(block.timestamp);
+        if (anchor == 0) return currentDayStart;
+        return anchor + ((currentDayStart - anchor) / period) * period;
+    }
+
     function makeSinglePurchase() internal {
         vm.startPrank(USER);
         uint256 stablecoinBalanceBeforePurchase = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).tokenBalance;
@@ -542,10 +559,10 @@ contract DcaDappTest is Test {
         uint256 netPurchaseAmount = AMOUNT_TO_SPEND - fee;
 
         vm.expectEmit(true, true, true, true);
-        uint256 lastTs = dcaDetails[SCHEDULE_INDEX].lastPurchaseTimestamp;
+        uint256 anchor = dcaDetails[SCHEDULE_INDEX].cadenceAnchor;
         uint256 period = dcaDetails[SCHEDULE_INDEX].purchasePeriod;
-        uint256 lastPurchaseTimestamp = lastTs == 0 ? block.timestamp : lastTs + period;
-        emit DcaManager__LastPurchaseTimestampUpdated(address(stablecoin), dcaDetailsIds[SCHEDULE_INDEX], lastPurchaseTimestamp);
+        uint256 cadenceAnchor = _expectedCadenceAnchor(anchor, period);
+        emit DcaManager__CadenceAnchorUpdated(address(stablecoin), dcaDetailsIds[SCHEDULE_INDEX], cadenceAnchor);
         // Lending purchases go through `_batchRetrieveStablecoin`, which does not emit
         // `TokenLending__SharesRedeemed` (that event is single-redeem / measured cash only).
         if (block.chainid == ANVIL_CHAIN_ID && isMocSwaps) {

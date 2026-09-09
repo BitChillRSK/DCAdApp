@@ -1,7 +1,7 @@
 LayerBank aToken handler (lending index 1). `LayerBankErc20Handler` supplies and withdraws through the live Aave-v3-style Pool. Per-user virtual balances store **scaled** aToken amounts (`scaledBalanceOf`), not rebasing `balanceOf`.
 
 - DOC + MoC: `LayerBankDocHandlerMoc`
-- USDRIF + Uniswap and USDT0 + Uniswap: two deployments of `LayerBankErc20HandlerDex` (same bytecode; USDT0 constructor fees and `DcaManager.setTokenMinPurchaseAmount` are 6-decimal)
+- USDRIF + Uniswap and USDT0 + Uniswap: two deployments of `LayerBankErc20HandlerDex` (same contract type with token-specific immutables; USDT0 constructor fees and `DcaManager.setTokenMinPurchaseAmount` are 6-decimal)
 
 Deploy DOC + MoC with `script/DeployLayerBankHandler.s.sol`. Deploy the dex stables with `script/DeployUsdrifHandler.s.sol` (keyed off `STABLECOIN_TYPE`) or `script/DeployDexSwaps.s.sol`. Anvil deploys Pool/aToken mocks. Live aToken addresses are in `script/Constants.sol`.
 

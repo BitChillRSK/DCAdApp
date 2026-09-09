@@ -66,6 +66,9 @@ No first-party `src/` change in this PR: findings are false positives or accepte
 Suppressions are **not** widened in `slither.config.json` / `aderyn.toml` beyond excluding
 `test/`, `script/`, and `lib/`.
 
+R75 follow-up: both analyzers were rerun after the cadence correction. The triage below still applies;
+Slither's former dead-code finding is resolved by removing the unused `_calculateFee` wrapper.
+
 ### Aderyn (`make aderyn` → gitignored `report.md`)
 
 | ID | Finding | Triage |
@@ -90,7 +93,7 @@ Suppressions are **not** widened in `slither.config.json` / `aderyn.toml` beyond
 | calls-inside-a-loop | **Accepted.** Batch / withdraw-all pair loops by design. |
 | naming-convention (`i_*`, `Contract__Event`) | **Accepted.** House style. |
 | unimplemented `_purchaseToken` on Dex leaves | **False positive.** Resolved through the funding base in the C3 linearization. |
-| dead-code (`_calculateFee`) | **Accepted for now.** Not a release blocker; out of R73 `src/` freeze. |
+| dead-code (`_calculateFee`) | **Resolved in R75.** Test harnesses call the existing loaded-settings helper directly. |
 
 ## Release-artifact checks
 

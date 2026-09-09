@@ -8,8 +8,9 @@ import {SovrynErc20Handler} from "./SovrynErc20Handler.sol";
  * @title SovrynErc20HandlerDex
  * @author BitChill team: Antonio Rodríguez-Ynyesto
  * @notice Sovryn lending + Uniswap V3 purchases.
- * @dev Constructor-only leaf. The funding base is listed first so `i_stableToken` is set before
- *      `PurchaseUniswap` builds the swap path.
+ * @dev Constructor-only leaf. Only its immutable DcaManager moves principal, buys, or withdraws rBTC;
+ *      the owner controls fees, oracle, path allowlist, and floor. The funding base is listed first so
+ *      `i_stableToken` is set before `PurchaseUniswap` builds the path.
  */
 contract SovrynErc20HandlerDex is SovrynErc20Handler, PurchaseUniswap {
     /**

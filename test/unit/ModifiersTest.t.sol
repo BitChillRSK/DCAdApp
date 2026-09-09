@@ -110,4 +110,16 @@ contract ModifiersTest is DcaDappTest {
         vm.expectRevert(IDcaManager.DcaManager__MinPurchasePeriodMustBeAtLeastOneDay.selector);
         new DcaManager(address(operationsAdmin), 1 days - 1, MAX_SCHEDULES_PER_TOKEN, OWNER);
     }
+
+    function testModifyMinPurchasePeriodRevertsOnPartialDay() external {
+        vm.prank(OWNER);
+        vm.expectRevert(IDcaManager.DcaManager__PurchasePeriodMustBeWholeDays.selector);
+        dcaManager.modifyMinPurchasePeriod(36 hours);
+        assertEq(dcaManager.getMinPurchasePeriod(), MIN_PURCHASE_PERIOD);
+    }
+
+    function testConstructorRevertsIfMinPurchasePeriodIsPartialDay() external {
+        vm.expectRevert(IDcaManager.DcaManager__PurchasePeriodMustBeWholeDays.selector);
+        new DcaManager(address(operationsAdmin), 36 hours, MAX_SCHEDULES_PER_TOKEN, OWNER);
+    }
 }

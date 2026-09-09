@@ -8,7 +8,7 @@ import {IkToken} from "./IkToken.sol";
  * @title TropykusErc20Handler
  * @author BitChill team: Antonio Rodríguez-Ynyesto
  * @notice Tropykus adapter: Compound-style kToken mint/redeem. Share accounting lives on LendingErc20Handler.
- * @dev Legacy only: no live deploy path. Local and fork lanes still cover this second lending adapter.
+ * @dev Test-only adapter, excluded from production deployment; local and fork lanes retain coverage.
  */
 abstract contract TropykusErc20Handler is LendingErc20Handler {
     /*//////////////////////////////////////////////////////////////

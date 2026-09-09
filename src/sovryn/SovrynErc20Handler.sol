@@ -28,7 +28,7 @@ abstract contract SovrynErc20Handler is LendingErc20Handler {
 
     /**
      * @param dcaManagerAddress The DcaManager allowed to call this handler.
-     * @param stableTokenAddress The stablecoin this handler lends (DOC on the MoC leaf).
+     * @param stableTokenAddress The stablecoin this handler lends.
      * @param iSusdTokenAddress Sovryn iSUSD (or equivalent iToken) for that stablecoin.
      * @param feeCollector Address that receives purchase fees.
      * @param feeSettings Linear fee parameters.
