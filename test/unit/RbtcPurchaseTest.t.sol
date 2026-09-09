@@ -166,7 +166,7 @@ contract RbtcPurchaseTest is DcaDappTest {
         buyRbtcOne(scheduleId);
     }
 
-    function testWeeklyMondayFailureTuesdayRetryKeepsNextMondayDue() external {
+    function testEstablishedWeeklyMondayFailureTuesdayRetryKeepsNextMondayDue() external {
         uint256 weeklyPeriod = 7 days;
         uint256 firstBuy = _nextUtcTimestamp(9 hours);
         vm.warp(firstBuy);

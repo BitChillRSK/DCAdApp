@@ -597,7 +597,7 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
         uint256 cadenceAnchor = dcaSchedule.cadenceAnchor;
         uint256 purchasePeriod = dcaSchedule.purchasePeriod;
 
-        // Whole-day periods keep the initial midnight anchor and every later due date on the same grid.
+        // The first buy anchors today; whole-day periods keep every later due date on that midnight grid.
         uint256 newAnchor;
         unchecked {
             // Safe: modulo cannot exceed the timestamp and uint48 + uint32 cannot overflow uint256.

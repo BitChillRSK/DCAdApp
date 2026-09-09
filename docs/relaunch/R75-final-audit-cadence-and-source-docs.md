@@ -219,8 +219,9 @@ For a schedule with anchor `A` (a UTC midnight) and period `P` (a whole number o
 - **`A' + P` is always on a strictly later UTC day**, so a schedule cannot buy twice in one UTC day — now
   true by construction, since `A'` and `A' + P` are both grid points and `A' <= dayFloor(now)`.
 - **`A'` is never in the future**, unlike the old anchor.
-- **Cadence day-of-week survives a late execution**: a weekly Monday buy executed Tuesday sets the
-  anchor to Monday and stays due the following Monday.
+- **Cadence day-of-week survives a late execution after the first anchor**: an established weekly
+  Monday schedule bought Tuesday stays due the following Monday. A first purchase establishes its
+  cadence on the day it succeeds because no earlier anchor exists.
 
 ### Follow-up measurements
 
