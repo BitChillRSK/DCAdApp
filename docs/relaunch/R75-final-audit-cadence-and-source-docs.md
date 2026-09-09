@@ -195,9 +195,9 @@ venue free liquidity.
   `DcaManager__CadenceAnchorUpdated`. Widths, field order, and slot packing are unchanged.
 - Keep the whole cadence computation inside one `unchecked` block and restore the safety justification
   this fix had removed.
-- Start the shared test fixture at a real UTC instant (Monday 2026-01-05 09:00 UTC). Foundry's default
-  `block.timestamp == 1` floors to a zero day start, which would collide with the `cadenceAnchor == 0`
-  sentinel.
+- Start the shared local fixture at Monday 2026-01-05 09:00 UTC. Foundry's default timestamp floors
+  to the zero sentinel; live forks retain their chain timestamp so lending markets never see time move
+  backwards.
 - Rework the boundary tests: the widest period is now the widest whole-day `uint32`, and the anchor's
   `uint48` edge is the first UTC midnight past `type(uint48).max`.
 - Prove non-whole-day rejection on both the schedule setter and the protocol minimum, and keep a
@@ -266,12 +266,16 @@ record an earlier shape, and this file's stand-alone-wording rule does not reach
 ```bash
 make check
 make check-deploy
+make fork-sovryn
+make fork-tropykus
+make fork-dex-path
 make slither      # 89 findings, unchanged from R73/R75 triage; retains its expected nonzero exit
 make aderyn       # exit 0, same retained categories
 ```
 
-Both lanes (`mocSwaps/sovryn/DOC` and `dexSwaps/none/USDT0`) match the pre-change failure baseline
-exactly: the same five pre-existing fork/RPC-dependent failures, no new ones.
+Follow-up verification caught and fixed an unconditional fixture warp that rewound live forks and
+caused lending-market setup underflows. Final fork results: Sovryn 410 passed / 0 failed / 30 skipped;
+Tropykus 403 / 0 / 34; both Dex path runs 16 / 0 / 1.
 
 ### Follow-up consumer follow-ups
 
