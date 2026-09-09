@@ -1,5 +1,8 @@
 # Security Audits
 
+For the current production scope, trust boundaries, intentional trade-offs, and commands an auditor can
+reproduce, start with [`AUDIT_GUIDE.md`](../AUDIT_GUIDE.md).
+
 BitChill has two published reviews by the same independent researcher. They are **historical** reviews of
 pre-relaunch code. They are not a substitute for reviewing the 2026 relaunch diff, and they are **not**
 independent multi-firm audits.

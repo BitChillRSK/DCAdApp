@@ -1005,12 +1005,19 @@ Canonical `DeployFinal` one-shot stack, deployment tests, Slither + Aderyn triag
 gates, README/SECURITY/audits truthfulness, cutover runbook and release record. No further `src/`
 behavior change. Ask: none.
 
+### R74 - launch economics calibration ([spec](./R74-economics-parameters-revisit.md))
+
+Unassigned product/operations decision. Approve fees, per-token minimum purchase amounts, and the
+minimum purchase period before the final mainnet broadcast if any launch default may change. Existing
+setters mean this is not a Solidity-security blocker, but deploying unreviewed placeholder defaults is
+not an acceptable substitute for a deliberate launch matrix.
+
 ### R75 - final audit: no-catch-up cadence and concise source docs ([spec](./R75-final-audit-cadence-and-source-docs.md))
 
 Direct final-audit request after R73 and review follow-ups #131–#133. Fix the UTC-day edge where a
 missed-cycle purchase can leave the same schedule immediately eligible again, prove a Tuesday retry
 keeps the following Monday due date, and make verified-source rationale concise and stand-alone.
-R74 remains an independent post-cutover product revisit.
+R74 remains an independent product decision and should be completed before the mainnet broadcast.
 
 Same-PR follow-up review: the fix was correct but subtle, because the anchor carried a time of day
 that eligibility never reads. Snap the anchor to UTC midnight, require whole-day periods, and the

@@ -2,9 +2,10 @@
 
 ## Introduction
 
-BitChill is a decentralized protocol on Rootstock that enables users to automate BTC purchases with
+BitChill is a smart-contract protocol on Rootstock that enables users to automate BTC purchases with
 Dollar-Cost Averaging (DCA). Users deposit listed stablecoins into handlers (idle custody or lending),
-create schedules on `DcaManager`, and a swapper bot triggers purchases. The **relaunch** production map is:
+create schedules on `DcaManager`, and a swapper bot triggers purchases. `DeployFinal` creates this
+production map:
 
 | Stablecoin | Routes | Venue |
 |---|---|---|
@@ -12,7 +13,11 @@ create schedules on `DcaManager`, and a swapper bot triggers purchases. The **re
 | USDRIF | idle (0), LayerBank (1) | Uniswap V3 |
 | USDT0 | idle (0), LayerBank (1) | Uniswap V3 |
 
-Tropykus remains in-repo for legacy local/fork tests only; it is not on either live map.
+Tropykus remains in-repo for local and pinned-fork adapter coverage only; no live script deploys it.
+
+Security reviewers should start with [`AUDIT_GUIDE.md`](./AUDIT_GUIDE.md). It defines the production
+scope, trust boundaries, accounting and scheduling properties, known limitations, and reproducible
+release gates without requiring the historical implementation notes.
 
 ## Protocol Architecture
 
@@ -28,7 +33,7 @@ Tropykus remains in-repo for legacy local/fork tests only; it is not on either l
 2. **Token Handlers**
    - Base contract: `TokenHandler` abstract contract
    - Implements core token operations and access control
-   - Stores the stablecoins deposited by the users
+   - Holds idle stablecoin or lending receipt shares on behalf of users
    - Handles deposits and withdrawals of stablecoins
 
 3. **Lending Integration**
@@ -39,20 +44,18 @@ Tropykus remains in-repo for legacy local/fork tests only; it is not on either l
 4. **Purchase Methods**
    - `PurchaseMoc`: Direct redemption through Money on Chain (for DOC)
    - `PurchaseUniswap`: Swaps through Uniswap V3 (for other stablecoins)
-   - Both implementations tested and optimized for their specific use cases
 
 ### Architecture Design Considerations
 
 The protocol was designed with extensibility in mind, supporting multiple purchase methods and stablecoins:
 
 1. Money on Chain (MoC) for DOC:
-   - Better gas efficiency overall (slightly worse for small purchases)
-   - More stable pricing (primary market)
+   - Primary-market redemption rather than an AMM route
    - Direct redemption mechanism
-   - No slippage
+   - No AMM pool slippage; Money on Chain availability and pricing remain external dependencies
 
 2. Uniswap V3 for other stablecoins:
-   - Flexible integration for any ERC20 stablecoin
+   - Supports approved dollar-pegged ERC20 stablecoins with at most 18 decimals
    - Market-based pricing
    - Owner-configurable slippage protection
    - Path optimization for best rates
@@ -71,18 +74,18 @@ The current architecture balances extensibility with gas efficiency:
    - Create, update, and delete DCA schedules
    - Multiple schedules per user and token
    - Configurable purchase amounts and periods
-   - Automatic yield generation on deposits
+   - Yield accrual on lending routes; idle routes do not generate yield
 
 2. **Token Management**
-   - Support for DOC, USDRIF, and USDT0 on the relaunch map
+   - Support for DOC, USDRIF, and USDT0 on the production map
    - Integration with LayerBank and Sovryn (DOC); idle custody where chosen
    - Interest accrual and withdrawal on lending routes
    - Fee management system
 
-3. **Security Features**
-   - Access control for all critical functions
-   - Reentrancy protection
-   - Input validation and error handling
+3. **Security properties**
+   - Safe governance, a separate swapper allowlist, and handler entry points restricted to `DcaManager`
+   - Reentrancy guards on user schedule mutations and checks-effects-interactions on purchases
+   - Balance-delta accounting around external token, lending, MoC, and Uniswap interactions
 
 4. **Batch Processing**
    - Gas-efficient batch purchases
@@ -120,9 +123,14 @@ The current architecture balances extensibility with gas efficiency:
 4. Lending protocol reliability
 
 ### Known Limitations
-1. Gas efficiency trade-offs for extensibility
-2. Potential for future optimization
-3. Dependencies on external protocols
+1. Governance controls configuration and the swapper controls purchase liveness and batch selection.
+2. External tokens, lending venues, Money on Chain, Uniswap, WRBTC, and the price oracle can fail or
+   become unavailable.
+3. Deployments are immutable. Handler recovery uses a new route and manual user exit/re-entry.
+4. Fee-on-transfer tokens and asynchronous or partial lending redemptions are unsupported.
+5. Batches are atomic, and missed cadence slots are skipped rather than caught up.
+
+See [`AUDIT_GUIDE.md`](./AUDIT_GUIDE.md) for the exact boundaries behind these summaries.
 
 ### Audit and Testing
 
@@ -152,7 +160,7 @@ forge build
 
 ### Testing
 ```bash
-# Local done-gate (build + moc-none + moc-layerbank + moc-sovryn + dex-sovryn + invariants-sovryn)
+# Local done-gate: every production MoC/Dex funding lane plus Sovryn invariants
 make check
 
 # Run tests with DOC and idle funds (index 0)
@@ -180,8 +188,8 @@ STABLECOIN_TYPE=USDRIF SWAP_TYPE=dexSwaps LENDING_PROTOCOL=tropykus forge test -
 # -------------------------------
 # Invariant & Fuzz Testing
 # -------------------------------
-# Foundry-based fuzzing and invariants live in `test/ai-generated/fuzz`.  A detailed guide
-# is available in [README_INVARIANTS.md](test/ai-generated//fuzz/README_INVARIANTS.md).
+# Foundry-based fuzzing and invariants live in `test/ai-generated/fuzz`. A detailed guide
+# is available at test/ai-generated/fuzz/README_INVARIANTS.md.
 #
 # Quick examples:
 #
@@ -304,7 +312,7 @@ Then, from the Safe UI (one call per contract), send `acceptOwnership()`. Until 
 
 Add-on scripts (`DeployIdleHandler`, `DeployLayerBankHandler`, `DeployUsdrifHandler`) revert if `pendingOwner` is set on `OperationsAdmin` or `DcaManager` — wait until the Safe has accepted, then run them.
 
-**USDT0 / USDRIF add-on (`DeployUsdrifHandler`).** This is the live path R36 uses against an existing `DcaManager`. On mainnet the Safe already owns `OperationsAdmin`, so the Foundry EOA hits the non-owner branch: it deploys the handler (constructor self-allowlists the initial path), logs, and returns **without** `assignTokenHandler` and **without** `setTokenMinPurchaseAmount`. That is fail-closed until the Safe assigns the handler **and** sets the per-token min (there is no protocol-wide default). After the script, from the Safe, **in this order**:
+**USDT0 / USDRIF add-on (`DeployUsdrifHandler`).** This is the live add-on path against an existing `DcaManager`. On mainnet the Safe already owns `OperationsAdmin`, so the Foundry EOA hits the non-owner branch: it deploys the handler (constructor self-allowlists the initial path), logs, and returns **without** `assignTokenHandler` and **without** `setTokenMinPurchaseAmount`. That is fail-closed until the Safe assigns the handler **and** sets the per-token min (there is no protocol-wide default). After the script, from the Safe, **in this order**:
 
 1. `operationsAdmin.registerRoute(1, true)` **only if** `getRouteClass(1)` is still `Unregistered`. A second `registerRoute` reverts `RouteAlreadyRegistered` (LayerBank is already on the dex map after the USDRIF add-on).
 2. Read `handler.getSwapPath()` and verify it exactly matches the intended stablecoin / intermediate pools / WRBTC route. The constructor already allowlisted that path; this is the human checkpoint before assignment.
@@ -334,42 +342,15 @@ profile is active, and without it a broadcast silently compiles and deploys the 
 
 **Precondition for any real broadcast: run `make check-deploy` green on the exact commit being
 deployed first.** That target compiles `src/`, `test/`, and `script/` under `via_ir = true` and runs the
-full seven-lane suite against that exact bytecode — a test's `new DcaManager(...)` deploys the identical
+full configured test matrix against that exact bytecode — a test's `new DcaManager(...)` deploys the identical
 artifact `forge script` would broadcast, so a passing `check-deploy` is the only proof this bytecode
 passes the suite. Do not broadcast on a commit `check-deploy` has not been run against.
 
-`[profile.deploy]` was added by [R60](./docs/relaunch/R60-src-only-via-ir.md)
-([#114](https://github.com/BitChillRSK/dca-contracts/pull/114)), reopening
-[R55](./docs/relaunch/R55-solx-and-ir-evaluation.md)'s ([#113](https://github.com/BitChillRSK/dca-contracts/pull/113))
-"keep stock solc, no IR" recommendation. R55 measured `via_ir` as a single project-wide setting and found
-its costs — two solc/via-IR compile failures plus a `vm.warp`/timestamp test-harness hazard — not worth
-paying before relaunch, and explicitly recommended against adopting it. R60 revisited that call once it was
-clear the win (roughly −2.6% to −4.2% gas on the purchase hot path, ~20–26% smaller runtime, for the life of
-an immutable, unproxied contract) was large enough to be worth fixing those three issues for real rather
-than accepting R55's recommendation as final — all three turned out to be test-file-only problems (one a
-known upstream solc bug on a deliberately always-reverting test constructor, the other two fixable
-test-harness refactors) with **no `src/` change required**. `make check-deploy` now passes all seven lanes
-against the `via_ir` bytecode with the same counts R55 recorded for its own project-wide via-IR
-measurement. What R60 has **not** yet done — same gap R55 left open — is an actual Rootstock testnet
-deploy and Blockscout verification of `via_ir`-compiled bytecode; that needs a human operator, since agent
-sessions do not broadcast. Until that proof lands, treat `[profile.deploy]`'s EIP-170 margins as directionally
-correct (measured, matches R55's numbers exactly) but its on-chain verifiability as inferred, not proven.
-
-**Optimizer-on Rootstock proof (R52, 2026-09-01).** Testnet CREATE
-[0x3a63dc2458142cca09144a3f290ed6d996780c616acb8adbdf15f57f736ff5bc](https://rootstock-testnet.blockscout.com/tx/0x3a63dc2458142cca09144a3f290ed6d996780c616acb8adbdf15f57f736ff5bc)
-verified [`OperationsAdmin` `0x8D7B64ed7Ef7B862bB52c7381b9246d2669a4FAD`](https://rootstock-testnet.blockscout.com/address/0x8D7B64ed7Ef7B862bB52c7381b9246d2669a4FAD)
-(solc 0.8.36 / cancun / optimizer 200). This predates R60 and intentionally replays the historical
-**no-IR** artifact — do not add `FOUNDRY_PROFILE=deploy` to this specific command, since doing so would
-reproduce different bytecode than the transaction being replayed. Replay (as `TESTNET_OWNER`):
-
-```bash
-REAL_DEPLOYMENT=true forge script script/DeployOptimizerProof.s.sol:DeployOptimizerProof \
-  --rpc-url $RSK_TESTNET_RPC_URL \
-  --account dev_wallet \
-  --sender 0x31e0FacEa072EE621f22971DF5bAE3a1317E41A4 \
-  --broadcast --legacy \
-  --verify --verifier blockscout --verifier-url $BLOCKSCOUT_API_URL
-```
+The rationale and the two test-only compiler carve-outs are recorded in
+[`R60-src-only-via-ir.md`](./docs/relaunch/R60-src-only-via-ir.md). An optimizer-on/no-IR artifact has
+already been deployed and verified on Rootstock testnet, but the exact `via_ir=true` deploy profile
+still needs a representative testnet deployment and Blockscout verification before mainnet. Treat that
+as an outstanding release gate, not as evidence supplied by Anvil fork tests.
 
 ## Dependency Management
 

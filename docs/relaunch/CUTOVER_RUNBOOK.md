@@ -4,17 +4,25 @@ Human operator only. Agents must not `--broadcast`.
 
 ## Preconditions
 
-1. Merge stack through R72; tip commit is the one that will deploy.
-2. Green on that exact commit:
+1. Merge the full stack through PR 134, freeze a release commit/tag, and make that exact revision the
+   audit and deployment target.
+2. Complete the independent security review against that revision; resolve or explicitly accept every
+   finding before broadcast.
+3. Approve the launch economic matrix and make `script/Constants.sol` match it: fee settings on every
+   handler, per-token minimum purchase amounts, and the minimum purchase period. See
+   [`R74-economics-parameters-revisit.md`](./R74-economics-parameters-revisit.md).
+4. Deploy and Blockscout-verify a representative `FOUNDRY_PROFILE=deploy` (`via_ir = true`) artifact
+   on Rootstock testnet. This is the outstanding R60 compiler/verifier proof.
+5. Green on the frozen revision:
    - `make check`
    - `make check-deploy`
    - `make fork-sovryn`
    - `make fork-tropykus`
    - `make fork-dex-path` (Dex path allowlist)
-3. Static analysis triaged in [`R73-RELEASE_RECORD.md`](./R73-RELEASE_RECORD.md).
-4. `RSK_MAINNET_RPC_URL`, Blockscout verifier URL, deployer keystore/Ledger ready.
-5. `INITIAL_SWAPPER` = production bot EOA (non-zero).
-6. Safe (`MAINNET_OWNER`) and fee collector (`MAINNET_FEE_COLLECTOR`) match `script/Constants.sol`.
+6. Static analysis triaged in [`R73-RELEASE_RECORD.md`](./R73-RELEASE_RECORD.md).
+7. `RSK_MAINNET_RPC_URL`, Blockscout verifier URL, deployer keystore/Ledger ready.
+8. `INITIAL_SWAPPER` = production bot EOA (non-zero).
+9. Safe (`MAINNET_OWNER`) and fee collector (`MAINNET_FEE_COLLECTOR`) match `script/Constants.sol`.
 
 ## Deploy
 

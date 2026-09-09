@@ -53,6 +53,9 @@ multi-paragraph form.
 - [x] Strengthen the canonical deployment test's assertions for immutable manager, stablecoin,
       venue, oracle/router, and receipt-token wiring where the current test checks only a subset.
 - [x] Re-run Slither and Aderyn and update the release record only if their triage changes.
+- [x] Add a concise auditor entry guide and align README, audit index, cutover prerequisites, and the
+      R74 placeholder with the actual pre-mainnet handoff. This is the human-requested documentation
+      drive-by after the source audit; it changes no contract, ABI, storage, or deployment behavior.
 
 ## Out of scope
 
@@ -77,6 +80,8 @@ multi-paragraph form.
 - `docs/relaunch/IMPLEMENTATION_ORDER.md`
 - `docs/relaunch/README.md`
 - `docs/relaunch/R73-RELEASE_RECORD.md` only if final analyzer triage changes
+- `AUDIT_GUIDE.md`, `README.md`, `audits/README.md`, `docs/relaunch/CUTOVER_RUNBOOK.md`, and
+  `docs/relaunch/R74-economics-parameters-revisit.md` for the auditor-handoff drive-by
 
 ## Required tests
 
@@ -112,13 +117,18 @@ regressions fail against the parent formula and pass with the corrected advancem
 - [x] First-party source comments contain no BitChill version comparison, relaunch wording, R-item id,
       or “legacy only” label, and the retained rationale is concise and accurate.
 - [x] Audit/static-analysis findings are either fixed or explicitly retained with a current reason.
-- [x] ABI and storage layout are unchanged; deployment wiring assertions and all gates pass.
+- [x] An auditor can identify the production scope, authority boundaries, asset/accounting flow,
+      deliberate failure semantics, unsupported cases, reproducible gates, and outstanding human work
+      from one stand-alone entry document.
+- [x] The final ABI changes (one tuple component name, one event rename, one new error) are documented;
+      function selectors and storage layout are unchanged, and deployment wiring assertions and gates pass.
 
 ## Reviewer checklist
 
 - [ ] Matches **Scope**; nothing from **Out of scope**.
 - [ ] Protocol invariants in `AGENTS.md` still hold.
-- [ ] Calendar-day proof works for periods that are not exact multiples of one day.
+- [ ] Whole-day validation, maximum-width periods, same-day exclusion, and missed-slot advancement are
+      covered at their boundaries.
 - [ ] Tests in the PR match **Required tests** and the regression fails on the parent commit.
 - [ ] Files beyond this list are limited to audited source-comment corrections or failing-test fallout
       and are named in the PR.

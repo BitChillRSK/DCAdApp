@@ -613,9 +613,8 @@ contract DcaManager is IDcaManager, BitChillOwnable, ReentrancyGuard {
                     );
                 }
 
-                // Advance to the newest due slot, skipping every missed one. Snapping to
-                // `currentDayStart` instead would re-base the grid on the retry day, shifting every
-                // later purchase whenever a period above one day is executed late.
+                // Consume the newest due slot without rebasing the grid; rebasing would shift every
+                // later due day whenever a multi-day purchase succeeds late.
                 uint256 periodsElapsed = (currentDayStart - cadenceAnchor) / purchasePeriod;
                 newAnchor = cadenceAnchor + periodsElapsed * purchasePeriod;
             }
