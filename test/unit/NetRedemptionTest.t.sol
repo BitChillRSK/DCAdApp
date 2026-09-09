@@ -426,7 +426,7 @@ contract NetRedemptionTest is DcaDappTest {
             IDcaManager.DcaSchedule memory schedule =
                 scheduleAt(dcaManager, USER, address(stablecoin), i);
             balancesBefore[i] = schedule.tokenBalance;
-            timestampsBefore[i] = schedule.lastPurchaseTimestamp;
+            timestampsBefore[i] = schedule.cadenceAnchor;
         }
 
         address feeCollector = IFeeHandler(address(stablecoinHandler)).getFeeCollectorAddress();
@@ -445,7 +445,7 @@ contract NetRedemptionTest is DcaDappTest {
             IDcaManager.DcaSchedule memory schedule =
                 scheduleAt(dcaManager, USER, address(stablecoin), i);
             assertEq(schedule.tokenBalance, balancesBefore[i], "schedule balance rolled back");
-            assertEq(schedule.lastPurchaseTimestamp, timestampsBefore[i], "schedule timestamp rolled back");
+            assertEq(schedule.cadenceAnchor, timestampsBefore[i], "schedule timestamp rolled back");
         }
         assertEq(stablecoin.balanceOf(feeCollector), feeCollectorBefore, "fee collector rolled back");
         assertEq(ITokenLending(address(stablecoinHandler)).getUserShares(USER), userSharesBefore);

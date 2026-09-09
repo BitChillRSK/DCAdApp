@@ -418,7 +418,7 @@ contract InvariantTest is StdInvariant, Test {
 
     /**
      * @notice A paused schedule never buys (R19)
-     * @dev Only a purchase writes `lastPurchaseTimestamp` — deposits, withdrawals, and both edit
+     * @dev Only a purchase writes `cadenceAnchor` — deposits, withdrawals, and both edit
      *      mutators leave it alone — so an unchanged timestamp across a pause window is the
      *      accounting-independent statement of "this schedule did not buy while paused".
      *      Ids, not indexes: `deleteDcaSchedule` swap-pops, so a paused schedule can legitimately
@@ -448,7 +448,7 @@ contract InvariantTest is StdInvariant, Test {
 
                 assertTrue(schedules[j].paused, "a schedule the ghost holds paused is active on-chain");
                 assertEq(
-                    schedules[j].lastPurchaseTimestamp,
+                    schedules[j].cadenceAnchor,
                     timestampAtPause,
                     "a paused schedule advanced its purchase timestamp"
                 );

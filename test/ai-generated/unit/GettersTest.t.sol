@@ -75,7 +75,7 @@ contract GettersTest is DcaDappTest {
         assertEq(asThirdParty.purchasePeriod, asUser.purchasePeriod);
         assertEq(asThirdPartyId, asUserId);
         assertEq(asThirdParty.routeIndex, asUser.routeIndex);
-        assertEq(asThirdParty.lastPurchaseTimestamp, asUser.lastPurchaseTimestamp);
+        assertEq(asThirdParty.cadenceAnchor, asUser.cadenceAnchor);
 
         assertEq(enumerated.length, 1);
         assertEq(enumerated[0].tokenBalance, asUser.tokenBalance);
@@ -83,7 +83,7 @@ contract GettersTest is DcaDappTest {
         assertEq(enumerated[0].purchasePeriod, asUser.purchasePeriod);
         assertEq(enumeratedIds[0], scheduleIdAt(dcaManager, USER, address(stablecoin), 0));
         assertEq(enumerated[0].routeIndex, asUser.routeIndex);
-        assertEq(enumerated[0].lastPurchaseTimestamp, asUser.lastPurchaseTimestamp);
+        assertEq(enumerated[0].cadenceAnchor, asUser.cadenceAnchor);
     }
 
     function test_dcaManager_i_operationsAdmin() public {
@@ -366,7 +366,7 @@ contract GettersTest is DcaDappTest {
         assertEq(single.purchasePeriod, enumerated[0].purchasePeriod);
         assertEq(scheduleIdAt(dcaManager, USER, address(stablecoin), 0), enumeratedIds[0]);
         assertEq(single.routeIndex, enumerated[0].routeIndex);
-        assertEq(single.lastPurchaseTimestamp, enumerated[0].lastPurchaseTimestamp);
+        assertEq(single.cadenceAnchor, enumerated[0].cadenceAnchor);
     }
 
     function test_getters_returnTypesAndDefaults() public {

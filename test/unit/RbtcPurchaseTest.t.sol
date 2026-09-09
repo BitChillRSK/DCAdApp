@@ -58,7 +58,7 @@ contract RbtcPurchaseTest is DcaDappTest {
             IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
             address(stablecoin),
             scheduleId,
-            _secondsUntilDueUtcDayStart(schedule.lastPurchaseTimestamp, schedule.purchasePeriod)
+            _secondsUntilDueUtcDayStart(schedule.cadenceAnchor, schedule.purchasePeriod)
         );
         vm.expectRevert(encodedRevert);
         buyRbtcOne(scheduleId); // second purchase
@@ -70,12 +70,12 @@ contract RbtcPurchaseTest is DcaDappTest {
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         buyRbtcOne(scheduleId);
 
-        uint256 dueDayStart = _utcDayStart(firstBuy) + 1 days; // still 20 hours before last + period
+        uint256 dueDayStart = _utcDayStart(firstBuy) + 1 days;
         vm.warp(dueDayStart);
         buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.lastPurchaseTimestamp, firstBuy + MIN_PURCHASE_PERIOD);
+        assertEq(schedule.cadenceAnchor, _utcDayStart(firstBuy) + MIN_PURCHASE_PERIOD);
     }
 
     function testCannotBuyOneSecondBeforeDueUtcDay() external {
@@ -103,18 +103,18 @@ contract RbtcPurchaseTest is DcaDappTest {
         buyRbtcOne(scheduleId);
 
         uint256 dueDayStart = _utcDayStart(firstBuy) + 1 days;
-        vm.warp(dueDayStart); // 00:00 UTC of the due day, before last + period wall-clock
+        vm.warp(dueDayStart); // 00:00 UTC of the due day, hours before the first buy's time of day
         buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.lastPurchaseTimestamp, firstBuy + MIN_PURCHASE_PERIOD);
+        assertEq(schedule.cadenceAnchor, _utcDayStart(firstBuy) + MIN_PURCHASE_PERIOD);
 
         vm.warp(dueDayStart + 9 hours); // still the due UTC day
         bytes memory encodedRevert = abi.encodeWithSelector(
             IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
             address(stablecoin),
             scheduleId,
-            _secondsUntilDueUtcDayStart(schedule.lastPurchaseTimestamp, schedule.purchasePeriod)
+            _secondsUntilDueUtcDayStart(schedule.cadenceAnchor, schedule.purchasePeriod)
         );
         vm.expectRevert(encodedRevert);
         buyRbtcOne(scheduleId);
@@ -130,11 +130,11 @@ contract RbtcPurchaseTest is DcaDappTest {
         buyRbtcOne(scheduleId);
 
         uint256 dueDayStart = _utcDayStart(firstBuy) + weeklyPeriod;
-        vm.warp(dueDayStart); // due UTC day 00:00, 20 hours before last + period
+        vm.warp(dueDayStart); // due UTC day 00:00
         buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.lastPurchaseTimestamp, firstBuy + weeklyPeriod);
+        assertEq(schedule.cadenceAnchor, _utcDayStart(firstBuy) + weeklyPeriod);
     }
 
     function testMissedWeeklyPurchaseCannotBeRecoveredBySecondBuyOnResumeDay() external {
@@ -153,7 +153,7 @@ contract RbtcPurchaseTest is DcaDappTest {
         buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.lastPurchaseTimestamp, firstBuy + 2 * weeklyPeriod);
+        assertEq(schedule.cadenceAnchor, _utcDayStart(firstBuy) + 2 * weeklyPeriod);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -181,7 +181,7 @@ contract RbtcPurchaseTest is DcaDappTest {
         buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.lastPurchaseTimestamp, firstBuy + weeklyPeriod);
+        assertEq(schedule.cadenceAnchor, _utcDayStart(firstBuy) + weeklyPeriod);
 
         uint256 nextMondayStart = missedMondayStart + weeklyPeriod;
         vm.expectRevert(
@@ -198,8 +198,17 @@ contract RbtcPurchaseTest is DcaDappTest {
         buyRbtcOne(scheduleId);
     }
 
-    function testNoCatchUpWithPurchasePeriodThatIsNotWholeDays() external {
-        uint256 purchasePeriod = 36 hours;
+    function testPurchasePeriodMustBeWholeDays() external {
+        uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
+        vm.prank(USER);
+        vm.expectRevert(IDcaManager.DcaManager__PurchasePeriodMustBeWholeDays.selector);
+        dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, 36 hours);
+    }
+
+    /// @dev A period that is a whole number of days but not a whole number of weeks still lands every
+    ///      anchor on a UTC midnight, so the no-catch-up rule holds for it exactly as it does weekly.
+    function testNoCatchUpWithThreeDayPeriod() external {
+        uint256 purchasePeriod = 3 days;
         uint256 firstBuy = _nextUtcTimestamp(20 hours);
         vm.warp(firstBuy);
         uint64 scheduleId = scheduleIdAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
@@ -207,20 +216,20 @@ contract RbtcPurchaseTest is DcaDappTest {
         dcaManager.updatePurchasePeriod(address(stablecoin), scheduleId, purchasePeriod);
         buyRbtcOne(scheduleId);
 
-        // The second cadence point is at 20:00 three days later; execute at that UTC day's start.
-        uint256 resumeDayStart = _utcDayStart(firstBuy) + 3 days;
+        // Skip the slot three days out and buy on the one six days out, at that UTC day's start.
+        uint256 resumeDayStart = _utcDayStart(firstBuy) + 2 * purchasePeriod;
         vm.warp(resumeDayStart);
         buyRbtcOne(scheduleId);
 
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
-        assertEq(schedule.lastPurchaseTimestamp, firstBuy + 2 * purchasePeriod);
+        assertEq(schedule.cadenceAnchor, _utcDayStart(firstBuy) + 2 * purchasePeriod);
 
         vm.expectRevert(
             abi.encodeWithSelector(
                 IDcaManager.DcaManager__CannotBuyIfPurchasePeriodHasNotElapsed.selector,
                 address(stablecoin),
                 scheduleId,
-                _secondsUntilDueUtcDayStart(schedule.lastPurchaseTimestamp, purchasePeriod)
+                _secondsUntilDueUtcDayStart(schedule.cadenceAnchor, purchasePeriod)
             )
         );
         buyRbtcOne(scheduleId);
@@ -266,7 +275,7 @@ contract RbtcPurchaseTest is DcaDappTest {
     // not. See docs/relaunch/R55-solx-and-ir-evaluation.md and R60-src-only-via-ir.md.
     uint256 private s_firstPurchaseTimestampForResumeTest;
 
-    function testLastPurchaseTimestampConsistencyWhenScheduleResumed(uint256 timeUntilResume) public {
+    function testCadenceAnchorConsistencyWhenScheduleResumed(uint256 timeUntilResume) public {
         if (timeUntilResume < MIN_PURCHASE_PERIOD) return; // Avoid known revert
         if (timeUntilResume > 100 * 52 weeks) return; // Avoid overflows
         s_firstPurchaseTimestampForResumeTest = block.timestamp;
@@ -280,12 +289,14 @@ contract RbtcPurchaseTest is DcaDappTest {
 
         IDcaManager.DcaSchedule memory schedule = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX);
         uint256 firstPurchaseTimestamp = s_firstPurchaseTimestampForResumeTest;
+        uint256 firstAnchor = _utcDayStart(firstPurchaseTimestamp);
         uint256 currentDayStart = _utcDayStart(block.timestamp);
-        uint256 currentDayEnd = currentDayStart + 1 days - 1;
-        uint256 periodsElapsed = (currentDayEnd - firstPurchaseTimestamp) / MIN_PURCHASE_PERIOD;
-        assertEq(schedule.lastPurchaseTimestamp, firstPurchaseTimestamp + periodsElapsed * MIN_PURCHASE_PERIOD);
-        assertLe(_utcDayStart(schedule.lastPurchaseTimestamp), currentDayStart);
-        assertGt(_utcDayStart(schedule.lastPurchaseTimestamp + MIN_PURCHASE_PERIOD), currentDayStart);
+        uint256 periodsElapsed = (currentDayStart - firstAnchor) / MIN_PURCHASE_PERIOD;
+        assertEq(schedule.cadenceAnchor, firstAnchor + periodsElapsed * MIN_PURCHASE_PERIOD);
+        // The anchor is a grid point at or before today, and the next one is on a strictly later day.
+        assertEq(schedule.cadenceAnchor % 1 days, 0);
+        assertLe(schedule.cadenceAnchor, currentDayStart);
+        assertGt(schedule.cadenceAnchor + MIN_PURCHASE_PERIOD, currentDayStart);
     }
 
     /**
@@ -787,10 +798,6 @@ contract RbtcPurchaseTest is DcaDappTest {
         vm.stopPrank();
     }
 
-    function _utcDayStart(uint256 timestamp) private pure returns (uint256) {
-        return timestamp - (timestamp % 1 days);
-    }
-
     function _nextUtcTimestamp(uint256 hourOfDay) private view returns (uint256) {
         uint256 candidate = _utcDayStart(block.timestamp) + hourOfDay;
         if (candidate < block.timestamp) {
@@ -799,13 +806,11 @@ contract RbtcPurchaseTest is DcaDappTest {
         return candidate;
     }
 
-    function _secondsUntilDueUtcDayStart(uint256 lastPurchaseTimestamp, uint256 purchasePeriod)
+    function _secondsUntilDueUtcDayStart(uint256 cadenceAnchor, uint256 purchasePeriod)
         private
         view
         returns (uint256)
     {
-        uint256 nextDueTimestamp = lastPurchaseTimestamp + purchasePeriod;
-        uint256 nextPurchaseDayStart = _utcDayStart(nextDueTimestamp);
-        return nextPurchaseDayStart - block.timestamp;
+        return cadenceAnchor + purchasePeriod - block.timestamp;
     }
 }

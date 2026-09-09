@@ -33,7 +33,7 @@ contract BatchMinRbtcOutTest is DcaDappTest {
 
         assertGt(_accumulatedRbtc(), rbtcBefore, "a zero minimum must not stop the purchase");
         assertEq(_schedule().tokenBalance, balanceBefore - AMOUNT_TO_SPEND);
-        assertGt(_schedule().lastPurchaseTimestamp, 0);
+        assertGt(_schedule().cadenceAnchor, 0);
     }
 
     /// @dev Equality succeeds: a minimum set to exactly what the batch buys is not a failure.
@@ -74,8 +74,8 @@ contract BatchMinRbtcOutTest is DcaDappTest {
         IDcaManager.DcaSchedule memory afterCall = _schedule();
         assertEq(afterCall.tokenBalance, before.tokenBalance, "the schedule keeps its deposit");
         assertEq(
-            afterCall.lastPurchaseTimestamp,
-            before.lastPurchaseTimestamp,
+            afterCall.cadenceAnchor,
+            before.cadenceAnchor,
             "the schedule keeps its purchase slot, so the swapper can retry this period"
         );
         assertEq(_accumulatedRbtc(), rbtcBefore, "no buyer was credited");

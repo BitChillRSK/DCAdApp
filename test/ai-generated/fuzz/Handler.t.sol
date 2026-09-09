@@ -48,7 +48,7 @@ contract Handler is Test {
     ///      identify a schedule across calls while an id does (`AGENTS.md` invariant 7).
     struct PausedSchedule {
         address user;
-        uint256 lastPurchaseTimestampAtPause;
+        uint256 cadenceAnchorAtPause;
         bool pausedNow;
     }
 
@@ -375,7 +375,7 @@ contract Handler is Test {
                     // Re-snapshot on every pause: the schedule may have bought legitimately while active.
                     s_pauseGhost[scheduleId] = PausedSchedule({
                         user: user,
-                        lastPurchaseTimestampAtPause: schedules[index].lastPurchaseTimestamp,
+                        cadenceAnchorAtPause: schedules[index].cadenceAnchor,
                         pausedNow: true
                     });
                 } else {
@@ -442,7 +442,7 @@ contract Handler is Test {
         
         // Advance time if needed to make purchase possible. Widen first: the packed
         // uint48 timestamp + uint32 period would overflow the packed type, not uint256.
-        uint256 nextValidTime = uint256(schedule.lastPurchaseTimestamp) + uint256(schedule.purchasePeriod);
+        uint256 nextValidTime = uint256(schedule.cadenceAnchor) + uint256(schedule.purchasePeriod);
         if (block.timestamp < nextValidTime) {
             vm.warp(nextValidTime);
         }
@@ -517,7 +517,7 @@ contract Handler is Test {
             totalRbtcNeeded += rbtcForThisPurchase;
             
             // Advance time if needed
-            uint256 nextValidTime = uint256(schedule.lastPurchaseTimestamp) + uint256(schedule.purchasePeriod);
+            uint256 nextValidTime = uint256(schedule.cadenceAnchor) + uint256(schedule.purchasePeriod);
             if (block.timestamp < nextValidTime) {
                 vm.warp(nextValidTime);
             }

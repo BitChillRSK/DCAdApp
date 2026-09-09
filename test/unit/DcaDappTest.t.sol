@@ -68,6 +68,9 @@ contract DcaDappTest is Test {
 
     uint256 constant SCHEDULE_INDEX = 0;
     uint256 constant NUM_OF_SCHEDULES = 5;
+    /// @dev Monday 2026-01-05 09:00:00 UTC. A Monday so weekly-cadence tests can name weekdays, and
+    ///      mid-morning so the UTC day-start snap is exercised rather than hidden by a midnight start.
+    uint256 internal constant UTC_FIXTURE_START = 1767603600;
     
     string swapType = vm.envString("SWAP_TYPE");
     bool isMocSwaps = keccak256(abi.encodePacked(swapType)) == keccak256(abi.encodePacked("mocSwaps"));
@@ -128,7 +131,7 @@ contract DcaDappTest is Test {
         uint256 purchasePeriod,
         uint256 routeIndex
     );
-    event DcaManager__LastPurchaseTimestampUpdated(address indexed token, uint64 indexed scheduleId, uint256 timestamp);
+    event DcaManager__CadenceAnchorUpdated(address indexed token, uint64 indexed scheduleId, uint256 timestamp);
 
     // TokenHandler
     event TokenHandler__TokenDeposited(address indexed token, address indexed user, uint256 amount);
@@ -201,6 +204,13 @@ contract DcaDappTest is Test {
                             UNIT TESTS SETUP
     //////////////////////////////////////////////////////////////*/
     function setUp() public virtual {
+        // Foundry starts a test at block.timestamp == 1, which is 1970-01-01 and floors to a zero UTC
+        // day start. `cadenceAnchor` uses zero as its "no purchase yet" sentinel, so a fixture left at
+        // the default would have every first purchase stamp the sentinel back. Start at a real UTC
+        // instant instead: Monday 2026-01-05 09:00 UTC, a weekday mid-morning like the swapper's own
+        // run time, so the day-start snap and the weekday cadence are exercised rather than sidestepped.
+        vm.warp(UTC_FIXTURE_START);
+
         // Initialize stablecoin type from environment or use default
         try vm.envString("STABLECOIN_TYPE") returns (string memory coinType) {
             stablecoinType = coinType;
@@ -531,6 +541,22 @@ contract DcaDappTest is Test {
         batchBuyOne(dcaManager, address(stablecoin), scheduleId, s_routeIndex);
     }
 
+    /// @dev The UTC midnight at or before `timestamp`.
+    function _utcDayStart(uint256 timestamp) internal pure returns (uint256) {
+        return timestamp - (timestamp % 1 days);
+    }
+
+    /**
+     * @dev Mirrors `DcaManager`'s cadence rule independently of its implementation: a first purchase
+     *      anchors to today's UTC midnight, and a later one lands on the newest grid point at or
+     *      before today, consuming every slot missed before it.
+     */
+    function _expectedCadenceAnchor(uint256 anchor, uint256 period) internal view returns (uint256) {
+        uint256 currentDayStart = _utcDayStart(block.timestamp);
+        if (anchor == 0) return currentDayStart;
+        return anchor + ((currentDayStart - anchor) / period) * period;
+    }
+
     function makeSinglePurchase() internal {
         vm.startPrank(USER);
         uint256 stablecoinBalanceBeforePurchase = scheduleAt(dcaManager, USER, address(stablecoin), SCHEDULE_INDEX).tokenBalance;
@@ -542,10 +568,10 @@ contract DcaDappTest is Test {
         uint256 netPurchaseAmount = AMOUNT_TO_SPEND - fee;
 
         vm.expectEmit(true, true, true, true);
-        uint256 lastTs = dcaDetails[SCHEDULE_INDEX].lastPurchaseTimestamp;
+        uint256 lastTs = dcaDetails[SCHEDULE_INDEX].cadenceAnchor;
         uint256 period = dcaDetails[SCHEDULE_INDEX].purchasePeriod;
-        uint256 lastPurchaseTimestamp = lastTs == 0 ? block.timestamp : lastTs + period;
-        emit DcaManager__LastPurchaseTimestampUpdated(address(stablecoin), dcaDetailsIds[SCHEDULE_INDEX], lastPurchaseTimestamp);
+        uint256 cadenceAnchor = _expectedCadenceAnchor(lastTs, period);
+        emit DcaManager__CadenceAnchorUpdated(address(stablecoin), dcaDetailsIds[SCHEDULE_INDEX], cadenceAnchor);
         // Lending purchases go through `_batchRetrieveStablecoin`, which does not emit
         // `TokenLending__SharesRedeemed` (that event is single-redeem / measured cash only).
         if (block.chainid == ANVIL_CHAIN_ID && isMocSwaps) {
