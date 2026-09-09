@@ -24,7 +24,7 @@ Review these as part of the deployment boundary:
 - `src/`: first-party contracts and interfaces.
 - `script/DeployFinal.s.sol`, `script/DeployBase.s.sol`, helper configs, and `script/Constants.sol`:
   constructor inputs, addresses, route map, and initial economic/security settings.
-- `foundry.toml`, `foundry.lock`, and pinned submodules: the compiler and dependency artifact.
+- `foundry.toml`, `.gitmodules`, and the recorded submodule commits: the compiler and dependency artifact.
 - `test/unit/deployment/FinalDeploymentTest.t.sol`: canonical wiring assertions.
 
 The shipped artifact uses Solidity 0.8.36, EVM `cancun`, optimizer runs 200, and `via_ir = true`.
@@ -162,4 +162,3 @@ history.
   gate above on that exact commit.
 - Execute the cutover runbook: verify addresses and wiring, have the Safe accept every ownership,
   update all five consumers, simulate, and only then enable bot ticks.
-
