@@ -172,5 +172,7 @@ exactly: the same five pre-existing fork/RPC-dependent failures, no new ones.
 
 The field rename, the event rename and the anchor's new meaning all reach off-chain readers:
 
-- swapper-bot, data-api, bitchill-monitoring, front-end — see the issues linked from
-  `docs/relaunch/README.md`.
+- [swapper-bot#11](https://github.com/BitChillRSK/swapper-bot/issues/11), [data-api#10](https://github.com/BitChillRSK/data-api/issues/10), [bitchill-monitoring#20](https://github.com/BitChillRSK/bitchill-monitoring/issues/20), [front-end#26](https://github.com/BitChillRSK/front-end/issues/26), [metrics-dashboard#8](https://github.com/BitChillRSK/metrics-dashboard/issues/8).
+
+The rename is a **silent** break for any log filter keyed on the old topic0: a renamed event stops
+matching rather than failing to decode, so every consumer issue calls that out explicitly.
